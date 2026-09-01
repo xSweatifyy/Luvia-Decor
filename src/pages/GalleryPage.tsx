@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { GalleryItem } from '../types';
 import { X, ZoomIn, Sparkles, Heart } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { SafeImage } from '../components/SafeImage';
 
 export const GalleryPage: React.FC = () => {

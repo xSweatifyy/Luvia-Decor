@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { X, ShoppingBag, Check, Sparkles, Truck, Shield, MessageSquare } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { SafeImage } from './SafeImage';
 
 export const ProductDetailModal: React.FC = () => {

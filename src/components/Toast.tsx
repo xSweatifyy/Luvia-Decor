@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export const ToastContainer: React.FC = () => {
   const { toasts, removeToast } = useApp();
