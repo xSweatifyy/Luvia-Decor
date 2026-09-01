@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Upload, X, Image as ImageIcon, Loader2, AlertCircle } from 'lucide-react';
 import { uploadImage, getImageFromFile, validateImageFile } from '../lib/storage';
+import { SafeImage } from './SafeImage';
 
 interface ImageUploaderProps {
   onUploadComplete: (url: string) => void;
@@ -108,7 +109,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     <div className={`space-y-2 ${className}`}>
       {displayUrl && (
         <div className="relative inline-block">
-          <img
+          <SafeImage
             src={displayUrl}
             alt="Náhled"
             className="w-24 h-24 object-cover rounded-xl border border-[#E3DACF]"
