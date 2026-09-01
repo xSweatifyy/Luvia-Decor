@@ -45,6 +45,10 @@ function normalizeUrl(value?: string | null): string {
   }
 }
 
+function getProxyUrl(url: string): string {
+  return '/api/image-proxy?url=' + encodeURIComponent(url);
+}
+
 export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   src,
   alt = '',
@@ -55,6 +59,7 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   var normalizedSrc = normalizeUrl(src);
   var normalizedFallback = normalizeUrl(fallbackSrc) || FALLBACK;
   var initialSrc = normalizedSrc || normalizedFallback;
+  var isExternal = /^https?:\/\//i.test(initialSrc);
 
   var state = useState(initialSrc);
   var currentSrc = state[0];
@@ -62,13 +67,23 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   var failedState = useState(false);
   var failed = failedState[0];
   var setFailed = failedState[1];
+  var proxiedState = useState(false);
+  var proxied = proxiedState[0];
+  var setProxied = proxiedState[1];
 
   useEffect(function () {
     setCurrentSrc(initialSrc);
     setFailed(false);
+    setProxied(false);
   }, [initialSrc]);
 
   function handleError() {
+    if (isExternal && !proxied) {
+      setProxied(true);
+      setCurrentSrc(getProxyUrl(initialSrc));
+      return;
+    }
+
     if (!failed) {
       setFailed(true);
       setCurrentSrc(normalizedFallback);
