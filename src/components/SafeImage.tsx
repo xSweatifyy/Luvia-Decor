@@ -8,28 +8,24 @@ interface SafeImageProps {
   loading?: 'lazy' | 'eager';
 }
 
-const FALLBACK =
-  'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1200&q=85';
+const FALLBACK = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1200&q=85';
 
 function normalizeUrl(value?: string | null): string {
   if (!value) return '';
 
-  let url = value.trim().replace(/&amp;/g, '&');
+  var url = value.trim().replace(/&amp;/g, '&');
 
-  if (url.startsWith('//')) return `https:${url}`;
-
+  if (url.indexOf('//') === 0) return 'https:' + url;
   if (!/^(https?:|data:|blob:)/i.test(url)) return url;
 
   try {
-    const parsed = new URL(url);
+    var parsed = new URL(url);
 
-    if (parsed.hostname.includes('drive.google.com')) {
-      const fileId =
-        parsed.pathname.match(/\/file\/d\/([^/]+)/)?.[1] ||
-        parsed.searchParams.get('id');
-
+    if (parsed.hostname.indexOf('drive.google.com') !== -1) {
+      var match = parsed.pathname.match(/\/file\/d\/([^/]+)/);
+      var fileId = (match && match[1]) || parsed.searchParams.get('id');
       if (fileId) {
-        return `https://drive.google.com/uc?export=view&id=${encodeURIComponent(fileId)}`;
+        return 'https://drive.google.com/uc?export=view&id=' + encodeURIComponent(fileId);
       }
     }
 
@@ -38,7 +34,7 @@ function normalizeUrl(value?: string | null): string {
       return parsed.toString();
     }
 
-    if (parsed.hostname.includes('1drv.ms') || parsed.hostname.includes('sharepoint.com')) {
+    if (parsed.hostname.indexOf('1drv.ms') !== -1 || parsed.hostname.indexOf('sharepoint.com') !== -1) {
       parsed.searchParams.set('download', '1');
       return parsed.toString();
     }
@@ -49,57 +45,61 @@ function normalizeUrl(value?: string | null): string {
   }
 }
 
-export const SafeImage: React.FC<SafeImageProps> = memo(
-  ({
-    src,
-    alt = '',
-    className = '',
-    fallbackSrc = FALLBACK,
-    loading = 'lazy',
-  }) => {
-    const normalizedSrc = normalizeUrl(src);
-    const normalizedFallback = normalizeUrl(fallbackSrc) || FALLBACK;
-    const [currentSrc, setCurrentSrc] = useState(normalizedSrc || normalizedFallback);
-    const [failed, setFailed] = useState(false);
+export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
+  src,
+  alt = '',
+  className = '',
+  fallbackSrc = FALLBACK,
+  loading = 'lazy',
+}) {
+  var normalizedSrc = normalizeUrl(src);
+  var normalizedFallback = normalizeUrl(fallbackSrc) || FALLBACK;
+  var initialSrc = normalizedSrc || normalizedFallback;
 
-    useEffect(() => {
-      setCurrentSrc(normalizedSrc || normalizedFallback);
-      setFailed(false);
-    }, [normalizedSrc, normalizedFallback]);
+  var state = useState(initialSrc);
+  var currentSrc = state[0];
+  var setCurrentSrc = state[1];
+  var failedState = useState(false);
+  var failed = failedState[0];
+  var setFailed = failedState[1];
 
-    const handleError = () => {
-      if (!failed) {
-        setFailed(true);
-        setCurrentSrc(normalizedFallback);
-      } else {
-        setCurrentSrc('');
-      }
-    };
+  useEffect(function () {
+    setCurrentSrc(initialSrc);
+    setFailed(false);
+  }, [initialSrc]);
 
-    if (!currentSrc) {
-      return (
-        <div
-          className={`${className} flex items-center justify-center bg-[#FAF6F0]`}
-          role="img"
-          aria-label={alt}
-        >
-          <span className="text-[#8C7355] text-sm">Obrázek se nepodařilo načíst</span>
-        </div>
-      );
+  function handleError() {
+    if (!failed) {
+      setFailed(true);
+      setCurrentSrc(normalizedFallback);
+    } else {
+      setCurrentSrc('');
     }
+  }
 
+  if (!currentSrc) {
     return (
-      <img
-        src={currentSrc}
-        alt={alt}
-        className={className}
-        loading={loading}
-        decoding="async"
-        referrerPolicy="no-referrer"
-        onError={handleError}
-      />
+      <div
+        className={className + ' flex items-center justify-center bg-[#FAF6F0]'}
+        role="img"
+        aria-label={alt}
+      >
+        <span className="text-[#8C7355] text-sm">Obrázek se nepodařilo načíst</span>
+      </div>
     );
   }
-);
+
+  return (
+    <img
+      src={currentSrc}
+      alt={alt}
+      className={className}
+      loading={loading}
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={handleError}
+    />
+  );
+});
 
 SafeImage.displayName = 'SafeImage';
