@@ -49,6 +49,10 @@ function getProxyUrl(url: string): string {
   return '/api/image-proxy?url=' + encodeURIComponent(url);
 }
 
+function getWeservUrl(url: string): string {
+  return 'https://images.weserv.nl/?url=' + encodeURIComponent(url);
+}
+
 export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   src,
   alt = '',
@@ -64,32 +68,35 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   var state = useState(initialSrc);
   var currentSrc = state[0];
   var setCurrentSrc = state[1];
-  var failedState = useState(false);
-  var failed = failedState[0];
-  var setFailed = failedState[1];
-  var proxiedState = useState(false);
-  var proxied = proxiedState[0];
-  var setProxied = proxiedState[1];
+  var stageState = useState(0);
+  var stage = stageState[0];
+  var setStage = stageState[1];
 
   useEffect(function () {
     setCurrentSrc(initialSrc);
-    setFailed(false);
-    setProxied(false);
+    setStage(0);
   }, [initialSrc]);
 
   function handleError() {
-    if (isExternal && !proxied) {
-      setProxied(true);
+    if (isExternal && stage === 0) {
+      setStage(1);
       setCurrentSrc(getProxyUrl(initialSrc));
       return;
     }
 
-    if (!failed) {
-      setFailed(true);
-      setCurrentSrc(normalizedFallback);
-    } else {
-      setCurrentSrc('');
+    if (isExternal && stage === 1) {
+      setStage(2);
+      setCurrentSrc(getWeservUrl(initialSrc));
+      return;
     }
+
+    if (currentSrc !== normalizedFallback) {
+      setStage(3);
+      setCurrentSrc(normalizedFallback);
+      return;
+    }
+
+    setCurrentSrc('');
   }
 
   if (!currentSrc) {
