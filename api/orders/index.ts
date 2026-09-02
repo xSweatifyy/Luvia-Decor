@@ -2,120 +2,46 @@ import { neon } from '@neondatabase/serverless';
 import { Resend } from 'resend';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-type Order = {
-  id: string; orderNumber: string; createdAt: string;
-  customer: { fullName: string; email: string; phone: string; street: string; city: string; zip: string; country: string; note?: string };
-  items: Array<{ productId: string; title: string; price: number; quantity: number; imageUrl: string; customNote?: string }>;
-  subtotal: number; shipping: number; discount?: number; couponCode?: string; totalPrice: number;
-  status: 'nova' | 'zpracovava_se' | 'dokonceno' | 'zruseno'; resendSent: boolean; resendError?: string;
-};
-
 const sql = neon(process.env.DATABASE_URL || '');
+const STATUSES = ['nova','zpracovava_se','dokonceno','zruseno'] as const;
+type Status = typeof STATUSES[number];
+const labels: Record<Status,string> = { nova:'Nová objednávka', zpracovava_se:'Objednávka se zpracovává', dokonceno:'Objednávka dokončena', zruseno:'Objednávka zrušena' };
 
-function computeDiscount(subtotal: number, coupon: { type: 'percent' | 'fixed'; value: number } | null): number {
-  if (!coupon) return 0;
-  return coupon.type === 'percent' ? Math.round(subtotal * (coupon.value / 100)) : Math.min(coupon.value, subtotal);
+const esc=(v:unknown)=>String(v??'').replace(/[&<>\'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]||c));
+async function ensureTable(){await sql`CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;}
+function getPathId(req:VercelRequest){const raw=String(req.url||'').split('?')[0];const m=raw.match(/\/api\/orders\/([^/]+)\/?$/);return m?decodeURIComponent(m[1]):'';}
+
+async function sendStatusEmail(order:any,status:Status){
+ const key=process.env.RESEND_API_KEY?.trim(); const to=String(order?.customer?.email||'').trim();
+ if(!key)throw new Error('Chybí RESEND_API_KEY ve Vercelu.'); if(!to)throw new Error('Objednávka nemá e-mail zákazníka.');
+ const label=labels[status], number=String(order.orderNumber||order.id||''), first=status==='nova';
+ const intro=first?'děkujeme Vám za Váš zájem o naše produkty a za vytvoření objednávky. Vaší objednávky si vážíme a nyní ji pečlivě zpracujeme. Brzy Vás budeme kontaktovat s informacemi o dalším postupu.':`rádi bychom Vás informovali, že stav Vaší objednávky <strong>${esc(number)}</strong> byl aktualizován.`;
+ const next=first?'Jakmile budeme mít další informace k Vaší objednávce, ozveme se Vám.':'O další změně stavu Vás budeme informovat e-mailem.';
+ const html=`<!doctype html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f5f1ec;color:#2d2723;font-family:Arial,Helvetica,sans-serif"><div style="padding:32px 12px"><div style="max-width:640px;margin:auto;background:#fff;border:1px solid #e8dfd5;box-shadow:0 10px 32px rgba(45,39,35,.08)"><div style="padding:34px 28px;text-align:center;background:#2d2723;color:#faf6f0"><div style="font-family:Georgia,serif;font-size:29px;letter-spacing:4px;font-weight:700">LUVIA DECOR</div><div style="margin-top:9px;color:#d8c9b7;font-size:11px;letter-spacing:1.8px;text-transform:uppercase">Květinový ateliér &amp; dekorace</div></div><div style="height:4px;background:#a48763"></div><div style="padding:34px 30px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1.7px;color:#a48763;font-weight:700">Aktualizace objednávky</div><h1 style="font-family:Georgia,serif;font-size:27px;margin:9px 0 8px">${esc(label)}</h1><div style="font-size:13px;color:#817469">Objednávka ${esc(number)}</div><div style="height:1px;background:#eee7df;margin:25px 0"></div><p style="font-size:15px;line-height:1.8">Dobrý den, <strong>${esc(order.customer?.fullName||'')}</strong>,</p><p style="font-size:15px;line-height:1.8">${intro}</p><div style="margin:26px 0;padding:22px 20px;background:#f8f5f1;border:1px solid #ebe3da"><div style="font-size:10px;color:#8c7355;text-transform:uppercase;letter-spacing:1.5px;font-weight:700">Aktuální stav objednávky</div><div style="font-family:Georgia,serif;font-size:22px;font-weight:600;margin-top:7px">${esc(label)}</div></div><p style="font-size:15px;line-height:1.8">${next}</p><p style="font-size:15px;line-height:1.8">Děkujeme za Vaši důvěru a přejeme Vám krásný den.</p><p style="font-family:Georgia,serif;font-size:16px;line-height:1.7">S přáním hezkého dne,<br><strong>Tým Luvia Decor</strong></p></div><div style="padding:22px 30px;background:#f5efe6;border-top:1px solid #e8dfd5;text-align:center;color:#817469;font-size:12px;line-height:1.8">Luvia Decor &bull; U Rejdiště 3732/15, 767 01 Kroměříž<br><a href="mailto:no-reply@luvia-decor.cz" style="color:#8c7355;text-decoration:none">no-reply@luvia-decor.cz</a></div></div></div></body></html>`;
+ const r=await new Resend(key).emails.send({from:'Luvia Decor <no-reply@luvia-decor.cz>',to:[to],subject:`${label} – ${number}`,html}); if(r.error)throw new Error(r.error.message);
 }
 
-async function findCoupon(code: string): Promise<{ code: string; type: 'percent' | 'fixed'; value: number } | null> {
-  const clean = String(code || '').trim().toUpperCase();
-  if (!clean) return null;
-  await sql`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, type TEXT NOT NULL, value NUMERIC NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), note TEXT)`;
-  const rows = await sql`SELECT code, type, value FROM coupons WHERE UPPER(code) = ${clean} AND active = TRUE LIMIT 1`;
-  const row = rows[0] as any;
-  return row ? { code: String(row.code), type: row.type === 'fixed' ? 'fixed' : 'percent', value: Number(row.value) } : null;
+async function updateStatus(req:VercelRequest,res:VercelResponse,id:string){
+ if(!id)return res.status(400).json({error:'Chybí id objednávky.'});
+ let rows=await sql`SELECT id,data FROM orders WHERE id=${id} LIMIT 1`; if(!rows.length)rows=await sql`SELECT id,data FROM orders WHERE data->>'orderNumber'=${id} LIMIT 1`;
+ if(!rows.length)return res.status(404).json({error:`Objednávka ${id} nebyla nalezena.`});
+ const status=String(req.body?.status||'').trim() as Status; if(!STATUSES.includes(status))return res.status(400).json({error:'Neplatný stav objednávky.'});
+ const old=(rows[0].data||{}) as any, oldStatus=String(old.status||''), storedId=String(rows[0].id), order={...old,id:storedId,status};
+ await sql`UPDATE orders SET data=${JSON.stringify(order)}::jsonb,updated_at=NOW() WHERE id=${storedId}`;
+ let statusEmailSent=false,statusEmailError=''; if(oldStatus!==status){try{await sendStatusEmail(order,status);statusEmailSent=true;}catch(e:any){statusEmailError=e?.message||'E-mail se nepodařilo odeslat.';console.error('Status email:',e);}}
+ return res.status(200).json({success:true,order,statusEmailSent,statusEmailError:statusEmailError||undefined});
 }
 
-async function ensureTable() {
-  await sql`CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
-}
-
-async function sendOrderEmail(order: Order, requestHost?: string) {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-  if (!apiKey) return { success: false, error: 'Chybí RESEND_API_KEY ve Vercelu.' };
-
-  const resend = new Resend(apiKey);
-  const escapeHtml = (value: unknown) => String(value ?? '').replace(/[&<>'\"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character] || character));
-  const fallbackImage = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=800&q=80';
-  const siteOrigin = requestHost ? `https://${requestHost.replace(/^https?:\/\//i, '').replace(/\/$/, '')}` : '';
-  const makeImageUrl = (value: unknown) => {
-    const source = String(value || '').trim();
-    if (!source) return fallbackImage;
-    if (!/^https?:\/\//i.test(source)) return fallbackImage;
-    return siteOrigin ? `${siteOrigin}/api/image-proxy?url=${encodeURIComponent(source)}` : source;
-  };
-
-  const items = order.items.map(item => {
-    const productId = String(item.productId || (item as any).id || (item as any).sku || 'neuvedeno');
-    const thumbUrl = makeImageUrl(item.imageUrl);
-    return `
-    <tr>
-      <td style="padding:16px 8px;border-bottom:1px solid #eee7df;color:#2d2723;font-size:14px">
-        <div style="margin-bottom:10px;padding:7px 9px;background:#f7f3ee;border:1px solid #e8dfd5;border-radius:7px;display:inline-block;color:#8c7355;font-size:11px;font-weight:700;letter-spacing:.5px">ID produktu: ${escapeHtml(productId)}</div>
-        <img src="${escapeHtml(thumbUrl)}" alt="${escapeHtml(item.title)}" width="72" height="72" style="display:block;width:72px;height:72px;max-width:72px;border-radius:8px;margin:0 0 9px 0;object-fit:cover" />
-        <strong>${escapeHtml(item.title)}</strong>
-        ${item.customNote ? `<br><span style="font-size:12px;color:#817469">Poznámka: ${escapeHtml(item.customNote)}</span>` : ''}
-      </td>
-      <td style="padding:16px 8px;border-bottom:1px solid #eee7df;text-align:center;color:#5c5046;font-size:14px">${Number(item.quantity) || 1}&times;</td>
-      <td style="padding:16px 8px;border-bottom:1px solid #eee7df;text-align:right;color:#2d2723;font-size:14px;font-weight:700">${(Number(item.price) * (Number(item.quantity) || 1)).toLocaleString('cs-CZ')} Kč</td>
-    </tr>`;
-  }).join('');
-
-  const html = `<!doctype html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Objednávka ${escapeHtml(order.orderNumber)} | Luvia Decor</title></head>
-<body style="margin:0;background:#f5f1ec;color:#2d2723;font-family:Arial,Helvetica,sans-serif"><div style="padding:32px 12px"><div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e8dfd5;box-shadow:0 8px 28px rgba(45,39,35,.08)">
-<div style="padding:34px 28px;text-align:center;background:#2d2723;color:#faf6f0"><div style="font-family:Georgia,serif;font-size:28px;letter-spacing:4px;font-weight:700">LUVIA DECOR</div><div style="margin-top:8px;color:#d8c9b7;font-size:12px;letter-spacing:1px;text-transform:uppercase">Květinový ateliér &amp; dekorace</div></div>
-<div style="padding:32px 28px"><div style="padding:18px 20px;background:#f7f3ee;border-left:4px solid #a48763;margin-bottom:26px"><div style="color:#8c7355;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase">Nová objednávka</div><div style="margin-top:6px;font-family:Georgia,serif;font-size:24px;font-weight:700">${escapeHtml(order.orderNumber)}</div><div style="margin-top:7px;color:#75695f;font-size:12px">${new Date(order.createdAt).toLocaleString('cs-CZ')}</div></div>
-<p style="font-size:15px;line-height:1.65;color:#493f38">Dobrý den,<br>v administraci čeká nová objednávka od zákazníka <strong>${escapeHtml(order.customer.fullName)}</strong>.</p>
-<h2 style="margin:28px 0 10px;font-family:Georgia,serif;font-size:19px;border-bottom:2px solid #eee7df;padding-bottom:10px">Položky v objednávce</h2>
-<table style="width:100%;border-collapse:collapse"><thead><tr style="background:#faf8f5;color:#897b6e;font-size:11px;text-transform:uppercase;letter-spacing:1px"><th style="padding:10px 8px;text-align:left">Položka</th><th style="padding:10px 8px;text-align:center">Množství</th><th style="padding:10px 8px;text-align:right">Cena</th></tr></thead><tbody>${items}</tbody></table>
-<div style="margin-top:18px;padding:18px 0;border-bottom:1px solid #eee7df;text-align:right"><span style="font-size:14px;color:#75695f">Celkem k úhradě</span><br><strong style="display:inline-block;margin-top:4px;color:#8c7355;font-family:Georgia,serif;font-size:25px">${Number(order.totalPrice).toLocaleString('cs-CZ')} Kč</strong></div>
-<h2 style="margin:28px 0 10px;font-family:Georgia,serif;font-size:19px;border-bottom:2px solid #eee7df;padding-bottom:10px">Kontaktní údaje zákazníka</h2>
-<div style="padding:16px 18px;background:#faf8f5;color:#50463f;font-size:14px;line-height:1.8"><strong>${escapeHtml(order.customer.fullName)}</strong><br>${escapeHtml(order.customer.email)}<br>${escapeHtml(order.customer.phone)}<br>${escapeHtml(order.customer.street)}, ${escapeHtml(order.customer.zip)} ${escapeHtml(order.customer.city)}${order.customer.note ? `<br><br><strong>Poznámka:</strong> ${escapeHtml(order.customer.note)}` : ''}</div></div>
-<div style="padding:22px 28px;background:#f5efe6;border-top:1px solid #e8dfd5;text-align:center;color:#817469;font-size:12px;line-height:1.7">Luvia Decor &bull; U Rejdiště 3732/15, 767 01 Kroměříž<br><a href="mailto:objednavky@luvia-decor.cz" style="color:#8c7355">objednavky@luvia-decor.cz</a><br><span style="color:#a29488">Tato zpráva byla odeslána z administračního systému Luvia Decor.</span></div></div></div></body></html>`;
-
-  try {
-    const response = await resend.emails.send({ from: 'Luvia Decor <onboarding@resend.dev>', to: ['objednavky@luvia-decor.cz'], subject: `Nová objednávka ${order.orderNumber}`, html });
-    if (response.error) return { success: false, error: response.error.message };
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Odeslání e-mailu selhalo.' };
-  }
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  if (!process.env.DATABASE_URL) return res.status(500).json({ error: 'DATABASE_URL není nastavená ve Vercelu.' });
-  try {
-    await ensureTable();
-    if (req.method === 'GET') {
-      const rows = await sql`SELECT data FROM orders ORDER BY created_at DESC`;
-      return res.status(200).json(rows.map(row => row.data));
-    }
-    if (req.method === 'POST') {
-      const { customer, items, customNote, couponCode } = req.body || {};
-      if (!customer?.fullName || !customer?.email || !customer?.phone) return res.status(400).json({ error: 'Chybí povinné kontaktní údaje.' });
-      if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Košík je prázdný.' });
-      const orderItems = items.map((item: any) => ({ productId: item.productId || item.id || item.sku || 'custom', title: item.title || 'Produkt', price: Number(item.price) || 0, quantity: Number(item.quantity) || 1, imageUrl: item.imageUrl || '', customNote: item.customNote || '' }));
-      const subtotal = orderItems.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0);
-      let discount = 0; let appliedCouponCode: string | undefined;
-      if (couponCode) { try { const coupon = await findCoupon(couponCode); if (coupon) { appliedCouponCode = coupon.code; discount = computeDiscount(subtotal, coupon); } } catch (couponErr) { console.error('Coupon validation error:', couponErr); } }
-      const order: Order = {
-        id: `ord-${Date.now()}`, orderNumber: `LUV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`, createdAt: new Date().toISOString(),
-        customer: { fullName: customer.fullName, email: customer.email, phone: customer.phone, street: customer.street || '', city: customer.city || '', zip: customer.zip || '', country: customer.country || 'Česká republika', note: customer.note || customNote || '' },
-        items: orderItems, subtotal, shipping: 0, discount: discount || undefined, couponCode: appliedCouponCode, totalPrice: Math.max(0, subtotal - discount), status: 'nova', resendSent: false
-      };
-      const host = req.headers.host || process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || '';
-      const emailResult = await sendOrderEmail(order, host);
-      order.resendSent = emailResult.success;
-      if (!emailResult.success) order.resendError = emailResult.error;
-      await sql`INSERT INTO orders (id, data) VALUES (${order.id}, ${JSON.stringify(order)}::jsonb)`;
-      return res.status(201).json({ success: true, order, emailStatus: emailResult.success ? 'Odesláno na e-mail' : emailResult.error });
-    }
-    return res.status(405).json({ error: 'Metoda není podporovaná.' });
-  } catch (error) {
-    console.error('Orders API error:', error);
-    return res.status(500).json({ error: 'Objednávku se nepodařilo zpracovat.' });
-  }
-}
+export default async function handler(req:VercelRequest,res:VercelResponse){res.setHeader('Cache-Control','no-store');res.setHeader('Pragma','no-cache');res.setHeader('Expires','0');if(!process.env.DATABASE_URL)return res.status(500).json({error:'DATABASE_URL není nastavená ve Vercelu.'});try{await ensureTable();
+ if(['PUT','PATCH'].includes(req.method||'')){const id=getPathId(req)||String(req.body?.orderId||req.body?.id||'');return updateStatus(req,res,id);}
+ if(req.method==='GET'){const rows=await sql`SELECT data FROM orders ORDER BY created_at DESC`;return res.status(200).json(rows.map(r=>r.data));}
+ if(req.method==='POST'){
+  const body=req.body||{};
+  if(body.action==='update_status'||body.action==='updateStatus')return updateStatus(req,res,String(body.orderId||body.id||''));
+  const {customer,items,customNote,couponCode}=body;if(!customer?.fullName||!customer?.email||!customer?.phone)return res.status(400).json({error:'Chybí povinné kontaktní údaje.'});if(!Array.isArray(items)||!items.length)return res.status(400).json({error:'Košík je prázdný.'});
+  const orderItems=items.map((i:any)=>({productId:i.productId||i.id||i.sku||'custom',title:i.title||'Produkt',price:Number(i.price)||0,quantity:Number(i.quantity)||1,imageUrl:i.imageUrl||'',customNote:i.customNote||''}));const subtotal=orderItems.reduce((s:number,i:any)=>s+i.price*i.quantity,0);
+  const order:any={id:`ord-${Date.now()}`,orderNumber:`LUV-${new Date().getFullYear()}-${Math.floor(1000+Math.random()*9000)}`,createdAt:new Date().toISOString(),customer:{fullName:customer.fullName,email:customer.email,phone:customer.phone,street:customer.street||'',city:customer.city||'',zip:customer.zip||'',country:customer.country||'Česká republika',note:customer.note||customNote||''},items:orderItems,subtotal,shipping:0,totalPrice:subtotal,status:'nova',resendSent:false};
+  await sql`INSERT INTO orders(id,data) VALUES(${order.id},${JSON.stringify(order)}::jsonb)`;return res.status(201).json({success:true,order});
+ }
+ return res.status(405).json({error:'Metoda není podporovaná.'});
+}catch(e:any){console.error('Orders API:',e);return res.status(500).json({error:e?.message||'Objednávku se nepodařilo zpracovat.'});}}
