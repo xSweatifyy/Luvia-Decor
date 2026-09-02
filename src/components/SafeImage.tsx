@@ -14,7 +14,6 @@ function normalizeUrl(value?: string | null): string {
   if (!value) return '';
 
   var url = value.trim().replace(/&amp;/g, '&');
-
   if (url.indexOf('//') === 0) return 'https:' + url;
   if (!/^(https?:|data:|blob:)/i.test(url)) return url;
 
@@ -24,9 +23,7 @@ function normalizeUrl(value?: string | null): string {
     if (parsed.hostname.indexOf('drive.google.com') !== -1) {
       var match = parsed.pathname.match(/\/file\/d\/([^/]+)/);
       var fileId = (match && match[1]) || parsed.searchParams.get('id');
-      if (fileId) {
-        return 'https://drive.google.com/uc?export=view&id=' + encodeURIComponent(fileId);
-      }
+      if (fileId) return 'https://drive.google.com/uc?export=view&id=' + encodeURIComponent(fileId);
     }
 
     if (parsed.hostname === 'dropbox.com' || parsed.hostname === 'www.dropbox.com') {
@@ -53,6 +50,15 @@ function getWeservUrl(url: string): string {
   return 'https://images.weserv.nl/?url=' + encodeURIComponent(url);
 }
 
+function needsProxyFirst(url: string): boolean {
+  try {
+    var hostname = new URL(url).hostname.toLowerCase();
+    return hostname.indexOf('googleusercontent.com') !== -1 || hostname.indexOf('googleapis.com') !== -1;
+  } catch {
+    return false;
+  }
+}
+
 export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   src,
   alt = '',
@@ -62,8 +68,10 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
 }) {
   var normalizedSrc = normalizeUrl(src);
   var normalizedFallback = normalizeUrl(fallbackSrc) || FALLBACK;
-  var initialSrc = normalizedSrc || normalizedFallback;
-  var isExternal = /^https?:\/\//i.test(initialSrc);
+  var hasSource = Boolean(normalizedSrc);
+  var isExternal = /^https?:\/\//i.test(normalizedSrc);
+  var proxyFirst = isExternal && needsProxyFirst(normalizedSrc);
+  var initialSrc = hasSource ? (proxyFirst ? getProxyUrl(normalizedSrc) : normalizedSrc) : normalizedFallback;
 
   var state = useState(initialSrc);
   var currentSrc = state[0];
@@ -80,13 +88,13 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   function handleError() {
     if (isExternal && stage === 0) {
       setStage(1);
-      setCurrentSrc(getProxyUrl(initialSrc));
+      setCurrentSrc(proxyFirst ? normalizedSrc : getProxyUrl(normalizedSrc));
       return;
     }
 
     if (isExternal && stage === 1) {
       setStage(2);
-      setCurrentSrc(getWeservUrl(initialSrc));
+      setCurrentSrc(getWeservUrl(normalizedSrc));
       return;
     }
 
@@ -101,11 +109,7 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
 
   if (!currentSrc) {
     return (
-      <div
-        className={className + ' flex items-center justify-center bg-[#FAF6F0]'}
-        role="img"
-        aria-label={alt}
-      >
+      <div className={className + ' flex items-center justify-center bg-[#FAF6F0]'} role="img" aria-label={alt}>
         <span className="text-[#8C7355] text-sm">Obrázek se nepodařilo načíst</span>
       </div>
     );
@@ -118,7 +122,7 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
       className={className}
       loading={loading}
       decoding="async"
-      referrerPolicy="no-referrer"
+      referrerPolicy="strict-origin-when-cross-origin"
       onError={handleError}
     />
   );
