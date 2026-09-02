@@ -35,6 +35,7 @@ export interface CartItem {
 export interface OrderItem {
   productId: string;
   title: string;
+  category?: string;
   price: number;
   quantity: number;
   imageUrl: string;
@@ -177,6 +178,8 @@ export interface Coupon {
   active: boolean;
   createdAt: string;
   note?: string;
+  /** Empty array = all product categories. Otherwise only these Product.category IDs are eligible. */
+  categoryIds: string[];
 }
 
 export interface AdminUser {
