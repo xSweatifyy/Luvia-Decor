@@ -17,12 +17,16 @@ async function ensureTable() {
 function getOrderId(req: VercelRequest): string | null {
   const q = req.query;
   const v = q.id;
-  if (typeof v === 'string' && v.length > 0) return v;
-  if (Array.isArray(v) && typeof v[0] === 'string' && v[0].length > 0) return v[0];
+  if (typeof v === 'string' && v.length > 0) return decodeURIComponent(v);
+  if (Array.isArray(v) && typeof v[0] === 'string' && v[0].length > 0) return decodeURIComponent(v[0]);
   return null;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   if (!process.env.DATABASE_URL) {
     return res.status(500).json({ error: 'DATABASE_URL není nastavená ve Vercelu.' });
   }
@@ -36,23 +40,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
       const rows = await sql`SELECT data FROM orders WHERE id = ${id}`;
       if (rows.length === 0) return res.status(404).json({ error: 'Objednávka nenalezena.' });
-      return res.status(200).json({ ...(rows[0].data as Record<string, unknown>), id });
+      const data = rows[0].data as Record<string, unknown>;
+      return res.status(200).json({ ...data, id: String(data.id || id) });
     }
 
-    if (req.method === 'PUT' || req.method === 'PATCH') {
-      const status = req.body?.status;
-      if (!status) return res.status(400).json({ error: 'Chybí pole "status".' });
+    if (req.method === 'PUT' || req.method === 'PATCH' || req.method === 'POST') {
+      const status = String(req.body?.status || '').trim();
+      const allowedStatuses = ['nova', 'zpracovava_se', 'dokonceno', 'zruseno'];
+      if (!allowedStatuses.includes(status)) {
+        return res.status(400).json({ error: 'Neplatný stav objednávky.' });
+      }
 
-      const rows = await sql`SELECT data FROM orders WHERE id = ${id}`;
+      // Nejprve interní ID, které používá frontend. Pro jistotu podporujeme i číslo objednávky.
+      let rows = await sql`SELECT id, data FROM orders WHERE id = ${id} LIMIT 1`;
+      if (rows.length === 0) {
+        rows = await sql`SELECT id, data FROM orders WHERE data->>'orderNumber' = ${id} LIMIT 1`;
+      }
       if (rows.length === 0) return res.status(404).json({ error: 'Objednávka nenalezena.' });
 
-      const order = { ...(rows[0].data as Record<string, unknown>), status, id };
+      const storedId = String(rows[0].id);
+      const storedData = (rows[0].data || {}) as Record<string, unknown>;
+      const order = { ...storedData, id: storedId, status };
+
       await sql`
         UPDATE orders
         SET data = ${JSON.stringify(order)}::jsonb,
             updated_at = NOW()
-        WHERE id = ${id}
+        WHERE id = ${storedId}
       `;
+
       return res.status(200).json(order);
     }
 
