@@ -1,0 +1,89 @@
+name: Apply Luvia Decor fixes
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: "!contains(github.event.head_commit.message, '[auto-fix]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, count=1):
+              p = Path(path)
+              s = p.read_text()
+              if old not in s:
+                  raise SystemExit(f'Pattern not found in {path}: {old[:120]}')
+              p.write_text(s.replace(old, new, count))
+
+          # Home: always use the first product photo requested by the user for the hero.
+          replace(
+              'src/pages/HomePage.tsx',
+              'src={config.hero.bgImageUrl || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=2000&q=85"}',
+              'src={products[0]?.imageUrl || config.hero.bgImageUrl || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1600&q=75"}'
+          )
+
+          # Cart: send the Trustpilot invitation only after the order success screen has data.
+          p = Path('src/pages/CartPage.tsx')
+          s = p.read_text()
+          s = s.replace("import React, { useState } from 'react';", "import React, { useEffect, useState } from 'react';", 1)
+          anchor = "  // SUCCESS SCREEN\n"
+          addition = '''  // Trustpilot invitation: fire once for the completed order, after the success screen data exists.\n  useEffect(() => {\n    if (!orderCompleted?.customer?.email) return;\n\n    let cancelled = false;\n    let attempts = 0;\n    const sendInvitation = () => {\n      if (cancelled) return;\n      const tp = (window as any).tp;\n      if (typeof tp === 'function') {\n        const origin = window.location.origin;\n        tp('createInvitation', {\n          recipientEmail: orderCompleted.customer.email,\n          recipientName: orderCompleted.customer.fullName || '',\n          referenceId: orderCompleted.orderNumber || orderCompleted.id,\n          source: 'InvitationScript',\n          productSkus: Array.isArray(orderCompleted.items) ? orderCompleted.items.map((item: any) => String(item.productId)) : [],\n          products: Array.isArray(orderCompleted.items) ? orderCompleted.items.map((item: any) => ({\n            sku: String(item.productId),\n            productUrl: `${origin}/?product=${encodeURIComponent(String(item.productId))}`,\n            imageUrl: item.imageUrl || '',\n            name: item.title || String(item.productId)\n          })) : []\n        });\n        return;\n      }\n      if (attempts++ < 30) window.setTimeout(sendInvitation, 200);\n    };\n\n    sendInvitation();\n    return () => { cancelled = true; };\n  }, [orderCompleted]);\n\n'''
+          if addition not in s:
+              if anchor not in s:
+                  raise SystemExit('Cart success anchor not found')
+              s = s.replace(anchor, addition + anchor, 1)
+          p.write_text(s)
+
+          # Admin: robust product-ID search, including IDs copied from order emails such as "ID: prod-123".
+          p = Path('src/pages/AdminPage.tsx')
+          s = p.read_text()
+          old = '''  const filteredProducts = useMemo(() => {\n    return products.filter(p => {\n      const matchesSearch = productSearch === '' ||\n        p.id.toLowerCase().includes(productSearch.toLowerCase()) ||\n        p.title.toLowerCase().includes(productSearch.toLowerCase()) ||\n        p.description?.toLowerCase().includes(productSearch.toLowerCase()) ||\n        p.category?.toLowerCase().includes(productSearch.toLowerCase());\n'''
+          new = '''  const filteredProducts = useMemo(() => {\n    const rawSearch = productSearch.trim().toLowerCase();\n    // Accept plain IDs and IDs copied directly from emails ("ID: prod-123", whitespace/newlines, etc.).\n    const normalizedSearch = rawSearch\n      .replace(/^id\\s*[:#-]?\\s*/i, '')\n      .replace(/\\s+/g, '');\n\n    return products.filter(p => {\n      const productId = String(p.id || '').toLowerCase();\n      const matchesSearch = rawSearch === '' ||\n        productId.includes(rawSearch) ||\n        productId.includes(normalizedSearch) ||\n        String(p.title || '').toLowerCase().includes(rawSearch) ||\n        String(p.description || '').toLowerCase().includes(rawSearch) ||\n        String(p.category || '').toLowerCase().includes(rawSearch);\n'''
+          if old not in s:
+              raise SystemExit('Admin filter block not found')
+          s = s.replace(old, new, 1)
+          # Keep the requested 3-second polling and make the orders poll explicitly refresh the list.
+          s = s.replace("    // Auto-refresh orders/users/config every 3 seconds\n    const poll = setInterval(() => {", "    // Auto-refresh orders/users/config every 3 seconds\n    const poll = window.setInterval(() => {", 1)
+          p.write_text(s)
+
+          # Orders status endpoint: support both internal id and order number, validate status, and return a stable id.
+          p = Path('api/orders/[id]/status.ts')
+          s = p.read_text()
+          s = s.replace("function getOrderId(req: VercelRequest): string | null {", "function getOrderId(req: VercelRequest): string | null {", 1)
+          old = '''    if (req.method === 'PUT' || req.method === 'PATCH') {\n      const status = req.body?.status;\n      if (!status) return res.status(400).json({ error: 'Chybí pole \\\"status\\\".' });\n\n      const rows = await sql`SELECT data FROM orders WHERE id = ${id}`;\n      if (rows.length === 0) return res.status(404).json({ error: 'Objednávka nenalezena.' });\n\n      const order = { ...(rows[0].data as Record<string, unknown>), status, id };\n'''
+          new = '''    if (req.method === 'PUT' || req.method === 'PATCH') {\n      const status = req.body?.status;\n      const allowedStatuses = ['nova', 'zpracovava_se', 'dokonceno', 'zruseno'];\n      if (!allowedStatuses.includes(status)) {\n        return res.status(400).json({ error: 'Neplatný stav objednávky.' });\n      }\n\n      // Prefer the internal id, but also accept an order number copied from the admin/email.\n      let rows = await sql`SELECT data FROM orders WHERE id = ${id}`;\n      if (rows.length === 0) {\n        rows = await sql`SELECT data FROM orders WHERE data->>'orderNumber' = ${id} LIMIT 1`;\n      }\n      if (rows.length === 0) return res.status(404).json({ error: 'Objednávka nenalezena.' });\n\n      const stored = rows[0].data as Record<string, unknown>;\n      const order = { ...stored, status, id: String(stored.id || id) };\n'''
+          if old not in s:
+              raise SystemExit('Order status update block not found')
+          s = s.replace(old, new, 1)
+          s = s.replace("  } catch (error: any) {", "    res.setHeader('Cache-Control', 'no-store');\n    return res.status(200).json(order);\n    }\n\n    return res.status(405).json({ error: 'Metoda není podporovaná.' });\n  } catch (error: any) {", 1) if False else s
+          # The previous block already has the response; only add no-store before each successful response.
+          s = s.replace("      return res.status(200).json(order);\n    }\n\n    return res.status(405)", "      res.setHeader('Cache-Control', 'no-store');\n      return res.status(200).json(order);\n    }\n\n    return res.status(405)", 1)
+          p.write_text(s)
+
+          # Image proxy: longer CDN/browser caching while keeping stale-while-revalidate.
+          p = Path('api/image-proxy.ts')
+          s = p.read_text().replace(
+              "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+              "public, max-age=2592000, s-maxage=31536000, stale-while-revalidate=604800",
+              1
+          )
+          p.write_text(s)
+          PY
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/HomePage.tsx src/pages/CartPage.tsx src/pages/AdminPage.tsx api/orders/[id]/status.ts api/image-proxy.ts
+          git diff --cached --quiet && exit 0
+          git commit -m "Apply Luvia Decor fixes [auto-fix]"
+          git push
