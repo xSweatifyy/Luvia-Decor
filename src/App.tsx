@@ -17,23 +17,20 @@ import { GalleryPage } from './pages/GalleryPage';
 import { ContactPage } from './pages/ContactPage';
 import { CartPage } from './pages/CartPage';
 import { AdminPage } from './pages/AdminPage';
+import { CouponManager } from './components/CouponManager';
 import { CookieConsent, getCookieConsent } from './components/CookieConsent';
 
 const AppContent: React.FC = () => {
   const { page } = useApp();
   const [analyticsConsent, setAnalyticsConsent] = useState(getCookieConsent() === 'all');
 
-  // Scroll to top on page change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [page]);
 
   return (
     <div className="min-h-screen bg-[#FCFAF7] text-[#2D2723] flex flex-col font-sans selection:bg-[#8C7355] selection:text-white">
-      {/* Main Navbar */}
       <Navbar />
-
-      {/* Main Page Routing Switch */}
       <main className="flex-1">
         {page === 'home' && <HomePage />}
         {page === 'catalog' && <CatalogPage />}
@@ -42,12 +39,9 @@ const AppContent: React.FC = () => {
         {page === 'contact' && <ContactPage />}
         {page === 'cart' && <CartPage />}
         {page === 'admin' && <AdminPage />}
+        {page === 'admin' && <CouponManager />}
       </main>
-
-      {/* Footer with Legal Information, Maps, and dynamic copyright year */}
       <Footer />
-
-      {/* Global Interactive Modals & Notifications */}
       <ProductDetailModal />
       <ToastContainer />
       {analyticsConsent && <Analytics />}
