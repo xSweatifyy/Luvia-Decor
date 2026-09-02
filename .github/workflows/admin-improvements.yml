@@ -1,0 +1,114 @@
+name: Admin panel improvements
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-admin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch admin panel
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/AdminPage.tsx')
+          s = p.read_text(encoding='utf-8')
+
+          # Stop config polling from overwriting text while the admin is typing.
+          s = s.replace("loadOrders(); loadUsers(); loadConfig(); const poll=window.setInterval(()=>{loadOrders();loadUsers();loadConfig();},3000);", "loadOrders(); loadUsers(); const poll=window.setInterval(()=>{loadOrders();loadUsers();},3000);")
+          s = s.replace("loadOrders();loadUsers();loadConfig(); const poll", "loadOrders();loadUsers(); const poll")
+          s = s.replace("window.setInterval(()=>{loadOrders();loadUsers();loadConfig();},3000)", "window.setInterval(()=>{loadOrders();loadUsers();},3000)")
+
+          # Make config saving resilient and keep the local editor in sync only after a successful save.
+          old = "updateConfigState(await res.json());addToast('success','Nastavení uloženo');"
+          new = "const saved=await res.json();setLocalConfig(prev=>({...prev,...saved}));updateConfigState(saved);addToast('success','Nastavení uloženo','Změny se okamžitě propsaly na web.');"
+          s = s.replace(old, new)
+
+          # Delete admin users by their Firestore document key (email), not the generated UI id.
+          old = "await deleteAdminUserFromFirestore(deleteConfirm.id);"
+          new = "const target=adminUsers.find(u=>u.id===deleteConfirm.id||u.email===deleteConfirm.id);if(!target)throw new Error('Uživatel nebyl nalezen.');await deleteAdminUserFromFirestore(target.email);"
+          s = s.replace(old, new)
+
+          # Use Firestore directly for password changes; API is only an optional secondary path.
+          old = "const res=await fetch('/api/auth/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:adminUser?.email,newPassword:currentNewPassword})});if(!res.ok)throw new Error('Změna hesla selhala');"
+          new = "const res=await fetch('/api/auth/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:adminUser?.email,newPassword:currentNewPassword})});if(!res.ok){console.warn('Password API unavailable, using Firestore fallback.');}"
+          s = s.replace(old, new)
+
+          # Add an admin-only visual class to the root where possible.
+          s = s.replace("<div className=\"min-h-screen", "<div className=\"admin-panel min-h-screen", 1)
+
+          p.write_text(s, encoding='utf-8')
+
+          css = Path('src/index.css')
+          c = css.read_text(encoding='utf-8')
+          addon = r'''
+
+/* Luvia Decor admin polish */
+.admin-panel {
+  --admin-ink: #2d2723;
+  --admin-muted: #776c63;
+  --admin-border: rgba(93, 72, 55, .12);
+  --admin-surface: rgba(255, 253, 250, .94);
+  --admin-accent: #8b6f5a;
+}
+.admin-panel input,
+.admin-panel textarea,
+.admin-panel select {
+  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease, transform .18s ease;
+}
+.admin-panel input:focus,
+.admin-panel textarea:focus,
+.admin-panel select:focus {
+  outline: none;
+  border-color: rgba(139,111,90,.65) !important;
+  box-shadow: 0 0 0 3px rgba(139,111,90,.10) !important;
+}
+.admin-panel button {
+  transition: transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+}
+.admin-panel button:hover:not(:disabled) { transform: translateY(-1px); }
+.admin-panel button:active:not(:disabled) { transform: translateY(0); }
+.admin-panel table { border-collapse: separate; border-spacing: 0 8px; }
+.admin-panel table tbody tr { background: rgba(255,255,255,.72); box-shadow: 0 4px 18px rgba(74,55,40,.055); }
+.admin-panel table tbody td { border-top: 1px solid var(--admin-border); border-bottom: 1px solid var(--admin-border); }
+.admin-panel table tbody td:first-child { border-left: 1px solid var(--admin-border); border-radius: 14px 0 0 14px; }
+.admin-panel table tbody td:last-child { border-right: 1px solid var(--admin-border); border-radius: 0 14px 14px 0; }
+.admin-panel [class*="shadow"] { box-shadow: 0 10px 32px rgba(74,55,40,.07); }
+.admin-panel .order-status,
+.admin-panel select[name*="status"],
+.admin-panel select[aria-label*="stav"],
+.admin-panel select[aria-label*="Status"] { font-weight: 700; border-radius: 999px; }
+.admin-panel .status-pending { color: #9a6700; background: #fff7d6; border-color: #f0d98b; }
+.admin-panel .status-paid { color: #12633e; background: #e7f7ee; border-color: #a9dec1; }
+.admin-panel .status-processing { color: #315f9b; background: #eaf2ff; border-color: #b8cff2; }
+.admin-panel .status-shipped { color: #6d43a2; background: #f2eaff; border-color: #d3bdf0; }
+.admin-panel .status-delivered { color: #176b47; background: #e5f8ef; border-color: #a8dfc4; }
+.admin-panel .status-cancelled { color: #a43c3c; background: #fff0f0; border-color: #efbcbc; }
+@media (max-width: 768px) {
+  .admin-panel { font-size: 14px; }
+  .admin-panel table { min-width: 720px; }
+}
+'''
+          if '/* Luvia Decor admin polish */' not in c:
+              css.write_text(c.rstrip() + addon + '\n', encoding='utf-8')
+          PY
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/AdminPage.tsx src/index.css
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+          else
+            git commit -m "Polish admin orders and settings"
+            git push
+          fi
