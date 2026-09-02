@@ -5,35 +5,29 @@
     --font-serif: 'Cormorant Garamond', Georgia, serif;
     --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   }
-
-  body {
-    font-family: var(--font-sans);
-    color: #2D2723;
-    background-color: #FAF8F5;
-  }
-
-  h1, h2, h3, .font-editorial {
-    font-family: var(--font-serif);
-    letter-spacing: -0.01em;
-  }
+  body { font-family: var(--font-sans); color: #2D2723; background-color: #FAF8F5; }
+  h1, h2, h3, .font-editorial { font-family: var(--font-serif); letter-spacing: -0.01em; }
 }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #F4EFEA; }
+::-webkit-scrollbar-thumb { background: #D9CFC4; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #BAABA0; }
 
-/* Custom scrollbar for clean luxury aesthetic */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #F4EFEA;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #D9CFC4;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #BAABA0;
-}
-
+/* Luvia Decor admin polish */
+.admin-panel { --admin-border: rgba(93,72,55,.12); }
+.admin-panel input, .admin-panel textarea, .admin-panel select { transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease, transform .18s ease; }
+.admin-panel input:focus, .admin-panel textarea:focus, .admin-panel select:focus { outline:none; border-color:rgba(139,111,90,.65)!important; box-shadow:0 0 0 3px rgba(139,111,90,.10)!important; }
+.admin-panel button { transition:transform .16s ease, box-shadow .16s ease, opacity .16s ease; }
+.admin-panel button:hover:not(:disabled) { transform:translateY(-1px); }
+.admin-panel button:active:not(:disabled) { transform:translateY(0); }
+.admin-panel table { border-collapse:separate; border-spacing:0 8px; }
+.admin-panel table tbody tr { background:rgba(255,255,255,.72); box-shadow:0 4px 18px rgba(74,55,40,.055); }
+.admin-panel table tbody td { border-top:1px solid var(--admin-border); border-bottom:1px solid var(--admin-border); }
+.admin-panel table tbody td:first-child { border-left:1px solid var(--admin-border); border-radius:14px 0 0 14px; }
+.admin-panel table tbody td:last-child { border-right:1px solid var(--admin-border); border-radius:0 14px 14px 0; }
+.admin-panel .order-status { font-weight:700; border-radius:999px; }
+.admin-panel .status-amber { color:#9a6700; background:#fff7d6; border-color:#f0d98b; }
+.admin-panel .status-blue { color:#315f9b; background:#eaf2ff; border-color:#b8cff2; }
+.admin-panel .status-green { color:#176b47; background:#e5f8ef; border-color:#a8dfc4; }
+.admin-panel .status-red { color:#a43c3c; background:#fff0f0; border-color:#efbcbc; }
+@media (max-width:768px) { .admin-panel { font-size:14px; } }
