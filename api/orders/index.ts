@@ -7,7 +7,7 @@ type Order = {
   orderNumber: string;
   createdAt: string;
   customer: { fullName: string; email: string; phone: string; street: string; city: string; zip: string; country: string; note?: string };
-  items: Array<{ productId: string; title: string; price: number; quantity: number; imageUrl: string; customNote?: string }>;
+  items: Array<{ productId: string; title: string; category?: string; price: number; quantity: number; imageUrl: string; customNote?: string }>;
   subtotal: number;
   shipping: number;
   discount?: number;
@@ -20,20 +20,58 @@ type Order = {
 
 const sql = neon(process.env.DATABASE_URL || '');
 
-function computeDiscount(subtotal: number, coupon: { type: 'percent' | 'fixed'; value: number } | null): number {
-  if (!coupon) return 0;
+function computeDiscount(subtotal: number, coupon: { type: 'percent' | 'fixed'; value: number }): number {
   return coupon.type === 'percent'
     ? Math.round(subtotal * (coupon.value / 100))
     : Math.min(coupon.value, subtotal);
 }
 
-async function findCoupon(code: string): Promise<{ code: string; type: 'percent' | 'fixed'; value: number } | null> {
+function parseCategoryIds(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+async function findCoupon(code: string): Promise<{ code: string; type: 'percent' | 'fixed'; value: number; categoryIds: string[] } | null> {
   const clean = String(code || '').trim().toUpperCase();
   if (!clean) return null;
-  await sql`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, type TEXT NOT NULL, value NUMERIC NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), note TEXT)`;
-  const rows = await sql`SELECT code, type, value FROM coupons WHERE UPPER(code) = ${clean} AND active = TRUE LIMIT 1`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS coupons (
+      id TEXT PRIMARY KEY,
+      code TEXT UNIQUE NOT NULL,
+      type TEXT NOT NULL,
+      value NUMERIC NOT NULL,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      note TEXT,
+      category_ids TEXT NOT NULL DEFAULT '[]'
+    )
+  `;
+  await sql`ALTER TABLE coupons ADD COLUMN IF NOT EXISTS category_ids TEXT NOT NULL DEFAULT '[]'`;
+
+  const rows = await sql`
+    SELECT code, type, value, category_ids
+    FROM coupons
+    WHERE UPPER(code) = ${clean} AND active = TRUE
+    LIMIT 1
+  `;
   const row = rows[0] as any;
-  return row ? { code: String(row.code), type: row.type === 'fixed' ? 'fixed' : 'percent', value: Number(row.value) } : null;
+  return row
+    ? {
+        code: String(row.code),
+        type: row.type === 'fixed' ? 'fixed' : 'percent',
+        value: Number(row.value),
+        categoryIds: parseCategoryIds(row.category_ids)
+      }
+    : null;
 }
 
 async function ensureTable() {
@@ -109,9 +147,7 @@ async function sendOrderEmail(order: Order) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!process.env.DATABASE_URL) {
-    return res.status(500).json({ error: 'DATABASE_URL není nastavená ve Vercelu.' });
-  }
+  if (!process.env.DATABASE_URL) return res.status(500).json({ error: 'DATABASE_URL není nastavená ve Vercelu.' });
 
   try {
     await ensureTable();
@@ -133,6 +169,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const orderItems = items.map((item: any) => ({
         productId: item.productId || item.id || 'custom',
         title: item.title,
+        category: item.category || '',
         price: Number(item.price) || 0,
         quantity: Number(item.quantity) || 1,
         imageUrl: item.imageUrl || '',
@@ -140,15 +177,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }));
       const subtotal = orderItems.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0);
 
-      // Apply coupon discount server-side (source of truth)
       let discount = 0;
       let appliedCouponCode: string | undefined;
       if (couponCode) {
         try {
           const coupon = await findCoupon(couponCode);
           if (coupon) {
-            appliedCouponCode = coupon.code;
-            discount = computeDiscount(subtotal, coupon);
+            const eligibleSubtotal = coupon.categoryIds.length === 0
+              ? subtotal
+              : orderItems.reduce((sum: number, item: any) => {
+                  if (!coupon.categoryIds.includes(String(item.category || ''))) return sum;
+                  return sum + item.price * item.quantity;
+                }, 0);
+
+            // A category-limited coupon is silently ignored if the submitted order
+            // contains no eligible products. The cart validation endpoint already
+            // warns the customer before checkout.
+            if (eligibleSubtotal > 0) {
+              appliedCouponCode = coupon.code;
+              discount = computeDiscount(eligibleSubtotal, coupon);
+            }
           }
         } catch (couponErr) {
           console.error('Coupon validation error:', couponErr);
