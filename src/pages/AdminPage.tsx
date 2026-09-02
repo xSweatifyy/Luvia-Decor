@@ -151,22 +151,44 @@ export const AdminPage: React.FC = () => {
   }, [config]);
 
   // Load orders & users when logged in with real-time subscription
-  useEffect(() => {
-    if (adminUser) {
-      setOrdersLoading(true);
-      const unsubUsers = subscribeAdminUsers((liveUsers) => {
-        if (liveUsers && liveUsers.length > 0) {
-          setAdminUsers(liveUsers);
+  const loadConfig = async () => {
+    try {
+      const res = await fetch('/api/config');
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          updateConfigState(await res.json());
         }
-      });
+      }
+    } catch (err) {
+      console.warn('Config reload failed:', err);
+    }
+  };
 
+  useEffect(() => {
+    if (!adminUser) return;
+    setOrdersLoading(true);
+    const unsubUsers = subscribeAdminUsers((liveUsers) => {
+      if (liveUsers && liveUsers.length > 0) {
+        setAdminUsers(liveUsers);
+      }
+    });
+
+    loadOrders();
+    loadUsers();
+    loadConfig();
+
+    // Auto-refresh orders/users/config every 3 seconds
+    const poll = setInterval(() => {
       loadOrders();
       loadUsers();
+      loadConfig();
+    }, 3000);
 
-      return () => {
-        unsubUsers();
-      };
-    }
+    return () => {
+      unsubUsers();
+      clearInterval(poll);
+    };
   }, [adminUser]);
 
   // --- Coupons (slevové kódy) ---
