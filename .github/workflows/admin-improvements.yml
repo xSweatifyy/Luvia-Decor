@@ -37,15 +37,26 @@ jobs:
           new = "const target=adminUsers.find(u=>u.id===deleteConfirm.id||u.email===deleteConfirm.id);if(!target)throw new Error('Uživatel nebyl nalezen.');await deleteAdminUserFromFirestore(target.email);"
           s = s.replace(old, new)
 
-          # Use Firestore directly for password changes; API is only an optional secondary path.
+          # Password changes use the Firestore service directly; the API remains optional.
+          old = "import { subscribeAdminUsers, verifyAdminCredentials, saveAdminUserToFirestore, deleteAdminUserFromFirestore, subscribeCoupons, saveCouponToFirestore, deleteCouponFromFirestore } from '../services/firestoreService';"
+          new = "import { subscribeAdminUsers, verifyAdminCredentials, saveAdminUserToFirestore, deleteAdminUserFromFirestore, updateAdminUserPasswordInFirestore, subscribeCoupons, saveCouponToFirestore, deleteCouponFromFirestore } from '../services/firestoreService';"
+          s = s.replace(old, new)
           old = "const res=await fetch('/api/auth/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:adminUser?.email,newPassword:currentNewPassword})});if(!res.ok)throw new Error('Změna hesla selhala');"
-          new = "const res=await fetch('/api/auth/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:adminUser?.email,newPassword:currentNewPassword})});if(!res.ok){console.warn('Password API unavailable, using Firestore fallback.');}"
+          new = "await updateAdminUserPasswordInFirestore(adminUser?.email||'',currentNewPassword);"
           s = s.replace(old, new)
 
           # Add an admin-only visual class to the root where possible.
           s = s.replace("<div className=\"min-h-screen", "<div className=\"admin-panel min-h-screen", 1)
-
           p.write_text(s, encoding='utf-8')
+
+          # Add a real Firestore password-update helper.
+          f = Path('src/services/firestoreService.ts')
+          fs = f.read_text(encoding='utf-8')
+          marker = "// ---------------- COUPONS ----------------"
+          helper = "export async function updateAdminUserPasswordInFirestore(email: string, newPassword: string): Promise<void> {\n  const cleanEmail = email.toLowerCase().trim();\n  if (!cleanEmail || !newPassword.trim()) throw new Error('E-mail a nové heslo jsou povinné.');\n  await setDoc(doc(db, ADMIN_USERS_COL, cleanEmail), { password: newPassword.trim() }, { merge: true });\n}\n\n"
+          if 'updateAdminUserPasswordInFirestore' not in fs:
+              fs = fs.replace(marker, helper + marker)
+          f.write_text(fs, encoding='utf-8')
 
           css = Path('src/index.css')
           c = css.read_text(encoding='utf-8')
@@ -53,11 +64,7 @@ jobs:
 
 /* Luvia Decor admin polish */
 .admin-panel {
-  --admin-ink: #2d2723;
-  --admin-muted: #776c63;
   --admin-border: rgba(93, 72, 55, .12);
-  --admin-surface: rgba(255, 253, 250, .94);
-  --admin-accent: #8b6f5a;
 }
 .admin-panel input,
 .admin-panel textarea,
@@ -71,9 +78,7 @@ jobs:
   border-color: rgba(139,111,90,.65) !important;
   box-shadow: 0 0 0 3px rgba(139,111,90,.10) !important;
 }
-.admin-panel button {
-  transition: transform .16s ease, box-shadow .16s ease, opacity .16s ease;
-}
+.admin-panel button { transition: transform .16s ease, box-shadow .16s ease, opacity .16s ease; }
 .admin-panel button:hover:not(:disabled) { transform: translateY(-1px); }
 .admin-panel button:active:not(:disabled) { transform: translateY(0); }
 .admin-panel table { border-collapse: separate; border-spacing: 0 8px; }
@@ -81,7 +86,6 @@ jobs:
 .admin-panel table tbody td { border-top: 1px solid var(--admin-border); border-bottom: 1px solid var(--admin-border); }
 .admin-panel table tbody td:first-child { border-left: 1px solid var(--admin-border); border-radius: 14px 0 0 14px; }
 .admin-panel table tbody td:last-child { border-right: 1px solid var(--admin-border); border-radius: 0 14px 14px 0; }
-.admin-panel [class*="shadow"] { box-shadow: 0 10px 32px rgba(74,55,40,.07); }
 .admin-panel .order-status,
 .admin-panel select[name*="status"],
 .admin-panel select[aria-label*="stav"],
@@ -101,14 +105,11 @@ jobs:
               css.write_text(c.rstrip() + addon + '\n', encoding='utf-8')
           PY
 
-      - name: Commit changes
+      - name: Commit changes and remove one-shot workflow
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/pages/AdminPage.tsx src/index.css
-          if git diff --cached --quiet; then
-            echo "No changes needed"
-          else
-            git commit -m "Polish admin orders and settings"
-            git push
-          fi
+          git add src/pages/AdminPage.tsx src/services/firestoreService.ts src/index.css .github/workflows/admin-improvements.yml
+          git rm -f .github/workflows/admin-improvements.yml
+          git commit -m "Polish admin orders and make settings editable"
+          git push
