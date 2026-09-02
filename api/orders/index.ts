@@ -20,7 +20,7 @@ function computeDiscount(subtotal: number, coupon: { type: 'percent' | 'fixed'; 
 async function findCoupon(code: string): Promise<{ code: string; type: 'percent' | 'fixed'; value: number } | null> {
   const clean = String(code || '').trim().toUpperCase();
   if (!clean) return null;
-  await sql`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, type TEXT NOT NULL, value NUMERIC NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), note TEXT)`;
+  await sql`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, type TEXT NOT NULL, value NUMERIC NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), note TEXT)`;
   const rows = await sql`SELECT code, type, value FROM coupons WHERE UPPER(code) = ${clean} AND active = TRUE LIMIT 1`;
   const row = rows[0] as any;
   return row ? { code: String(row.code), type: row.type === 'fixed' ? 'fixed' : 'percent', value: Number(row.value) } : null;
@@ -35,15 +35,13 @@ async function sendOrderEmail(order: Order, requestHost?: string) {
   if (!apiKey) return { success: false, error: 'Chybí RESEND_API_KEY ve Vercelu.' };
 
   const resend = new Resend(apiKey);
-  const escapeHtml = (value: unknown) => String(value ?? '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character] || character));
+  const escapeHtml = (value: unknown) => String(value ?? '').replace(/[&<>'\"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character] || character));
   const fallbackImage = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=800&q=80';
   const siteOrigin = requestHost ? `https://${requestHost.replace(/^https?:\/\//i, '').replace(/\/$/, '')}` : '';
   const makeImageUrl = (value: unknown) => {
     const source = String(value || '').trim();
     if (!source) return fallbackImage;
     if (!/^https?:\/\//i.test(source)) return fallbackImage;
-    // Use our own Vercel endpoint as an image proxy. This prevents mail clients from
-    // failing to load third-party images because of remote-host/referrer restrictions.
     return siteOrigin ? `${siteOrigin}/api/image-proxy?url=${encodeURIComponent(source)}` : source;
   };
 
@@ -85,6 +83,9 @@ async function sendOrderEmail(order: Order, requestHost?: string) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   if (!process.env.DATABASE_URL) return res.status(500).json({ error: 'DATABASE_URL není nastavená ve Vercelu.' });
   try {
     await ensureTable();
