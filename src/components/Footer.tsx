@@ -262,6 +262,23 @@ export const Footer: React.FC = () => {
             </div>
           </a>
 
+          {/* Trustpilot Reviews */}
+          <a
+            href="https://www.trustpilot.com/evaluate/luvia-decor.cz"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 p-3 rounded-xl bg-[#28211C] hover:bg-[#322923] border border-[#3E332A] hover:border-[#00B67A] transition group text-xs"
+          >
+            <div className="w-9 h-9 rounded-lg bg-[#00B67A]/20 text-[#00B67A] flex items-center justify-center shrink-0 font-black text-lg">
+              ★
+            </div>
+            <div className="overflow-hidden flex-1">
+              <span className="block text-[10px] uppercase text-[#8F8174] font-semibold">Hodnocení zákazníků</span>
+              <span className="text-[#FAF6F0] font-bold truncate block group-hover:text-[#00B67A] transition">Ohodnotit nás na Trustpilot</span>
+            </div>
+            <ExternalLink className="w-4 h-4 text-[#00B67A] shrink-0" />
+          </a>
+
           {/* Consultation Calendar */}
           <a
             href={config.consultationUrl}
