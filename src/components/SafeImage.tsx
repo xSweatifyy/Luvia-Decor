@@ -50,15 +50,6 @@ function getWeservUrl(url: string): string {
   return 'https://images.weserv.nl/?url=' + encodeURIComponent(url);
 }
 
-function needsProxyFirst(url: string): boolean {
-  try {
-    var hostname = new URL(url).hostname.toLowerCase();
-    return hostname.indexOf('googleusercontent.com') !== -1 || hostname.indexOf('googleapis.com') !== -1;
-  } catch {
-    return false;
-  }
-}
-
 export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   src,
   alt = '',
@@ -70,8 +61,11 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   var normalizedFallback = normalizeUrl(fallbackSrc) || FALLBACK;
   var hasSource = Boolean(normalizedSrc);
   var isExternal = /^https?:\/\//i.test(normalizedSrc);
-  var proxyFirst = isExternal && needsProxyFirst(normalizedSrc);
-  var initialSrc = hasSource ? (proxyFirst ? getProxyUrl(normalizedSrc) : normalizedSrc) : normalizedFallback;
+
+  // External product URLs are loaded through our server proxy first. This avoids
+  // hotlink/referrer/CORS restrictions from Google, Googleusercontent, Dropbox,
+  // image hosts and other providers while keeping the original URL unchanged.
+  var initialSrc = hasSource && isExternal ? getProxyUrl(normalizedSrc) : (hasSource ? normalizedSrc : normalizedFallback);
 
   var state = useState(initialSrc);
   var currentSrc = state[0];
@@ -88,7 +82,7 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   function handleError() {
     if (isExternal && stage === 0) {
       setStage(1);
-      setCurrentSrc(proxyFirst ? normalizedSrc : getProxyUrl(normalizedSrc));
+      setCurrentSrc(normalizedSrc);
       return;
     }
 
