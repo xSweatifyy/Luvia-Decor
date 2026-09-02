@@ -1,0 +1,32 @@
+name: Add Trustpilot review button
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch footer
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/Footer.tsx')
+          s = p.read_text(encoding='utf-8')
+          marker = '          {/* Consultation Calendar */}'
+          if 'trustpilot.com/evaluate/luvia-decor.cz' not in s:
+              block = '''          {/* Trustpilot Reviews */}\n          <a\n            href="https://www.trustpilot.com/evaluate/luvia-decor.cz"\n            target="_blank"\n            rel="noopener noreferrer"\n            className="flex items-center gap-3 p-3 rounded-xl bg-[#28211C] hover:bg-[#322923] border border-[#3E332A] hover:border-[#00B67A] transition group text-xs"\n          >\n            <div className="w-9 h-9 rounded-lg bg-[#00B67A]/20 text-[#00B67A] flex items-center justify-center shrink-0 font-black text-lg">\n              ★\n            </div>\n            <div className="overflow-hidden flex-1">\n              <span className="block text-[10px] uppercase text-[#8F8174] font-semibold">Hodnocení zákazníků</span>\n              <span className="text-[#FAF6F0] font-bold truncate block group-hover:text-[#00B67A] transition">Ohodnotit nás na Trustpilot</span>\n            </div>\n            <ExternalLink className="w-4 h-4 text-[#00B67A] shrink-0" />\n          </a>\n\n'''
+              s = s.replace(marker, block + marker, 1)
+              p.write_text(s, encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/Footer.tsx
+          if ! git diff --cached --quiet; then
+            git commit -m "Add Trustpilot review button to footer"
+            git push
+          fi
