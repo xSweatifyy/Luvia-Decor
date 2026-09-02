@@ -55,15 +55,22 @@ async function sendOrderEmail(order: Order) {
   const escapeHtml = (value: string) => value.replace(/[&<>'"]/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
   })[character] || character);
-  const items = order.items.map(item => `
+  const isAbsoluteUrl = (value: string) => /^(https?:|data:)/i.test(value);
+  const safeImageUrl = (value: string) => isAbsoluteUrl(value) ? value : '';
+  const items = order.items.map(item => {
+    const thumbUrl = safeImageUrl(item.imageUrl || '');
+    return `
     <tr>
       <td style="padding:16px 8px;border-bottom:1px solid #eee7df;color:#2d2723;font-size:14px">
+        ${thumbUrl ? `<img src="${escapeHtml(thumbUrl)}" alt="${escapeHtml(item.title)}" width="72" height="72" style="display:block;width:72px;height:auto;max-width:72px;border-radius:8px;margin:0 0 8px 0;object-fit:cover" />` : ''}
         <strong>${escapeHtml(item.title)}</strong>
+        <span style="display:block;font-size:11px;color:#9C8E7E;margin-top:2px">ID: ${escapeHtml(item.productId)}</span>
         ${item.customNote ? `<br><span style="font-size:12px;color:#817469">Poznámka: ${escapeHtml(item.customNote)}</span>` : ''}
       </td>
       <td style="padding:16px 8px;border-bottom:1px solid #eee7df;text-align:center;color:#5c5046;font-size:14px">${item.quantity}&times;</td>
       <td style="padding:16px 8px;border-bottom:1px solid #eee7df;text-align:right;color:#2d2723;font-size:14px;font-weight:700">${(item.price * item.quantity).toLocaleString('cs-CZ')} Kč</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   const html = `
 <!doctype html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Objednávka ${order.orderNumber} | Luvia Decor</title></head>
 <body style="margin:0;background:#f5f1ec;color:#2d2723;font-family:Arial,Helvetica,sans-serif">
