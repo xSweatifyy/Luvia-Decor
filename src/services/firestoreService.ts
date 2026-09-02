@@ -317,7 +317,7 @@ export async function verifyAdminCredentials(email: string, pass: string): Promi
   try {
     const userDoc = doc(db, ADMIN_USERS_COL, cleanEmail);
     const snap = await getDoc(userDoc);
-    
+
     if (snap.exists()) {
       const data = snap.data();
       if (data.password === cleanPass || validGlobalPass.includes(cleanPass)) {
@@ -425,6 +425,33 @@ export async function deleteCouponFromFirestore(id: string): Promise<boolean> {
   } catch (err) {
     console.error("Failed to delete coupon in firestore:", err);
     return false;
+  }
+}
+
+/**
+ * Najde aktivní slevový kód podle kódu ve Firestore.
+ * Fallback pro případy, kdy se kód nepodařilo zapsat do Postgres API.
+ */
+export async function findCouponByCodeInFirestore(code: string): Promise<Coupon | null> {
+  try {
+    const clean = String(code || '').trim().toUpperCase();
+    if (!clean) return null;
+    const snap = await getDocs(collection(db, COUPONS_COL));
+    let found: Coupon | null = null;
+    snap.forEach((d) => {
+      const data = d.data() as Coupon;
+      if (
+        !found &&
+        String(data.code || '').trim().toUpperCase() === clean &&
+        data.active !== false
+      ) {
+        found = { ...data, id: d.id };
+      }
+    });
+    return found;
+  } catch (err) {
+    console.error('Failed to find coupon in firestore:', err);
+    return null;
   }
 }
 
