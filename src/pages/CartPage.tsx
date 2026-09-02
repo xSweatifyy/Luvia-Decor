@@ -4,6 +4,7 @@ import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, CheckCircle2, ShieldCheck,
 import confetti from 'canvas-confetti';
 import { Order } from '../types';
 import { SafeImage } from '../components/SafeImage';
+import { findCouponByCodeInFirestore } from '../services/firestoreService';
 
 export const CartPage: React.FC = () => {
   const {
@@ -57,10 +58,25 @@ export const CartPage: React.FC = () => {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.valid) {
+        // Fallback: kód může existovat jen ve Firestore (když se nepovedl zápis do Postgres API)
+        const fbCoupon = await findCouponByCodeInFirestore(code);
+        if (fbCoupon) {
+          const type = fbCoupon.type === 'fixed' ? 'fixed' : 'percent';
+          const value = Number(fbCoupon.value) || 0;
+          setAppliedCoupon({ code: String(fbCoupon.code).toUpperCase(), type, value });
+          addToast('success', 'Slevový kód použit', type === 'percent'
+            ? `Sleva ${value} % z ceny objednávky.`
+            : `Sleva ${value.toLocaleString('cs-CZ')} Kč z ceny objednávky.`);
+          return;
+        }
         setAppliedCoupon(null);
         addToast('error', 'Kód se nepodařilo použít', data?.error || 'Slevový kód je neplatný nebo vypršel.');
         return;
       }
+      if (!data.type || (data.type !== 'percent' && data.type !== 'fixed')) {
+        data.type = 'percent';
+      }
+      data.value = Number(data.value) || 0;
       setAppliedCoupon({ code: data.code, type: data.type, value: data.value });
       addToast('success', 'Slevový kód použit', data.type === 'percent'
         ? `Sleva ${data.value} % z ceny objednávky.`

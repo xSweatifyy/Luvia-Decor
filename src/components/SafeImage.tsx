@@ -1,4 +1,3 @@
-```tsx
 import React, { memo, useEffect, useState } from 'react';
 
 interface SafeImageProps {
@@ -15,7 +14,8 @@ const FALLBACK =
 function normalizeUrl(value?: string | null): string {
   if (!value) return '';
 
-  let url = value.trim();
+  // Strip all whitespace/newlines (URLs pasted from chat often wrap over lines)
+  let url = value.replace(/\s+/g, '').trim();
 
   // HTML-encoded URL
   url = url.replace(/&amp;/g, '&');
@@ -30,17 +30,23 @@ function normalizeUrl(value?: string | null): string {
     try {
       const parsed = new URL(url);
 
-      // Google Drive
+      // Google Drive (use thumbnail endpoint – reliable for public files)
       if (parsed.hostname.includes('drive.google.com')) {
         const fileId =
           parsed.pathname.match(/\/file\/d\/([^/]+)/)?.[1] ||
+          parsed.pathname.match(/\/thumbnail\?id=([^&]+)/)?.[1] ||
           parsed.searchParams.get('id');
 
         if (fileId) {
-          return `https://drive.google.com/uc?export=view&id=${encodeURIComponent(
+          return `https://drive.google.com/thumbnail?id=${encodeURIComponent(
             fileId
-          )}`;
+          )}&sz=w1600`;
         }
+      }
+
+      // Googleusercontent without size params (e.g. profile/site images)
+      if (parsed.hostname.endsWith('googleusercontent.com')) {
+        return url;
       }
 
       // Dropbox
@@ -73,6 +79,11 @@ function normalizeUrl(value?: string | null): string {
   // If somebody enters a URL without protocol
   if (url.startsWith('//')) {
     return `https:${url}`;
+  }
+
+  // Common pasted forms without protocol (www., lh3.googleusercontent., drive.google.)
+  if (/^(www\.|[a-z0-9-]+\.googleusercontent\.com|drive\.google\.com)/i.test(url)) {
+    return `https://${url}`;
   }
 
   return url;
@@ -139,4 +150,3 @@ export const SafeImage: React.FC<SafeImageProps> = memo(
 );
 
 SafeImage.displayName = 'SafeImage';
-```
