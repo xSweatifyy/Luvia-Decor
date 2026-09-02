@@ -57,10 +57,11 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   var hasSource = Boolean(normalizedSrc);
   var isExternal = /^https?:\/\//i.test(normalizedSrc);
 
-  // IMPORTANT: use a public image CDN first. This makes the same product image
-  // available to every visitor, including incognito/new devices, even when the
-  // original host blocks hotlinking or behaves differently by browser/session.
-  var initialSrc = hasSource && isExternal ? getWeservUrl(normalizedSrc) : (hasSource ? normalizedSrc : normalizedFallback);
+  // External images must be loaded through our own domain first. This avoids
+  // browser/session/hotlink restrictions on Googleusercontent, Drive, etc.
+  var initialSrc = hasSource && isExternal
+    ? getProxyUrl(normalizedSrc)
+    : (hasSource ? normalizedSrc : normalizedFallback);
 
   var state = useState(initialSrc);
   var currentSrc = state[0];
@@ -75,10 +76,10 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   }, [initialSrc]);
 
   function handleError() {
-    // CDN -> own Vercel proxy -> original URL -> static fallback.
+    // Own proxy -> public CDN -> original URL -> static fallback.
     if (isExternal && stage === 0) {
       setStage(1);
-      setCurrentSrc(getProxyUrl(normalizedSrc));
+      setCurrentSrc(getWeservUrl(normalizedSrc));
       return;
     }
     if (isExternal && stage === 1) {
