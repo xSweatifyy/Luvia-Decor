@@ -85,21 +85,10 @@ export const CartPage: React.FC = () => {
         addToast('error', 'Kód se nepodařilo použít', data?.error || 'Slevový kód je neplatný nebo vypršel.');
         return;
       }
-<<<<<<< HEAD
-      if (!data.type || (data.type !== 'percent' && data.type !== 'fixed')) {
-        data.type = 'percent';
-      }
-      data.value = Number(data.value) || 0;
-      setAppliedCoupon({ code: data.code, type: data.type, value: data.value });
-      addToast('success', 'Slevový kód použit', data.type === 'percent'
-        ? `Sleva ${data.value} % z ceny objednávky.`
-        : `Sleva ${data.value.toLocaleString('cs-CZ')} Kč z ceny objednávky.`);
-=======
-      setAppliedCoupon({ code: data.code, type: data.type, value: data.value, categoryIds: Array.isArray(data.categoryIds) ? data.categoryIds : [] });
+      setAppliedCoupon({ code: data.code, type: data.type, value: Number(data.value) || 0, categoryIds: Array.isArray(data.categoryIds) ? data.categoryIds : [] });
       addToast('success', 'Slevový kód použit', Array.isArray(data.categoryIds) && data.categoryIds.length > 0
         ? 'Sleva se vztahuje pouze na vybrané kategorie v košíku.'
-        : (data.type === 'percent' ? `Sleva ${data.value} % z ceny objednávky.` : `Sleva ${data.value.toLocaleString('cs-CZ')} Kč z ceny objednávky.`));
->>>>>>> e01e93ced5a21bbac8caca58fd323703c6e5590f
+        : (data.type === 'percent' ? `Sleva ${(Number(data.value) || 0)}% z ceny objednávky.` : `Sleva ${(Number(data.value) || 0).toLocaleString('cs-CZ')} Kč z ceny objednávky.`));
     } catch (err: any) {
       setAppliedCoupon(null);
       addToast('error', 'Chyba', 'Slevový kód se nepodařilo ověřit. Zkuste to prosím znovu.');

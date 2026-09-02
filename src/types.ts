@@ -176,6 +176,7 @@ export interface Coupon {
   value: number;
   active: boolean;
   createdAt: string;
+  categoryIds?: string[];
   note?: string;
 }
 
