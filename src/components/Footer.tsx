@@ -1,6 +1,21 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { MapPin, Mail, Phone, Clock, Lock, Heart, ShieldCheck, ArrowUpRight, Compass, Instagram, Facebook, MessageCircle, CalendarCheck } from 'lucide-react';
+import {
+  MapPin,
+  Mail,
+  Phone,
+  Clock,
+  Lock,
+  Heart,
+  ShieldCheck,
+  ArrowUpRight,
+  Compass,
+  Instagram,
+  Facebook,
+  MessageCircle,
+  CalendarCheck,
+  ExternalLink
+} from 'lucide-react';
 import { MapEmbed } from './MapEmbed';
 import { PageRoute } from '../types';
 import { SafeImage } from './SafeImage';
@@ -9,18 +24,41 @@ export const Footer: React.FC = () => {
   const { config, setPage, adminUser } = useApp();
   const [showFullMap, setShowFullMap] = useState(false);
   const currentYear = new Date().getFullYear();
-  const handleNav = (p: PageRoute) => setPage(p);
+
+  const handleNav = (p: PageRoute) => {
+    setPage(p);
+  };
 
   return (
     <footer id="main-footer" className="bg-[#211C18] text-[#D8CEC3] pt-16 pb-12 border-t border-[#3D332C]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8 pb-12 border-b border-[#382F28]">
           <div className="space-y-4">
-            <div className="flex items-center gap-3"><div className="w-14 h-14 rounded-xl overflow-hidden border border-[#C5A880]/40 shadow-md shrink-0"><SafeImage src="/Luvia-Decor.jpeg" alt="Logo Luvia Decor" className="w-full h-full" loading="lazy" /></div><div><span className="font-editorial text-2xl tracking-[0.2em] font-bold text-[#FAF6F0] uppercase block leading-tight">{config.logoText || config.siteName}</span><p className="text-xs text-[#C5A880] tracking-wider uppercase font-medium mt-0.5">Květinový ateliér & dekorace</p></div></div>
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-xl overflow-hidden border border-[#C5A880]/40 shadow-md shrink-0">
+                <SafeImage src="/Luvia-Decor.jpeg" alt="Logo Luvia Decor" className="w-full h-full" loading="lazy" />
+              </div>
+              <div>
+                <span className="font-editorial text-2xl tracking-[0.2em] font-bold text-[#FAF6F0] uppercase block leading-tight">{config.logoText || config.siteName}</span>
+                <p className="text-xs text-[#C5A880] tracking-wider uppercase font-medium mt-0.5">Květinový ateliér & dekorace</p>
+              </div>
+            </div>
             <p className="text-xs text-[#B8ACA0] leading-relaxed">Ruční vazba věnců, sušená i živá květinová aranžmá a originální dekorace na míru. Přinášíme do vašich domovů hřejivou atmosféru a nadčasovou krásu přírody.</p>
             <div className="pt-2 flex items-center gap-2 text-xs text-[#9E9083]"><Heart className="w-3.5 h-3.5 text-[#C5A880]" /><span>S láskou tvořeno v Kroměříži</span></div>
           </div>
-          <div className="space-y-4"><h4 className="font-editorial text-lg font-semibold text-[#FAF6F0] tracking-wider">Navigace & Kolekce</h4><ul className="space-y-2.5 text-xs"><li><button onClick={() => handleNav('home')} className="hover:text-[#FAF6F0] hover:translate-x-1 transition cursor-pointer">Domovská stránka</button></li><li><button onClick={() => handleNav('catalog')} className="hover:text-[#FAF6F0] hover:translate-x-1 transition cursor-pointer">Celá nabídka & E-shop</button></li><li><button onClick={() => handleNav('custom-order')} className="hover:text-[#FAF6F0] hover:translate-x-1 transition cursor-pointer text-[#C5A880] font-medium">Zakázková tvorba na míru ✨</button></li><li><button onClick={() => handleNav('gallery')} className="hover:text-[#FAF6F0] hover:translate-x-1 transition cursor-pointer">Inspirace & Galerie</button></li><li><button onClick={() => handleNav('contact')} className="hover:text-[#FAF6F0] hover:translate-x-1 transition cursor-pointer">Kontakt & Osobní odběr</button></li></ul></div>
+
+          <div className="space-y-4">
+            <h4 className="font-editorial text-lg font-semibold text-[#FAF6F0] tracking-wider">Navigace & Kolekce</h4>
+            <ul className="space-y-2.5 text-xs">
+              <li><button onClick={() => handleNav('home')} className="hover:text-[#FAF6F0] hover:translate-x-1 transition duration-150 cursor-pointer">Domovská stránka</button></li>
+              <li><button onClick={() => handleNav('catalog')} className="hover:text-[#FAF6F0] hover:translate-x-1 transition duration-150 cursor-pointer">Celá nabídka & E-shop</button></li>
+              <li><button onClick={() => handleNav('custom-order')} className="hover:text-[#FAF6F0] hover:translate-x-1 transition duration-150 cursor-pointer text-[#C5A880] font-medium">Zakázková tvorba na míru ✨</button></li>
+              <li><button onClick={() => handleNav('gallery')} className="hover:text-[#FAF6F0] hover:translate-x-1 transition duration-150 cursor-pointer">Inspirace & Galerie</button></li>
+              <li><button onClick={() => handleNav('contact')} className="hover:text-[#FAF6F0] hover:translate-x-1 transition duration-150 cursor-pointer">Kontakt & Osobní odběr</button></li>
+            </ul>
+          </div>
+
           <div className="space-y-4">
             <h4 className="font-editorial text-lg font-semibold text-[#FAF6F0] tracking-wider">Kontaktní spojení</h4>
             <ul className="space-y-3 text-xs text-[#B8ACA0]">
@@ -28,24 +66,29 @@ export const Footer: React.FC = () => {
               <li className="flex items-start gap-2.5"><Mail className="w-4 h-4 text-[#C5A880] shrink-0 mt-0.5" /><div><span className="block text-[10px] uppercase text-[#8F8174]">Zákaznická podpora</span><a href={`mailto:${config.supportEmail}`} className="text-[#FAF6F0] hover:underline font-medium">{config.supportEmail}</a></div></li>
               <li className="flex items-start gap-2.5"><Phone className="w-4 h-4 text-[#C5A880] shrink-0 mt-0.5" /><div><span className="block text-[10px] uppercase text-[#8F8174]">Telefon</span><a href={`tel:${config.phone || '+420702345999'}`} className="text-[#FAF6F0] hover:underline font-medium">{config.phoneDisplay || '+420 702 345 999'}</a></div></li>
               <li className="flex items-start gap-2.5"><Phone className="w-4 h-4 text-[#C5A880] shrink-0 mt-0.5" /><div><span className="block text-[10px] uppercase text-[#8F8174]">Druhý telefon</span><a href={`tel:${config.phone2 || '+420734214299'}`} className="text-[#FAF6F0] hover:underline font-medium">{config.phone2Display || '+420 734 214 299'}</a></div></li>
-              <li className="flex items-start gap-2.5 pt-2 border-t border-[#382F28]"><Clock className="w-4 h-4 text-[#C5A880] shrink-0 mt-0.5" /><div><span className="block text-[10px] uppercase text-[#8F8174]">Otevírací doba</span><span className="block text-[#FAF6F0] font-medium">PO–SO 9:00 – 18:00</span><span className="block text-[10px] text-[#8F8174] mt-0.5">Neděle a svátky: dle domluvy</span></div></li>
+              <li className="flex items-start gap-2.5 pt-2 border-t border-[#382F28]"><Clock className="w-4 h-4 text-[#C5A880] shrink-0 mt-0.5" /><div><span className="block text-[10px] uppercase text-[#8F8174]">Otevírací doba</span><span className="block text-[#FAF6F0] font-medium">PO–SO 9:00 – 18:00</span></div></li>
             </ul>
           </div>
+
           <div className="space-y-4">
             <h4 className="font-editorial text-lg font-semibold text-[#FAF6F0] tracking-wider flex items-center justify-between"><span>Sídlo ateliéru</span><button onClick={() => setShowFullMap(!showFullMap)} className="text-[11px] text-[#C5A880] hover:underline cursor-pointer flex items-center gap-1 font-sans"><Compass className="w-3.5 h-3.5" />{showFullMap ? 'Skrýt mapu' : 'Zobrazit mapu'}</button></h4>
             <div className="bg-[#2A231F] p-3.5 rounded-xl border border-[#3E342B] space-y-2 text-xs"><div className="flex items-start gap-2"><MapPin className="w-4 h-4 text-[#C5A880] shrink-0 mt-0.5" /><div><p className="font-semibold text-[#FAF6F0]">{config.registeredOffice}</p><p className="text-[11px] text-[#9E9083] mt-0.5">Odpovědná osoba: {config.responsiblePerson}</p><p className="text-[11px] text-[#9E9083]">IČO: {config.ico}</p></div></div></div>
             <div className="rounded-xl overflow-hidden border border-[#3E342B] h-24 relative group"><iframe title="Mini mapa sídla Luvia Decor" src={config.mapEmbedUrl} className="w-full h-full border-0 pointer-events-none opacity-80 group-hover:opacity-100 transition" loading="lazy" /><a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(config.registeredOffice)}`} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/30 hover:bg-black/10 transition flex items-center justify-center text-xs font-semibold text-white gap-1 backdrop-blur-[1px]"><span>Otevřít v Google Mapách</span><ArrowUpRight className="w-3.5 h-3.5" /></a></div>
           </div>
         </div>
+
         <div className="py-8 border-b border-[#382F28] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <a href={`https://wa.me/${config.whatsapp ? config.whatsapp.replace(/[^0-9]/g, '') : '420702345999'}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-[#28211C] hover:bg-[#322923] border border-[#3E332A] transition group text-xs"><div className="w-9 h-9 rounded-lg bg-[#25D366]/20 text-[#25D366] flex items-center justify-center shrink-0"><MessageCircle className="w-5 h-5" /></div><div className="overflow-hidden"><span className="block text-[10px] uppercase text-[#8F8174] font-semibold">WhatsApp chat</span><span className="text-[#FAF6F0] font-bold truncate block">{config.whatsappDisplay || '+420 702 345 999'}</span></div></a>
-          <a href={config.instagramUrl || 'https://www.instagram.com/luvia_decor_'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-[#28211C] border border-[#3E332A] transition group text-xs"><div className="w-9 h-9 rounded-lg bg-[#E1306C]/20 text-[#E1306C] flex items-center justify-center shrink-0"><Instagram className="w-5 h-5" /></div><div className="overflow-hidden"><span className="block text-[10px] uppercase text-[#8F8174] font-semibold">Instagram profil</span><span className="text-[#FAF6F0] font-bold truncate block">@luvia_decor_</span></div></a>
-          <a href={config.facebookUrl || 'https://www.facebook.com/profile.php?id=61571617343463'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-[#28211C] border border-[#3E332A] transition group text-xs"><div className="w-9 h-9 rounded-lg bg-[#1877F2]/20 text-[#1877F2] flex items-center justify-center shrink-0"><Facebook className="w-5 h-5" /></div><div className="overflow-hidden"><span className="block text-[10px] uppercase text-[#8F8174] font-semibold">Facebook stránka</span><span className="text-[#FAF6F0] font-bold truncate block">Luvia Decor</span></div></a>
-          <a href={config.consultationUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-[#2D241E] border border-[#C5A880]/50 transition group text-xs"><div className="w-9 h-9 rounded-lg bg-[#C5A880]/20 text-[#C5A880] flex items-center justify-center shrink-0"><CalendarCheck className="w-5 h-5" /></div><div className="overflow-hidden"><span className="block text-[10px] uppercase text-[#C5A880] font-semibold">Rezervace termínu</span></div></a>
+          <a href={`https://wa.me/${config.whatsapp ? config.whatsapp.replace(/[^0-9]/g, '') : '420702345999'}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-[#28211C] hover:bg-[#322923] border border-[#3E332A] hover:border-[#25D366] transition group text-xs"><div className="w-9 h-9 rounded-lg bg-[#25D366]/20 text-[#25D366] flex items-center justify-center shrink-0"><MessageCircle className="w-5 h-5" /></div><div className="overflow-hidden"><span className="block text-[10px] uppercase text-[#8F8174] font-semibold">WhatsApp chat</span><span className="text-[#FAF6F0] font-bold truncate block group-hover:text-[#25D366] transition">{config.whatsappDisplay || '+420 702 345 999'}</span></div></a>
+          <a href={config.instagramUrl || 'https://www.instagram.com/luvia_decor_'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-[#28211C] hover:bg-[#322923] border border-[#3E332A] hover:border-[#E1306C] transition group text-xs"><div className="w-9 h-9 rounded-lg bg-[#E1306C]/20 text-[#E1306C] flex items-center justify-center shrink-0"><Instagram className="w-5 h-5" /></div><div className="overflow-hidden"><span className="block text-[10px] uppercase text-[#8F8174] font-semibold">Instagram profil</span><span className="text-[#FAF6F0] font-bold truncate block group-hover:text-[#E1306C] transition">@luvia_decor_</span></div></a>
+          <a href={config.facebookUrl || 'https://www.facebook.com/profile.php?id=61571617343463'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-[#28211C] hover:bg-[#322923] border border-[#3E332A] hover:border-[#1877F2] transition group text-xs"><div className="w-9 h-9 rounded-lg bg-[#1877F2]/20 text-[#1877F2] flex items-center justify-center shrink-0"><Facebook className="w-5 h-5" /></div><div className="overflow-hidden"><span className="block text-[10px] uppercase text-[#8F8174] font-semibold">Facebook stránka</span><span className="text-[#FAF6F0] font-bold truncate block group-hover:text-[#1877F2] transition">Luvia Decor</span></div></a>
+          <a href={config.consultationUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-[#2D241E] hover:bg-[#3B3028] border border-[#C5A880]/50 hover:border-[#C5A880] transition group text-xs"><div className="w-9 h-9 rounded-lg bg-[#C5A880]/20 text-[#C5A880] flex items-center justify-center shrink-0"><CalendarCheck className="w-5 h-5" /></div><div className="overflow-hidden"><span className="block text-[10px] uppercase text-[#C5A880] font-semibold">Rezervace termínu</span></div></a>
         </div>
-        {showFullMap && <div className="py-8 border-b border-[#382F28]"><h4 className="font-editorial text-xl font-bold text-[#FAF6F0] mb-4 flex items-center gap-2"><MapPin className="w-5 h-5 text-[#C5A880]" />Interaktivní mapa sídla Luvia Decor v Kroměříži</h4><MapEmbed height="h-96" /></div>}
-        <div className="py-6 border-b border-[#382F28] flex flex-wrap items-center justify-between gap-4 text-xs text-[#A89C90]"><div className="flex flex-wrap items-center gap-x-6 gap-y-2"><div><span className="text-[#7B6F63]">Odpovědná osoba:</span> <strong className="text-[#E5DCD2]">{config.responsiblePerson}</strong></div><div className="hidden sm:inline text-[#4E4238]">•</div><div><span className="text-[#7B6F63]">Sídlo:</span> <strong className="text-[#E5DCD2]">{config.registeredOffice}</strong></div><div className="hidden sm:inline text-[#4E4238]">•</div><div><span className="text-[#7B6F63]">IČO:</span> <strong className="text-[#E5DCD2]">{config.ico}</strong></div></div><div className="flex items-center gap-2 text-xs text-[#8E8074]"><ShieldCheck className="w-4 h-4 text-[#C5A880]" /><span>Zapsáno v živnostenském rejstříku ČR</span></div></div>
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#8F8174]"><div className="text-center sm:text-left"><p>© {currentYear} {config.siteName}. Všechna práva vyhrazena. Ruční floristická a dekorační tvorba.</p></div><div className="flex items-center gap-4"><button type="button" onClick={() => window.dispatchEvent(new Event('open-cookie-policy'))} className="text-[#8F8174] hover:text-[#FAF6F0] transition cursor-pointer">Cookies</button><button id="footer-admin-link" onClick={() => handleNav('admin')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2D2621] hover:bg-[#3D332C] text-[#C5A880] hover:text-[#FAF6F0] border border-[#443830] transition cursor-pointer text-xs font-medium"><Lock className="w-3.5 h-3.5 text-[#C5A880]" /><span>{adminUser ? `Admin (${adminUser.name})` : 'Administrace'}</span></button></div></div>
+
+        {showFullMap && <div className="py-8 border-b border-[#382F28] animate-in fade-in duration-300"><h4 className="font-editorial text-xl font-bold text-[#FAF6F0] mb-4 flex items-center gap-2"><MapPin className="w-5 h-5 text-[#C5A880]" />Interaktivní mapa sídla Luvia Decor v Kroměříži</h4><MapEmbed height="h-96" /></div>}
+
+        <div className="py-6 border-b border-[#382F28] flex flex-wrap items-center justify-between gap-4 text-xs text-[#A89C90]"><div className="flex flex-wrap items-center gap-x-6 gap-y-2"><div><span className="text-[#7B6F63]">Odpovědná osoba:</span>{' '}<strong className="text-[#E5DCD2]">{config.responsiblePerson}</strong></div><div className="hidden sm:inline text-[#4E4238]">•</div><div><span className="text-[#7B6F63]">Sídlo:</span>{' '}<strong className="text-[#E5DCD2]">{config.registeredOffice}</strong></div><div className="hidden sm:inline text-[#4E4238]">•</div><div><span className="text-[#7B6F63]">IČO:</span>{' '}<strong className="text-[#E5DCD2]">{config.ico}</strong></div></div><div className="flex items-center gap-2 text-xs text-[#8E8074]"><ShieldCheck className="w-4 h-4 text-[#C5A880]" /><span>Zapsáno v živnostenském rejstříku ČR</span></div></div>
+
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#8F8174]"><div className="text-center sm:text-left"><p>© {currentYear} {config.siteName}. Všechna práva vyhrazena. Ruční floristická a dekorační tvorba.</p></div><div className="flex items-center gap-4"><button type="button" onClick={() => window.dispatchEvent(new Event('open-cookie-policy'))} className="text-[#8F8174] hover:text-[#FAF6F0] transition duration-150 cursor-pointer">Cookies</button><button id="footer-admin-link" onClick={() => handleNav('admin')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2D2621] hover:bg-[#3D332C] text-[#C5A880] hover:text-[#FAF6F0] border border-[#443830] transition duration-150 cursor-pointer text-xs font-medium" title="Administrátorský panel Luvia Decor"><Lock className="w-3.5 h-3.5 text-[#C5A880]" /><span>{adminUser ? `Admin (${adminUser.name})` : 'Administrace'}</span></button></div></div>
       </div>
     </footer>
   );
