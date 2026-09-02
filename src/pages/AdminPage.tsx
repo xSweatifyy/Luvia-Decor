@@ -702,6 +702,7 @@ export const AdminPage: React.FC = () => {
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       const matchesSearch = productSearch === '' ||
+        p.id.toLowerCase().includes(productSearch.toLowerCase()) ||
         p.title.toLowerCase().includes(productSearch.toLowerCase()) ||
         p.description?.toLowerCase().includes(productSearch.toLowerCase()) ||
         p.category?.toLowerCase().includes(productSearch.toLowerCase());

@@ -56,7 +56,8 @@ async function sendOrderEmail(order: Order) {
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
   })[character] || character);
   const isAbsoluteUrl = (value: string) => /^(https?:|data:)/i.test(value);
-  const safeImageUrl = (value: string) => isAbsoluteUrl(value) ? value : '';
+  const IMG_FALLBACK = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=800&q=80';
+  const safeImageUrl = (value: string) => isAbsoluteUrl(value) ? value : IMG_FALLBACK;
   const items = order.items.map(item => {
     const thumbUrl = safeImageUrl(item.imageUrl || '');
     return `

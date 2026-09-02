@@ -17,10 +17,11 @@ export async function sendOrderEmails(order: Order, config: SiteConfig): Promise
     return { success: false, error: "Chybí Resend API klíč." };
   }
 
+  const IMG_FALLBACK = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=800&q=80';
   const itemsListHtml = order.items.map(item => `
     <tr style="border-bottom: 1px solid #EFEAE3;">
       <td style="padding: 12px 8px; font-size: 14px; color: #2D2723;">
-        ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${item.title}" style="display:block;width:64px;height:auto;border-radius:6px;margin-bottom:6px;" />` : ''}
+        <img src="${(item.imageUrl && /^https?:\/\//i.test(item.imageUrl)) ? item.imageUrl : IMG_FALLBACK}" alt="${item.title}" style="display:block;width:64px;height:auto;border-radius:6px;margin-bottom:6px;" />
         <strong>${item.title}</strong>
         <span style="display:block;font-size:11px;color:#9C8E7E;margin-top:2px;">ID: ${item.productId}</span>
         ${item.customNote ? `<br><span style="font-size: 12px; color: #73675E;">Poznámka: ${item.customNote}</span>` : ''}
