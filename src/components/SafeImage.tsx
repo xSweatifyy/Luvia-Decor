@@ -12,30 +12,25 @@ const FALLBACK = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?a
 
 function normalizeUrl(value?: string | null): string {
   if (!value) return '';
-
   var url = value.trim().replace(/&amp;/g, '&');
   if (url.indexOf('//') === 0) return 'https:' + url;
   if (!/^(https?:|data:|blob:)/i.test(url)) return url;
 
   try {
     var parsed = new URL(url);
-
     if (parsed.hostname.indexOf('drive.google.com') !== -1) {
       var match = parsed.pathname.match(/\/file\/d\/([^/]+)/);
       var fileId = (match && match[1]) || parsed.searchParams.get('id');
       if (fileId) return 'https://drive.google.com/uc?export=view&id=' + encodeURIComponent(fileId);
     }
-
     if (parsed.hostname === 'dropbox.com' || parsed.hostname === 'www.dropbox.com') {
       parsed.searchParams.set('raw', '1');
       return parsed.toString();
     }
-
     if (parsed.hostname.indexOf('1drv.ms') !== -1 || parsed.hostname.indexOf('sharepoint.com') !== -1) {
       parsed.searchParams.set('download', '1');
       return parsed.toString();
     }
-
     return parsed.toString();
   } catch {
     return url;
@@ -62,10 +57,10 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   var hasSource = Boolean(normalizedSrc);
   var isExternal = /^https?:\/\//i.test(normalizedSrc);
 
-  // External product URLs are loaded through our server proxy first. This avoids
-  // hotlink/referrer/CORS restrictions from Google, Googleusercontent, Dropbox,
-  // image hosts and other providers while keeping the original URL unchanged.
-  var initialSrc = hasSource && isExternal ? getProxyUrl(normalizedSrc) : (hasSource ? normalizedSrc : normalizedFallback);
+  // IMPORTANT: use a public image CDN first. This makes the same product image
+  // available to every visitor, including incognito/new devices, even when the
+  // original host blocks hotlinking or behaves differently by browser/session.
+  var initialSrc = hasSource && isExternal ? getWeservUrl(normalizedSrc) : (hasSource ? normalizedSrc : normalizedFallback);
 
   var state = useState(initialSrc);
   var currentSrc = state[0];
@@ -80,24 +75,22 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   }, [initialSrc]);
 
   function handleError() {
+    // CDN -> own Vercel proxy -> original URL -> static fallback.
     if (isExternal && stage === 0) {
       setStage(1);
+      setCurrentSrc(getProxyUrl(normalizedSrc));
+      return;
+    }
+    if (isExternal && stage === 1) {
+      setStage(2);
       setCurrentSrc(normalizedSrc);
       return;
     }
-
-    if (isExternal && stage === 1) {
-      setStage(2);
-      setCurrentSrc(getWeservUrl(normalizedSrc));
-      return;
-    }
-
     if (currentSrc !== normalizedFallback) {
       setStage(3);
       setCurrentSrc(normalizedFallback);
       return;
     }
-
     setCurrentSrc('');
   }
 
@@ -116,7 +109,7 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
       className={className}
       loading={loading}
       decoding="async"
-      referrerPolicy="strict-origin-when-cross-origin"
+      referrerPolicy="no-referrer"
       onError={handleError}
     />
   );
