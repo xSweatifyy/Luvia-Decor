@@ -8,7 +8,7 @@ export interface OrderCustomer { fullName:string; email:string; phone:string; st
 export type DeliveryMethod = 'address'|'pickup_point'|'personal_pickup';
 export type DeliveryCarrier = 'PPL'|'DPD'|'Zásilkovna';
 export interface DeliverySelection { method:DeliveryMethod; carrier?:DeliveryCarrier; pickupPoint?:string; }
-export type OrderStatus = 'nova'|'zpracovava_se'|'zaplaceno'|'odeslano'|'dokonceno'|'zruseno';
+export type OrderStatus = 'nova'|'zpracovava_se'|'zaplaceno'|'u_prepravce'|'odeslano'|'dokonceno'|'zruseno';
 export interface Order { id:string; orderNumber:string; createdAt:string; customer:OrderCustomer; items:OrderItem[]; subtotal:number; shipping:number; discount?:number; couponCode?:string; totalPrice:number; delivery?:DeliverySelection; status:OrderStatus; resendSent:boolean; resendError?:string; }
 export interface GalleryItem { id:string; title:string; category:string; imageUrl:string; description?:string; }
 export interface Review { id:string; author:string; city:string; rating:number; text:string; date:string; occasion?:string; }
