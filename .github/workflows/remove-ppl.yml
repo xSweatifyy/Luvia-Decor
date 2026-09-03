@@ -1,0 +1,52 @@
+name: Remove PPL
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  remove-ppl:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove PPL from cart delivery options
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/CartPage.tsx')
+          s = p.read_text()
+          replacements = {
+              "const carriers = ['PPL', 'DPD', 'Zásilkovna'] as const;": "const carriers = ['DPD', 'Zásilkovna'] as const;",
+              "const pickupFinderUrls: Record<Carrier, string> = {\n  PPL: 'https://developer.ppl.cz/web/guest/co-jsou-vydejni-mista',\n  DPD:": "const pickupFinderUrls: Record<Carrier, string> = {\n  DPD:",
+              "useState<Carrier>('PPL')": "useState<Carrier>('DPD')",
+              "placeholder=\"Např. PPL ParcelShop Kroměříž, adresa...\"": "placeholder=\"Např. DPD Pickup Kroměříž, adresa...\"",
+              'className="grid grid-cols-3 gap-2">{carriers.map': 'className="grid grid-cols-2 gap-2">{carriers.map',
+          }
+          for old, new in replacements.items():
+              if old not in s:
+                  raise SystemExit(f'Missing expected text: {old}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+
+      - name: Verify and commit
+        shell: bash
+        run: |
+          if grep -n "PPL" src/pages/CartPage.tsx; then
+            echo "PPL still remains in CartPage.tsx"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/CartPage.tsx
+          git rm .github/workflows/remove-ppl.yml
+          git commit -m "feat: remove PPL delivery option"
+          git push
