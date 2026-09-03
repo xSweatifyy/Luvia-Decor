@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 export type PacketaPoint = {
   id?: string | number;
@@ -50,31 +50,31 @@ function loadPacketaWidget(): Promise<void> {
   });
 }
 
-export const PacketaPickupWidget: React.FC<Props> = ({ onSelect }) => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+function removeOldManualPickupUi() {
+  const input = Array.from(document.querySelectorAll('input')).find((el) =>
+    (el as HTMLInputElement).placeholder?.startsWith('Např. DPD Pickup Kroměříž')
+  ) as HTMLInputElement | undefined;
 
-  useEffect(() => {
-    loadPacketaWidget().catch((err) => console.error('Packeta preload:', err));
-  }, []);
+  if (!input) return;
+
+  const container = input.closest('div.rounded-2xl');
+  if (container) container.remove();
+}
+
+export const PacketaPickupWidget: React.FC<Props> = ({ onSelect }) => {
+  const [error, setError] = useState('');
+  const openedRef = useRef(false);
 
   const openPicker = async () => {
-    setLoading(true);
-    setError('');
-
     try {
       await loadPacketaWidget();
       const widget = (window as any).Packeta?.Widget;
       if (!widget?.pick) throw new Error('Packeta Widget API není dostupné.');
 
-      // IMPORTANT: do not provide an inElement here. Packeta then opens its
-      // official full-screen/modal pickup-point map, exactly as intended for
-      // checkout integrations.
       widget.pick(
         PACKETA_API_KEY,
         (point: PacketaPoint | null) => {
           if (point) onSelect(point);
-          setLoading(false);
         },
         {
           language: 'cs',
@@ -85,22 +85,26 @@ export const PacketaPickupWidget: React.FC<Props> = ({ onSelect }) => {
       );
     } catch (err) {
       console.error('Unable to open Packeta map:', err);
-      setError('Mapu Zásilkovny se nepodařilo otevřít. Zkuste to prosím znovu.');
-      setLoading(false);
+      setError('Mapu Zásilkovny se nepodařilo otevřít. Zkontrolujte prosím API klíč Packety.');
     }
   };
 
-  return (
-    <div className="mt-3">
-      <button
-        type="button"
-        onClick={openPicker}
-        disabled={loading}
-        className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-[#DCCDB8] bg-[#FAF5EE] px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#2D2723] transition hover:bg-[#F2ECE4] disabled:opacity-60 disabled:cursor-wait"
-      >
-        {loading ? 'Otevírám mapu výdejních míst…' : 'Vybrat výdejní místo na mapě'}
-      </button>
-      {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
-    </div>
-  );
+  useEffect(() => {
+    removeOldManualPickupUi();
+
+    if (openedRef.current) return;
+    openedRef.current = true;
+    void openPicker();
+
+    const observer = new MutationObserver(() => removeOldManualPickupUi());
+    observer.observe(document.body, { childList: true, subtree: true });
+    const cleanupTimer = window.setTimeout(() => observer.disconnect(), 3000);
+
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(cleanupTimer);
+    };
+  }, []);
+
+  return error ? <p className="mt-2 text-xs text-rose-600">{error}</p> : null;
 };
