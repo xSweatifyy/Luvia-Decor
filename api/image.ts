@@ -1,5 +1,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+function normalizeImageUrl(value: string): string {
+  const input = value.trim();
+  if (!input.startsWith('gs://')) return input;
+
+  const withoutScheme = input.slice(5);
+  const slash = withoutScheme.indexOf('/');
+  if (slash <= 0) return input;
+
+  const bucket = withoutScheme.slice(0, slash);
+  const path = withoutScheme.slice(slash + 1);
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+}
+
 function isPrivateHostname(hostname: string): boolean {
   const host = hostname.toLowerCase();
   if (host === 'localhost' || host === '::1' || host === '0.0.0.0') return true;
@@ -44,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   let target: URL;
   try {
-    target = new URL(rawUrl);
+    target = new URL(normalizeImageUrl(rawUrl));
   } catch {
     return res.status(400).json({ error: 'Neplatná URL obrázku.' });
   }
@@ -57,7 +70,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const isGoogleUserContent = target.hostname.toLowerCase().endsWith('googleusercontent.com');
     let upstream = await fetchImage(target);
 
-    // Google Sites/Googleusercontent images can require a Google Sites referrer.
     if ((!upstream.ok || !upstream.headers.get('content-type')?.toLowerCase().startsWith('image/')) && isGoogleUserContent) {
       try {
         if (upstream.body) await upstream.arrayBuffer();
