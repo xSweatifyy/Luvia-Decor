@@ -24,10 +24,13 @@ function escapeHtml(value: unknown): string {
 }
 
 async function sendOrderEmails(order: any): Promise<{ customer: boolean; seller: boolean }> {
-  const apiKey = process.env.RESEND_API_KEY || 're_X13QXNiA_7sMjc7Gb2Vs8MpJ5ejAmKb6F';
-  const from = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM_EMAIL || 'objednavky@luvia-decor.cz';
   const seller = process.env.ORDER_NOTIFY_EMAIL || 'objednavky@luvia-decor.cz';
-  if (!apiKey) return { customer: false, seller: false };
+  if (!apiKey) {
+    console.error('Resend API key is missing. Set RESEND_API_KEY in Vercel environment variables.');
+    return { customer: false, seller: false };
+  }
 
   const resend = new Resend(apiKey);
   const itemsHtml = (Array.isArray(order.items) ? order.items : []).map((item: any) =>
