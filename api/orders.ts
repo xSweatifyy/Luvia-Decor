@@ -8,7 +8,7 @@ async function ensureTables() {
   await sql`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, type TEXT NOT NULL, value NUMERIC NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), note TEXT)`;
 }
 
-const ZASILKOVNA_SHIPPING = 62;
+const SHIPPING_PRICES: Record<string, number> = { DPD: 75, 'Zásilkovna': 62 };
 
 async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -25,6 +25,10 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Košík je prázdný.' });
 
     const deliveryMethod = delivery?.method || 'address';
+    const carrier = String(delivery?.carrier || 'DPD');
+    if (deliveryMethod !== 'personal_pickup' && !Object.prototype.hasOwnProperty.call(SHIPPING_PRICES, carrier)) {
+      return res.status(400).json({ error: 'Neplatný dopravce.' });
+    }
     if (deliveryMethod !== 'personal_pickup' && (!String(customer.street || '').trim() || !String(customer.city || '').trim() || !String(customer.zip || '').trim())) {
       return res.status(400).json({ error: 'Pro fakturaci je nutné vyplnit celou adresu.' });
     }
@@ -52,9 +56,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const shipping = deliveryMethod !== 'personal_pickup' && delivery?.carrier === 'Zásilkovna'
-      ? ZASILKOVNA_SHIPPING
-      : 0;
+    const shipping = deliveryMethod === 'personal_pickup' ? 0 : SHIPPING_PRICES[carrier];
 
     const id = `ord-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const orderNumber = `LUV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
