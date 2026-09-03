@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 
 export type DpdPoint = {
   id?: string;
@@ -14,30 +14,33 @@ type Props = { onSelect: (point: DpdPoint) => void };
 const DPD_WIDGET_URL = 'https://api.dpd.cz/widget/latest/index.html?countries=CZ&hideCloseButton=true';
 
 export const DpdPickupWidget: React.FC<Props> = ({ onSelect }) => {
-  const handledRef = useRef(false);
+  const [open, setOpen] = useState(true);
 
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       const data = event.data?.dpdWidget;
-      if (!data || handledRef.current) return;
-      if (event.origin !== 'https://api.dpd.cz') return;
+      if (!data || event.origin !== 'https://api.dpd.cz') return;
 
-      const result = data.pickupPointResult;
-      if (!result) return;
+      const raw = data.pickupPointResult;
+      const source = data.pickupPoint || data.parcelShop || raw;
+      if (!source) return;
 
-      handledRef.current = true;
       let point: DpdPoint = {};
-      if (typeof result === 'string') {
-        try { point = JSON.parse(result); } catch { point = { id: result }; }
-      } else if (typeof result === 'object') {
-        point = result as DpdPoint;
+      if (typeof source === 'string') {
+        try { point = JSON.parse(source); } catch { point = { id: source }; }
+      } else if (typeof source === 'object') {
+        point = source as DpdPoint;
       }
+
+      setOpen(false);
       onSelect(point);
     };
 
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
   }, [onSelect]);
+
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[200] bg-white">
