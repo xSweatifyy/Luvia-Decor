@@ -52,6 +52,15 @@ export interface OrderCustomer {
   note?: string;
 }
 
+export type DeliveryMethod = 'address' | 'pickup_point' | 'personal_pickup';
+export type DeliveryCarrier = 'PPL' | 'DPD' | 'Zásilkovna';
+
+export interface DeliverySelection {
+  method: DeliveryMethod;
+  carrier?: DeliveryCarrier;
+  pickupPoint?: string;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -63,6 +72,7 @@ export interface Order {
   discount?: number;
   couponCode?: string;
   totalPrice: number;
+  delivery?: DeliverySelection;
   status: 'nova' | 'zpracovava_se' | 'dokonceno' | 'zruseno';
   resendSent: boolean;
   resendError?: string;
@@ -92,13 +102,9 @@ export interface SiteConfig {
   logoText: string;
   logoImageUrl?: string;
   faviconUrl?: string;
-
-  // Legal info required in prompt
   responsiblePerson: string;
   registeredOffice: string;
   ico: string;
-
-  // Contacts & Socials
   supportEmail: string;
   ordersEmail: string;
   phone: string;
@@ -110,63 +116,13 @@ export interface SiteConfig {
   instagramUrl: string;
   facebookUrl: string;
   consultationUrl: string;
-
-  // Coordinates
   mapAddress: string;
   mapEmbedUrl: string;
-
-  // Announcement bar
-  announcement: {
-    enabled: boolean;
-    text: string;
-    linkText?: string;
-    linkPage?: PageRoute;
-  };
-
-  // Hero Section
-  hero: {
-    badge: string;
-    title: string;
-    titleEmphasis: string;
-    subtitle: string;
-    primaryCtaText: string;
-    secondaryCtaText: string;
-    bgImageUrl: string;
-  };
-
-  // About & Story Section
-  about: {
-    subtitle: string;
-    title: string;
-    quote: string;
-    p1: string;
-    p2: string;
-    p3: string;
-    imageUrl: string;
-    ownerName: string;
-    ownerRole: string;
-    stat1Number: string;
-    stat1Label: string;
-    stat2Number: string;
-    stat2Label: string;
-    stat3Number: string;
-    stat3Label: string;
-  };
-
-  // Custom Order Banner
-  customBanner: {
-    title: string;
-    subtitle: string;
-    buttonText: string;
-    imageUrl: string;
-  };
-
-  // Resend Settings
-  resend: {
-    apiKey: string;
-    senderEmail: string;
-    notifyEmail: string;
-  };
+  announcement: { enabled: boolean; text: string; linkText?: string; linkPage?: PageRoute; };
+  hero: { badge: string; title: string; titleEmphasis: string; subtitle: string; primaryCtaText: string; secondaryCtaText: string; bgImageUrl: string; };
+  about: { subtitle: string; title: string; quote: string; p1: string; p2: string; p3: string; imageUrl: string; ownerName: string; ownerRole: string; stat1Number: string; stat1Label: string; stat2Number: string; stat2Label: string; stat3Number: string; stat3Label: string; };
+  customBanner: { title: string; subtitle: string; buttonText: string; imageUrl: string; };
+  resend: { apiKey: string; senderEmail: string; notifyEmail: string; };
 }
 
 export interface Coupon {
