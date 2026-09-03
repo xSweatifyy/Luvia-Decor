@@ -22,6 +22,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!customer?.fullName || !customer?.email || !customer?.phone) return res.status(400).json({ error: 'Chybí povinné kontaktní údaje.' });
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Košík je prázdný.' });
 
+    const deliveryMethod = delivery?.method || 'address';
+    if (deliveryMethod !== 'personal_pickup' && (!String(customer.street || '').trim() || !String(customer.city || '').trim() || !String(customer.zip || '').trim())) {
+      return res.status(400).json({ error: 'Pro fakturaci je nutné vyplnit celou adresu.' });
+    }
+    if (deliveryMethod === 'pickup_point' && !String(delivery?.pickupPoint || '').trim()) {
+      return res.status(400).json({ error: 'Je nutné vybrat výdejní místo.' });
+    }
+
     let subtotal = 0;
     const orderItems = items.map((item: any) => {
       const price = Number(item.price) || 0;
