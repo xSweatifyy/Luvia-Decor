@@ -42,6 +42,24 @@ export const PacketaPickupWidget: React.FC<Props> = ({ onSelect }) => {
   }, []);
 
   useEffect(() => {
+  const handleDocumentClick = (event: MouseEvent) => {
+    const target = event.target as HTMLElement | null;
+    const link = target?.closest('a[href]') as HTMLAnchorElement | null;
+    if (!link) return;
+
+    const href = link.href || '';
+    if (!href.includes('zasilkovna.cz/vydejni-mista')) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (ready) setOpen(true);
+  };
+
+  document.addEventListener('click', handleDocumentClick, true);
+  return () => document.removeEventListener('click', handleDocumentClick, true);
+}, [ready]);
+
+  useEffect(() => {
     if (!open || !ready || !mapContainerRef.current) return;
 
     const Packeta = (window as any).Packeta;
