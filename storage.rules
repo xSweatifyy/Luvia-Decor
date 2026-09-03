@@ -1,0 +1,16 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Product, gallery and branding images used by the Luvia Decor admin.
+    // The application currently uses its own admin session rather than
+    // Firebase Authentication, so Storage cannot use request.auth here.
+    match /luvia-decor/{folder}/{fileName} {
+      allow read: if true;
+      allow write: if request.resource != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|gif|svg\\+xml)');
+      allow delete: if true;
+    }
+  }
+}
