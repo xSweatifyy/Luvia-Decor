@@ -10,12 +10,19 @@ interface SafeImageProps {
 
 const FALLBACK = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1200&q=85';
 
-/**
- * Renders the exact image URL stored on the product.
- * No proxy, CDN rewrite or provider conversion is used.
- * If an image host rejects a transformed URL, retry the same direct URL
- * without its query parameters before showing the fallback image.
- */
+function toImageSource(src: string, fallbackSrc: string): string {
+  const value = (src || '').trim() || fallbackSrc;
+  if (/^(data:|blob:)/i.test(value)) return value;
+  if (value.startsWith('/api/image') || value.startsWith('/')) return value;
+  try {
+    const url = new URL(value, window.location.href);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return value;
+    return `/api/image?url=${encodeURIComponent(url.toString())}`;
+  } catch {
+    return value;
+  }
+}
+
 export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   src,
   alt = '',
@@ -23,45 +30,21 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   fallbackSrc = FALLBACK,
   loading = 'lazy'
 }) {
-  const imageUrl = useMemo(() => (src || '').trim() || fallbackSrc, [src, fallbackSrc]);
-  const directUrl = useMemo(() => {
-    try {
-      return new URL(imageUrl, window.location.href).toString();
-    } catch {
-      return imageUrl;
-    }
-  }, [imageUrl]);
-  const baseUrl = useMemo(() => {
-    try {
-      const url = new URL(directUrl);
-      url.search = '';
-      url.hash = '';
-      return url.toString();
-    } catch {
-      return directUrl;
-    }
-  }, [directUrl]);
-
-  const [currentSrc, setCurrentSrc] = useState(directUrl);
-  const [retryBaseUrl, setRetryBaseUrl] = useState(false);
+  const originalUrl = useMemo(() => (src || '').trim() || fallbackSrc, [src, fallbackSrc]);
+  const imageUrl = useMemo(() => toImageSource(originalUrl, fallbackSrc), [originalUrl, fallbackSrc]);
+  const fallbackUrl = useMemo(() => toImageSource(fallbackSrc, fallbackSrc), [fallbackSrc]);
+  const [currentSrc, setCurrentSrc] = useState(imageUrl);
   const [failed, setFailed] = useState(false);
 
   React.useEffect(() => {
-    setCurrentSrc(directUrl);
-    setRetryBaseUrl(false);
+    setCurrentSrc(imageUrl);
     setFailed(false);
-  }, [directUrl]);
+  }, [imageUrl]);
 
   const handleError = () => {
-    if (!retryBaseUrl && baseUrl !== directUrl) {
-      setRetryBaseUrl(true);
-      setCurrentSrc(baseUrl);
-      return;
-    }
-
-    if (currentSrc !== fallbackSrc) {
+    if (currentSrc !== fallbackUrl) {
       setFailed(true);
-      setCurrentSrc(fallbackSrc);
+      setCurrentSrc(fallbackUrl);
     }
   };
 
