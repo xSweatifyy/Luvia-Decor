@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Product, CartItem, SiteConfig, PageRoute, AdminUser, GalleryItem, ToastMessage, ProductCategory } from '../types';
-import { initialSiteConfig, initialProducts, initialGallery } from '../data/initialData';
+import { initialSiteConfig, initialGallery } from '../data/initialData';
 import { subscribeSiteConfig, subscribeGallery, subscribeProducts, saveProductToFirestore, deleteProductFromFirestore, saveGalleryItemToFirestore, deleteGalleryItemFromFirestore, updateSiteConfigInFirestore, initializeFirestoreIfNeeded } from '../services/firestoreService';
 
 interface AppContextType {
@@ -26,7 +26,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return valid.includes(hash as PageRoute) ? hash as PageRoute : 'home';
   };
   const [page, setPageState] = useState<PageRoute>(getPageFromHash);
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  // Do not put development/demo products into state. Firestore is authoritative.
+  const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [config, setConfig] = useState<SiteConfig>(initialSiteConfig);
   const [gallery, setGallery] = useState<GalleryItem[]>(initialGallery);
@@ -55,7 +56,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         await initializeFirestoreIfNeeded();
         if (cancelled) return;
-        unProducts = subscribeProducts(items => { if (!cancelled) setProducts(items.length ? items : initialProducts); });
+        unProducts = subscribeProducts(items => { if (!cancelled) setProducts(items); });
         unConfig = subscribeSiteConfig(value => { if (!cancelled && value) setConfig(value); });
         unGallery = subscribeGallery(items => { if (!cancelled) setGallery(items.length ? items : initialGallery); });
       } catch (e) { console.warn('Firestore initialization warning:', e); }
