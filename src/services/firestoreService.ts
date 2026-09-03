@@ -1,7 +1,7 @@
 import { collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Product, Order, SiteConfig, GalleryItem, Review, AdminUser, Coupon } from '../types';
-import { initialProducts, initialSiteConfig, initialGallery, initialReviews, initialAdminUsers } from '../data/initialData';
+import { initialSiteConfig, initialGallery, initialReviews, initialAdminUsers } from '../data/initialData';
 
 const PRODUCTS_COL = 'products';
 const ORDERS_COL = 'orders';
@@ -13,35 +13,10 @@ const COUPONS_COL = 'coupons';
 const ADMIN_USERS_COL = 'admin_users';
 let initializationPromise: Promise<void> | null = null;
 
-/**
- * Restores the products that are part of the original shop catalogue without
- * overwriting products created/edited by the administrator. This is deliberately
- * additive: missing original IDs are restored, existing documents are untouched.
- */
-async function restoreMissingInitialProducts(): Promise<void> {
-  const snapshot = await getDocs(collection(db, PRODUCTS_COL));
-  const existingIds = new Set(snapshot.docs.map(d => d.id));
-  const missing = initialProducts.filter(product => !existingIds.has(product.id));
-  if (!missing.length) return;
-  const batch = writeBatch(db);
-  const now = new Date().toISOString();
-  for (const product of missing) {
-    batch.set(doc(db, PRODUCTS_COL, product.id), {
-      ...product,
-      createdAt: now,
-      updatedAt: now,
-      restoredFromCatalogue: true
-    });
-  }
-  await batch.commit();
-}
-
 async function seedFirestoreIfNeeded(): Promise<void> {
   try {
-    // Always reconcile the original catalogue first. The old init_status guard
-    // must never prevent recovery after products were accidentally removed.
-    await restoreMissingInitialProducts();
-
+    // Products are user/admin data. Never recreate deleted products from the
+    // development catalogue: Firestore must remain the source of truth.
     const metaRef = doc(db, 'system_meta', 'init_status');
     const metaSnap = await getDoc(metaRef);
 
@@ -73,7 +48,7 @@ async function seedFirestoreIfNeeded(): Promise<void> {
       await setDoc(metaRef, { initialized: true, seededAt: new Date().toISOString() });
     }
   } catch (err) {
-    console.error('Error initializing/restoring Firestore data:', err);
+    console.error('Error initializing Firestore data:', err);
   }
 }
 
@@ -86,6 +61,7 @@ export function subscribeProducts(callback: (products: Product[]) => void): () =
   return onSnapshot(collection(db, PRODUCTS_COL), snapshot => {
     const products: Product[] = [];
     snapshot.forEach(d => products.push({ ...(d.data() as Product), id: d.id }));
+    products.sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'cs'));
     callback(products);
   }, err => console.error('Firestore products subscription error:', err));
 }
