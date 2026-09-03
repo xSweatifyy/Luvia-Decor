@@ -10,6 +10,15 @@ function isPrivateHostname(hostname: string): boolean {
   return false;
 }
 
+function looksLikeImage(url: URL, contentType: string): boolean {
+  if (contentType.toLowerCase().startsWith('image/')) return true;
+  const path = url.pathname.toLowerCase();
+  return /\.(jpe?g|png|webp|gif|svg|avif|bmp|ico)$/i.test(path) ||
+    url.hostname.includes('firebasestorage.googleapis.com') ||
+    url.hostname.includes('storage.googleapis.com') ||
+    url.hostname.includes('images.unsplash.com');
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Metoda není podporovaná.' });
 
@@ -30,8 +39,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const upstream = await fetch(target.toString(), {
       headers: {
-        Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-        'User-Agent': 'Luvia-Decor-ImageProxy/1.0'
+        Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/jpeg,image/png,image/gif,*/*;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (compatible; Luvia-Decor/1.0; +https://www.luvia-decor.cz/)'
       },
       redirect: 'follow'
     });
@@ -40,14 +49,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(upstream.status === 404 ? 404 : 502).json({ error: 'Obrázek se nepodařilo načíst.' });
     }
 
-    const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
-    if (!contentType.startsWith('image/')) {
+    const contentType = upstream.headers.get('content-type') || '';
+    if (!looksLikeImage(target, contentType)) {
       return res.status(415).json({ error: 'Zdroj nevrátil obrázek.' });
     }
 
     const buffer = Buffer.from(await upstream.arrayBuffer());
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+    if (!buffer.length) return res.status(502).json({ error: 'Obrázek je prázdný.' });
+
+    // Some older Firebase Storage objects are returned as application/octet-stream.
+    // Serve them as JPEG so browsers can render them instead of treating them as a download.
+    const finalContentType = contentType.toLowerCase().startsWith('image/')
+      ? contentType.split(';')[0]
+      : 'image/jpeg';
+
+    res.setHeader('Content-Type', finalContentType);
+    res.setHeader('Content-Length', String(buffer.length));
+    res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=31536000, stale-while-revalidate=86400');
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     return res.status(200).send(buffer);
   } catch (error) {
