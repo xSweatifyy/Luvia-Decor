@@ -17,7 +17,7 @@ function detectImageType(buffer: Buffer): string | null {
   if (buffer.length >= 12 && buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
   if (buffer.length >= 12 && buffer.subarray(4, 8).toString('ascii') === 'ftyp') return 'image/avif';
   const text = buffer.subarray(0, 300).toString('utf8').trimStart().toLowerCase();
-  if (text.startsWith('<svg') || text.startsWith('<?xml') && text.includes('<svg')) return 'image/svg+xml';
+  if (text.startsWith('<svg') || (text.startsWith('<?xml') && text.includes('<svg'))) return 'image/svg+xml';
   return null;
 }
 
@@ -28,7 +28,8 @@ function looksLikeImage(url: URL, contentType: string, buffer: Buffer): boolean 
   return /\.(jpe?g|png|webp|gif|svg|avif|bmp|ico)$/i.test(path) ||
     url.hostname.includes('firebasestorage.googleapis.com') ||
     url.hostname.includes('storage.googleapis.com') ||
-    url.hostname.includes('images.unsplash.com');
+    url.hostname.includes('images.unsplash.com') ||
+    url.hostname.includes('googleusercontent.com');
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -69,9 +70,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(415).json({ error: 'Zdroj nevrátil obrázek.' });
     }
 
-    // Prefer the real MIME type. This fixes Firebase objects that report
-    // application/octet-stream and prevents browsers/social crawlers from
-    // receiving image bytes with the wrong Content-Type.
     const detectedType = detectImageType(buffer);
     const upstreamType = contentType.toLowerCase().startsWith('image/')
       ? contentType.split(';')[0].trim()
