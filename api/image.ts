@@ -10,8 +10,20 @@ function isPrivateHostname(hostname: string): boolean {
   return false;
 }
 
-function looksLikeImage(url: URL, contentType: string): boolean {
+function detectImageType(buffer: Buffer): string | null {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'image/jpeg';
+  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) return 'image/png';
+  if (buffer.length >= 6 && (buffer.subarray(0, 6).toString('ascii') === 'GIF87a' || buffer.subarray(0, 6).toString('ascii') === 'GIF89a')) return 'image/gif';
+  if (buffer.length >= 12 && buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
+  if (buffer.length >= 12 && buffer.subarray(4, 8).toString('ascii') === 'ftyp') return 'image/avif';
+  const text = buffer.subarray(0, 300).toString('utf8').trimStart().toLowerCase();
+  if (text.startsWith('<svg') || text.startsWith('<?xml') && text.includes('<svg')) return 'image/svg+xml';
+  return null;
+}
+
+function looksLikeImage(url: URL, contentType: string, buffer: Buffer): boolean {
   if (contentType.toLowerCase().startsWith('image/')) return true;
+  if (detectImageType(buffer)) return true;
   const path = url.pathname.toLowerCase();
   return /\.(jpe?g|png|webp|gif|svg|avif|bmp|ico)$/i.test(path) ||
     url.hostname.includes('firebasestorage.googleapis.com') ||
@@ -50,18 +62,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const contentType = upstream.headers.get('content-type') || '';
-    if (!looksLikeImage(target, contentType)) {
-      return res.status(415).json({ error: 'Zdroj nevrátil obrázek.' });
-    }
-
     const buffer = Buffer.from(await upstream.arrayBuffer());
     if (!buffer.length) return res.status(502).json({ error: 'Obrázek je prázdný.' });
 
-    // Some older Firebase Storage objects are returned as application/octet-stream.
-    // Serve them as JPEG so browsers can render them instead of treating them as a download.
-    const finalContentType = contentType.toLowerCase().startsWith('image/')
-      ? contentType.split(';')[0]
-      : 'image/jpeg';
+    if (!looksLikeImage(target, contentType, buffer)) {
+      return res.status(415).json({ error: 'Zdroj nevrátil obrázek.' });
+    }
+
+    // Prefer the real MIME type. This fixes Firebase objects that report
+    // application/octet-stream and prevents browsers/social crawlers from
+    // receiving image bytes with the wrong Content-Type.
+    const detectedType = detectImageType(buffer);
+    const upstreamType = contentType.toLowerCase().startsWith('image/')
+      ? contentType.split(';')[0].trim()
+      : null;
+    const finalContentType = detectedType || upstreamType || 'application/octet-stream';
 
     res.setHeader('Content-Type', finalContentType);
     res.setHeader('Content-Length', String(buffer.length));
