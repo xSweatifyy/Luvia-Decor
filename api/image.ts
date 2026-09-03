@@ -21,15 +21,19 @@ function detectImageType(buffer: Buffer): string | null {
   return null;
 }
 
-function looksLikeImage(url: URL, contentType: string, buffer: Buffer): boolean {
+function isImageResponse(url: URL, contentType: string, buffer: Buffer): boolean {
   if (contentType.toLowerCase().startsWith('image/')) return true;
   if (detectImageType(buffer)) return true;
-  const path = url.pathname.toLowerCase();
-  return /\.(jpe?g|png|webp|gif|svg|avif|bmp|ico)$/i.test(path) ||
-    url.hostname.includes('firebasestorage.googleapis.com') ||
-    url.hostname.includes('storage.googleapis.com') ||
-    url.hostname.includes('images.unsplash.com') ||
-    url.hostname.includes('googleusercontent.com');
+  return /\.(jpe?g|png|webp|gif|svg|avif|bmp|ico)$/i.test(url.pathname);
+}
+
+async function fetchImage(target: URL, referer?: string): Promise<Response> {
+  const headers: Record<string, string> = {
+    Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/jpeg,image/png,image/gif,*/*;q=0.8',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36'
+  };
+  if (referer) headers.Referer = referer;
+  return fetch(target.toString(), { headers, redirect: 'follow' });
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -50,13 +54,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const upstream = await fetch(target.toString(), {
-      headers: {
-        Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/jpeg,image/png,image/gif,*/*;q=0.8',
-        'User-Agent': 'Mozilla/5.0 (compatible; Luvia-Decor/1.0; +https://www.luvia-decor.cz/)'
-      },
-      redirect: 'follow'
-    });
+    const isGoogleUserContent = target.hostname.toLowerCase().endsWith('googleusercontent.com');
+    let upstream = await fetchImage(target);
+
+    // Google Sites/Googleusercontent images can require a Google Sites referrer.
+    if ((!upstream.ok || !upstream.headers.get('content-type')?.toLowerCase().startsWith('image/')) && isGoogleUserContent) {
+      try {
+        if (upstream.body) await upstream.arrayBuffer();
+      } catch {}
+      upstream = await fetchImage(target, 'https://sites.google.com/');
+    }
 
     if (!upstream.ok) {
       return res.status(upstream.status === 404 ? 404 : 502).json({ error: 'Obrázek se nepodařilo načíst.' });
@@ -66,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const buffer = Buffer.from(await upstream.arrayBuffer());
     if (!buffer.length) return res.status(502).json({ error: 'Obrázek je prázdný.' });
 
-    if (!looksLikeImage(target, contentType, buffer)) {
+    if (!isImageResponse(target, contentType, buffer)) {
       return res.status(415).json({ error: 'Zdroj nevrátil obrázek.' });
     }
 
