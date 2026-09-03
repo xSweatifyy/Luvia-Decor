@@ -24,10 +24,10 @@ function escapeHtml(value: unknown): string {
 }
 
 function paymentQrUrl(order: any): string {
-  const account = '963625011/5500';
+  const iban = 'CZ4555000000000963625011';
   const amount = Number(order.totalPrice || 0).toFixed(2);
   const vs = String(order.variableSymbol || '').replace(/\D/g, '');
-  const payload = `SPD*1.0*ACC:CZ${account.replace('/', '')}*AM:${amount}*CC:CZK*X-VS:${vs}`;
+  const payload = `SPD*1.0*ACC:${iban}*AM:${amount}*CC:CZK*X-VS:${vs}`;
   return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(payload)}`;
 }
 
@@ -48,7 +48,7 @@ async function sendOrderEmails(order: any): Promise<{ customer: boolean; seller:
   const deliveryText = order.delivery?.method === 'personal_pickup' ? 'Osobní odběr – Kroměříž' : order.delivery?.method === 'pickup_point' ? `Výdejní místo – ${order.delivery?.carrier || ''}: ${order.delivery?.pickupPoint || ''}` : `Doručení na adresu – ${order.delivery?.carrier || ''}`;
   const customer = order.customer || {};
   const qrUrl = paymentQrUrl(order);
-  const common = `<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;color:#2D2723"><h1 style="font-size:28px">Luvia Decor</h1><p>Objednávka <strong>${escapeHtml(order.orderNumber)}</strong></p><p><strong>Variabilní symbol:</strong> ${escapeHtml(order.variableSymbol)}</p><p><strong>Způsob platby:</strong> Bankovní převod</p><p><strong>Doručení:</strong> ${escapeHtml(deliveryText)}</p><table style="width:100%;border-collapse:collapse;margin:20px 0"><thead><tr><th style="text-align:left;padding:8px">Produkt</th><th style="padding:8px">Ks</th><th style="text-align:right;padding:8px">Cena</th></tr></thead><tbody>${itemsHtml}</tbody></table><p><strong>Celkem: ${Number(order.totalPrice || 0).toLocaleString('cs-CZ')} Kč</strong></p><div style="background:#faf8f5;padding:16px;border-radius:12px"><strong>Bankovní převod</strong><br>Číslo účtu: 963625011/5500<br>Variabilní symbol: ${escapeHtml(order.variableSymbol)}<br>Částka: ${Number(order.totalPrice || 0).toLocaleString('cs-CZ')} Kč<br><div style="text-align:center;margin-top:14px"><strong>QR platba</strong><br><img src="${qrUrl}" width="220" height="220" alt="QR platba objednávky" style="display:block;margin:10px auto;border:1px solid #eee" /></div></div></div>`;
+  const common = `<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;color:#2D2723"><h1 style="font-size:28px">Luvia Decor</h1><p>Objednávka <strong>${escapeHtml(order.orderNumber)}</strong></p><p><strong>Variabilní symbol:</strong> ${escapeHtml(order.variableSymbol)}</p><p><strong>Způsob platby:</strong> Bankovní převod</p><p><strong>Doručení:</strong> ${escapeHtml(deliveryText)}</p><table style="width:100%;border-collapse:collapse;margin:20px 0"><thead><tr><th style="text-align:left;padding:8px">Produkt</th><th style="padding:8px">Ks</th><th style="text-align:right;padding:8px">Cena</th></tr></thead><tbody>${itemsHtml}</tbody></table><p><strong>Celkem: ${Number(order.totalPrice || 0).toLocaleString('cs-CZ')} Kč</strong></p><div style="background:#faf8f5;padding:16px;border-radius:12px"><strong>Bankovní převod</strong><br>Číslo účtu: 963625011/5500<br>IBAN: CZ45 5500 0000 0096 3625 011<br>Variabilní symbol: ${escapeHtml(order.variableSymbol)}<br>Částka: ${Number(order.totalPrice || 0).toLocaleString('cs-CZ')} Kč<br><div style="text-align:center;margin-top:14px"><strong>QR platba</strong><br><img src="${qrUrl}" width="220" height="220" alt="QR platba objednávky" style="display:block;margin:10px auto;border:1px solid #eee" /></div></div></div>`;
 
   const customerResult = await resend.emails.send({
     from,
