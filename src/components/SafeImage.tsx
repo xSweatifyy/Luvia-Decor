@@ -44,9 +44,9 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   }, [original]);
 
   const handleError = () => {
-    // 0: original URL (best for Firebase Storage and normal public URLs)
-    // 1: same-origin proxy (works around hotlink/referrer/CORS restrictions)
-    // 2: final local/external fallback
+    // First use the stored URL directly. Firebase Storage download URLs
+    // are valid browser image sources and must not be forced through CORS.
+    // If the source blocks direct loading, retry through our same-origin proxy.
     if (attempt === 0 && proxy && proxy !== currentSrc) {
       setAttempt(1);
       setCurrentSrc(proxy);
@@ -67,7 +67,6 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
       decoding="async"
       fetchPriority={loading === 'eager' ? 'high' : 'auto'}
       referrerPolicy="no-referrer"
-      crossOrigin="anonymous"
       onError={handleError}
       data-image-source={attempt === 1 ? 'proxy' : attempt === 2 ? 'fallback' : 'original'}
     />
