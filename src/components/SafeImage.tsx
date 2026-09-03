@@ -13,18 +13,36 @@ const FALLBACK = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?a
 function normalizeUrl(value?: string | null): string {
   if (!value) return '';
   let url = value.trim().replace(/&amp;/g, '&');
+  if (!url) return '';
+
+  // Firebase/Google storage sometimes stores an object as gs://...
+  if (url.startsWith('gs://')) {
+    const withoutScheme = url.slice(5);
+    const slash = withoutScheme.indexOf('/');
+    if (slash > 0) {
+      const bucket = withoutScheme.slice(0, slash);
+      const objectPath = withoutScheme.slice(slash + 1);
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(objectPath)}?alt=media`;
+    }
+  }
+
   if (url.startsWith('//')) url = 'https:' + url;
   if (!/^(https?:|data:|blob:|\/)/i.test(url)) return url;
 
   try {
     if (url.startsWith('/') || url.startsWith('data:') || url.startsWith('blob:')) return url;
     const parsed = new URL(url);
+
     if (parsed.hostname.includes('drive.google.com')) {
       const match = parsed.pathname.match(/\/file\/d\/([^/]+)/);
       const fileId = (match && match[1]) || parsed.searchParams.get('id');
       if (fileId) return `https://drive.google.com/uc?export=view&id=${encodeURIComponent(fileId)}`;
     }
-    if (parsed.hostname === 'dropbox.com' || parsed.hostname === 'www.dropbox.com') parsed.searchParams.set('raw', '1');
+
+    if (parsed.hostname === 'dropbox.com' || parsed.hostname === 'www.dropbox.com') {
+      parsed.searchParams.set('raw', '1');
+    }
+
     return parsed.toString();
   } catch {
     return url;
@@ -39,6 +57,15 @@ function cdnUrl(url: string): string {
   return `https://images.weserv.nl/?url=${encodeURIComponent(url)}`;
 }
 
+function isTrustedImageHost(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host.includes('unsplash.com') || host.includes('images.unsplash.com') || host.includes('firebasestorage.googleapis.com') || host.includes('storage.googleapis.com');
+  } catch {
+    return false;
+  }
+}
+
 export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   src, alt = '', className = '', fallbackSrc = FALLBACK, loading = 'lazy'
 }) {
@@ -46,10 +73,12 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   const fallback = normalizeUrl(fallbackSrc) || FALLBACK;
   const external = /^https?:\/\//i.test(original);
 
-  // Try an image CDN first, then our Vercel proxy and finally the original URL.
-  // This keeps product images working even when the source blocks hotlinking/CORS.
+  // Direct URL first for the common image hosts. If a provider blocks the
+  // browser, fall back to the Vercel proxy/CDN automatically.
   const candidates = external
-    ? [cdnUrl(original), proxyUrl(original), original, fallback]
+    ? isTrustedImageHost(original)
+      ? [original, proxyUrl(original), cdnUrl(original), fallback]
+      : [proxyUrl(original), original, cdnUrl(original), fallback]
     : [original || fallback, fallback];
 
   const [index, setIndex] = useState(0);
