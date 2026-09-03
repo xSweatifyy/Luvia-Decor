@@ -12,14 +12,11 @@ export const AllCouponsList: React.FC = () => {
     if (!adminUser || adminUser.role !== 'admin') return;
     setLoading(true);
     try {
-      const [regularRes, shippingRes] = await Promise.all([
-        fetch('/api/coupons'),
-        fetch('/api/coupons/free-shipping')
-      ]);
+      // The API returns the complete coupons table, including inactive/old codes.
+      const regularRes = await fetch('/api/coupons');
       const regular = regularRes.ok ? await regularRes.json() : [];
-      const shipping = shippingRes.ok ? await shippingRes.json() : [];
-      const merged = [...(Array.isArray(regular) ? regular : []), ...(Array.isArray(shipping) ? shipping : [])];
-      const unique = Array.from(new Map(merged.map((coupon: Coupon) => [coupon.id, coupon])).values());
+      const list = Array.isArray(regular) ? regular : [];
+      const unique = Array.from(new Map(list.map((coupon: Coupon) => [coupon.id, coupon])).values());
       unique.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       setCoupons(unique);
     } catch (error) {
@@ -43,7 +40,7 @@ export const AllCouponsList: React.FC = () => {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="font-editorial text-xl font-bold text-[#2D2723]">Všechny vytvořené slevové kódy</h2>
-            <p className="text-xs text-[#7B6E63] mt-1">Zobrazuje běžné slevové kódy i kódy na dopravu zdarma.</p>
+            <p className="text-xs text-[#7B6E63] mt-1">Zobrazuje úplně všechny uložené kódy, včetně deaktivovaných a starších kódů.</p>
           </div>
           <button onClick={load} disabled={loading} className="p-2 rounded-lg bg-[#FAF8F5] border border-[#E3DACF] text-[#8C7355]">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
