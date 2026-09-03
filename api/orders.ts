@@ -8,7 +8,9 @@ async function ensureTables() {
   await sql`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, type TEXT NOT NULL, value NUMERIC NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), note TEXT)`;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+const ZASILKOVNA_SHIPPING = 62;
+
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   try {
     await ensureTables();
@@ -50,6 +52,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    const shipping = deliveryMethod !== 'personal_pickup' && delivery?.carrier === 'Zásilkovna'
+      ? ZASILKOVNA_SHIPPING
+      : 0;
+
     const id = `ord-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const orderNumber = `LUV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const newOrder = {
@@ -59,8 +65,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         street: customer.street || '', city: customer.city || '', zip: customer.zip || '',
         country: customer.country || 'Česká republika', note: customer.note || ''
       },
-      items: orderItems, subtotal, shipping: 0, discount: discount || undefined,
-      couponCode: appliedCouponCode, totalPrice: Math.max(0, subtotal - discount),
+      items: orderItems, subtotal, shipping, discount: discount || undefined,
+      couponCode: appliedCouponCode, totalPrice: Math.max(0, subtotal - discount + shipping),
       delivery: delivery || { method: 'address' }, status: 'nova', resendSent: false
     };
 
@@ -71,3 +77,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: error?.message || 'Chyba serveru.' });
   }
 }
+
+export default handler;
