@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 
 interface SafeImageProps {
   src?: string | null;
@@ -10,16 +10,18 @@ interface SafeImageProps {
 
 const FALLBACK = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1200&q=85';
 
-function toImageSource(src: string, fallbackSrc: string): string {
-  const value = (src || '').trim() || fallbackSrc;
-  if (/^(data:|blob:)/i.test(value)) return value;
-  if (value.startsWith('/api/image') || value.startsWith('/')) return value;
+function normalizeSource(src?: string | null): string {
+  return String(src || '').trim();
+}
+
+function proxySource(src: string): string | null {
+  if (!src || /^(data:|blob:)/i.test(src) || src.startsWith('/')) return null;
   try {
-    const url = new URL(value, window.location.href);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return value;
+    const url = new URL(src, window.location.href);
+    if (!['http:', 'https:'].includes(url.protocol)) return null;
     return `/api/image?url=${encodeURIComponent(url.toString())}`;
   } catch {
-    return value;
+    return null;
   }
 }
 
@@ -30,21 +32,29 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   fallbackSrc = FALLBACK,
   loading = 'lazy'
 }) {
-  const originalUrl = useMemo(() => (src || '').trim() || fallbackSrc, [src, fallbackSrc]);
-  const imageUrl = useMemo(() => toImageSource(originalUrl, fallbackSrc), [originalUrl, fallbackSrc]);
-  const fallbackUrl = useMemo(() => toImageSource(fallbackSrc, fallbackSrc), [fallbackSrc]);
-  const [currentSrc, setCurrentSrc] = useState(imageUrl);
-  const [failed, setFailed] = useState(false);
+  const original = useMemo(() => normalizeSource(src) || fallbackSrc, [src, fallbackSrc]);
+  const proxy = useMemo(() => proxySource(original), [original]);
+  const fallback = useMemo(() => normalizeSource(fallbackSrc), [fallbackSrc]);
+  const [currentSrc, setCurrentSrc] = useState(original);
+  const [attempt, setAttempt] = useState(0);
 
-  React.useEffect(() => {
-    setCurrentSrc(imageUrl);
-    setFailed(false);
-  }, [imageUrl]);
+  useEffect(() => {
+    setCurrentSrc(original);
+    setAttempt(0);
+  }, [original]);
 
   const handleError = () => {
-    if (currentSrc !== fallbackUrl) {
-      setFailed(true);
-      setCurrentSrc(fallbackUrl);
+    // 0: original URL (best for Firebase Storage and normal public URLs)
+    // 1: same-origin proxy (works around hotlink/referrer/CORS restrictions)
+    // 2: final local/external fallback
+    if (attempt === 0 && proxy && proxy !== currentSrc) {
+      setAttempt(1);
+      setCurrentSrc(proxy);
+      return;
+    }
+    if (attempt < 2 && fallback && fallback !== currentSrc) {
+      setAttempt(2);
+      setCurrentSrc(fallback);
     }
   };
 
@@ -57,8 +67,9 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
       decoding="async"
       fetchPriority={loading === 'eager' ? 'high' : 'auto'}
       referrerPolicy="no-referrer"
+      crossOrigin="anonymous"
       onError={handleError}
-      data-image-failed={failed ? 'true' : undefined}
+      data-image-source={attempt === 1 ? 'proxy' : attempt === 2 ? 'fallback' : 'original'}
     />
   );
 });
