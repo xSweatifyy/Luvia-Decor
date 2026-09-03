@@ -8,7 +8,11 @@ async function ensureTables() {
   await sql`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, type TEXT NOT NULL, value NUMERIC NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), note TEXT)`;
 }
 
-const SHIPPING_PRICES: Record<string, number> = { DPD: 75, 'Zásilkovna': 62 };
+const SHIPPING_PRICES: Record<string, Record<string, number>> = {
+  address: { DPD: 105, 'Zásilkovna': 89 },
+  pickup_point: { DPD: 75, 'Zásilkovna': 62 },
+  personal_pickup: { DPD: 0, 'Zásilkovna': 0 }
+};
 
 async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -26,11 +30,14 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
     const deliveryMethod = delivery?.method || 'address';
     const carrier = String(delivery?.carrier || 'DPD');
-    if (deliveryMethod !== 'personal_pickup' && !Object.prototype.hasOwnProperty.call(SHIPPING_PRICES, carrier)) {
+    if (!Object.prototype.hasOwnProperty.call(SHIPPING_PRICES, deliveryMethod)) {
+      return res.status(400).json({ error: 'Neplatný způsob doručení.' });
+    }
+    if (deliveryMethod !== 'personal_pickup' && !Object.prototype.hasOwnProperty.call(SHIPPING_PRICES[deliveryMethod], carrier)) {
       return res.status(400).json({ error: 'Neplatný dopravce.' });
     }
-    if (deliveryMethod !== 'personal_pickup' && (!String(customer.street || '').trim() || !String(customer.city || '').trim() || !String(customer.zip || '').trim())) {
-      return res.status(400).json({ error: 'Pro fakturaci je nutné vyplnit celou adresu.' });
+    if (deliveryMethod === 'address' && (!String(customer.street || '').trim() || !String(customer.city || '').trim() || !String(customer.zip || '').trim())) {
+      return res.status(400).json({ error: 'Pro doručení na adresu je nutné vyplnit celou adresu.' });
     }
     if (deliveryMethod === 'pickup_point' && !String(delivery?.pickupPoint || '').trim()) {
       return res.status(400).json({ error: 'Je nutné vybrat výdejní místo.' });
@@ -56,7 +63,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const shipping = deliveryMethod === 'personal_pickup' ? 0 : SHIPPING_PRICES[carrier];
+    const shipping = SHIPPING_PRICES[deliveryMethod][carrier] || 0;
 
     const id = `ord-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const orderNumber = `LUV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
