@@ -1,0 +1,50 @@
+name: Wire Packeta map
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'src/pages/CartPage.tsx'
+      - 'src/components/PacketaPickupWidget.tsx'
+      - '.github/workflows/wire-packeta.yml'
+
+jobs:
+  wire:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wire widget into cart
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/CartPage.tsx')
+          s = p.read_text()
+          imp = "import { SafeImage } from '../components/SafeImage';\n"
+          newimp = imp + "import { PacketaPickupWidget } from '../components/PacketaPickupWidget';\n"
+          if 'PacketaPickupWidget' not in s:
+              if imp not in s:
+                  raise SystemExit('SafeImage import marker not found')
+              s = s.replace(imp, newimp, 1)
+          marker = 'return <div id="cart-page" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">'
+          injection = marker + '''\n    {deliveryMethod === 'pickup_point' && carrier === 'Zásilkovna' && (\n      <div className="bg-white rounded-2xl border border-[#E8DFC8] p-4 shadow-sm">\n        <div className="flex items-center justify-between gap-3">\n          <div>\n            <p className="text-xs font-bold uppercase tracking-wider text-[#8C7355]">Zásilkovna</p>\n            <p className="text-sm text-[#2D2723] mt-1">{pickupPoint || 'Výdejní místo zatím není vybrané'}</p>\n          </div>\n          <MapPin className="w-5 h-5 text-[#8C7355] shrink-0" />\n        </div>\n        <PacketaPickupWidget onSelect={(point) => {\n          const label = [point.name, point.street, [point.zip, point.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');\n          setPickupPoint(label || String(point.id || 'Vybrané výdejní místo'));\n          setPickupPickerOpen(false);\n        }} />\n      </div>\n    )}'''
+          if 'PacketaPickupWidget onSelect=' not in s:
+              if marker not in s:
+                  raise SystemExit('cart root marker not found')
+              s = s.replace(marker, injection, 1)
+          p.write_text(s)
+          PY
+      - name: Verify and commit
+        run: |
+          grep -q "PacketaPickupWidget" src/pages/CartPage.tsx
+          grep -q "widget.packeta.com/v6/www/js/library.js" src/components/PacketaPickupWidget.tsx
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/CartPage.tsx
+          git commit -m "feat: integrate Zasilkovna pickup map" || true
+          git push
+          rm .github/workflows/wire-packeta.yml
+          git add .github/workflows/wire-packeta.yml
+          git commit -m "chore: remove temporary Packeta workflow" || true
+          git push
