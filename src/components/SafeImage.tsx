@@ -14,21 +14,17 @@ function normalizeUrl(value?: string | null): string {
   if (!value) return '';
   let url = value.trim().replace(/&amp;/g, '&');
   if (url.startsWith('//')) url = 'https:' + url;
-  if (!/^(https?:|data:|blob:)/i.test(url)) return url;
+  if (!/^(https?:|data:|blob:|\/)/i.test(url)) return url;
 
   try {
+    if (url.startsWith('/') || url.startsWith('data:') || url.startsWith('blob:')) return url;
     const parsed = new URL(url);
     if (parsed.hostname.includes('drive.google.com')) {
       const match = parsed.pathname.match(/\/file\/d\/([^/]+)/);
       const fileId = (match && match[1]) || parsed.searchParams.get('id');
       if (fileId) return `https://drive.google.com/uc?export=view&id=${encodeURIComponent(fileId)}`;
     }
-    if (parsed.hostname === 'dropbox.com' || parsed.hostname === 'www.dropbox.com') {
-      parsed.searchParams.set('raw', '1');
-    }
-    if (parsed.hostname.includes('1drv.ms') || parsed.hostname.includes('sharepoint.com')) {
-      parsed.searchParams.set('download', '1');
-    }
+    if (parsed.hostname === 'dropbox.com' || parsed.hostname === 'www.dropbox.com') parsed.searchParams.set('raw', '1');
     return parsed.toString();
   } catch {
     return url;
@@ -44,21 +40,16 @@ function cdnUrl(url: string): string {
 }
 
 export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
-  src,
-  alt = '',
-  className = '',
-  fallbackSrc = FALLBACK,
-  loading = 'lazy',
+  src, alt = '', className = '', fallbackSrc = FALLBACK, loading = 'lazy'
 }) {
   const original = normalizeUrl(src);
   const fallback = normalizeUrl(fallbackSrc) || FALLBACK;
   const external = /^https?:\/\//i.test(original);
 
-  // Never make the browser download the customer's external image directly.
-  // Every external image goes through our same-origin proxy first, which makes
-  // the result independent of Chrome/Firefox/Edge/Safari hotlink behaviour.
+  // Try an image CDN first, then our Vercel proxy and finally the original URL.
+  // This keeps product images working even when the source blocks hotlinking/CORS.
   const candidates = external
-    ? [proxyUrl(original), cdnUrl(original), original, fallback]
+    ? [cdnUrl(original), proxyUrl(original), original, fallback]
     : [original || fallback, fallback];
 
   const [index, setIndex] = useState(0);
@@ -71,17 +62,14 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   }, [original, fallback]);
 
   const handleError = () => {
-    if (index < candidates.length - 1) {
-      setIndex((value) => value + 1);
-    } else {
-      setFailed(true);
-    }
+    if (index < candidates.length - 1) setIndex(value => value + 1);
+    else setFailed(true);
   };
 
   if (failed || !current) {
     return (
       <div className={`${className} flex items-center justify-center bg-[#FAF6F0]`} role="img" aria-label={alt}>
-        <span className="text-[#8C7355] text-sm">Obrázek se nepodařilo načíst</span>
+        <span className="text-[#8C7355] text-sm text-center px-3">Obrázek se nepodařilo načíst</span>
       </div>
     );
   }
@@ -92,7 +80,7 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
       alt={alt}
       className={className}
       loading={loading}
-      decoding="auto"
+      decoding="async"
       fetchPriority={loading === 'eager' ? 'high' : 'auto'}
       referrerPolicy="no-referrer"
       onError={handleError}
