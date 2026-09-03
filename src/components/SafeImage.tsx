@@ -14,8 +14,20 @@ function normalizeSource(src?: string | null): string {
   return String(src || '').trim();
 }
 
+function isGoogleImageUrl(src: string): boolean {
+  try {
+    const host = new URL(src).hostname.toLowerCase();
+    return host === 'lh3.googleusercontent.com' || host.endsWith('.googleusercontent.com');
+  } catch {
+    return false;
+  }
+}
+
 function proxySource(src: string): string | null {
-  if (!src || /^(data:|blob:)/i.test(src) || src.startsWith('/')) return null;
+  // Googleusercontent image URLs are public, signed/parameterized image URLs.
+  // Rewriting them through our proxy can invalidate the URL and cause a retry
+  // loop, so always keep them direct.
+  if (!src || isGoogleImageUrl(src) || /^(data:|blob:)/i.test(src) || src.startsWith('/')) return null;
   try {
     const url = new URL(src, window.location.href);
     if (!['http:', 'https:'].includes(url.protocol)) return null;
@@ -32,9 +44,8 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   fallbackSrc = FALLBACK,
   loading = 'lazy'
 }) {
-  // IMPORTANT: keep the stored URL exactly as entered. Googleusercontent,
-  // Firebase download URLs, Unsplash and other public image URLs can all be
-  // rendered directly by <img> without CORS permission.
+  // The stored URL is rendered directly first. This is important for
+  // lh3.googleusercontent.com and other public image URLs.
   const original = useMemo(() => normalizeSource(src) || normalizeSource(fallbackSrc), [src, fallbackSrc]);
   const proxy = useMemo(() => proxySource(original), [original]);
   const fallback = useMemo(() => normalizeSource(fallbackSrc), [fallbackSrc]);
@@ -47,22 +58,16 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   }, [original]);
 
   const handleError = () => {
-    // Direct URL is always the first attempt. This is essential for URLs
-    // such as lh3.googleusercontent.com/... where changing the URL can make
-    // the image inaccessible.
+    // One-way fallback chain only: direct -> proxy -> fallback.
+    // Never switch back to the original URL, which previously caused an
+    // endless direct/proxy loop and visible image flashing.
     if (attempt === 0 && proxy && proxy !== currentSrc) {
       setAttempt(1);
       setCurrentSrc(proxy);
       return;
     }
 
-    if (attempt === 1 && original !== currentSrc) {
-      setAttempt(0);
-      setCurrentSrc(original);
-      return;
-    }
-
-    if (attempt < 2 && fallback && fallback !== currentSrc) {
+    if (attempt <= 1 && fallback && fallback !== currentSrc && fallback !== original) {
       setAttempt(2);
       setCurrentSrc(fallback);
     }
