@@ -34,6 +34,8 @@ export const PacketaPickupWidget: React.FC<Props> = ({ onSelect }) => {
     return () => { active = false; };
   }, []);
 
+  // Some checkout UI still contains the old Zásilkovna link. Prevent it from
+  // navigating away and open the real Packeta map instead.
   const openPicker = async () => {
     try {
       setLoading(true);
@@ -51,6 +53,22 @@ export const PacketaPickupWidget: React.FC<Props> = ({ onSelect }) => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!ready) return;
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      const link = target?.closest('a[href]') as HTMLAnchorElement | null;
+      if (!link) return;
+      const href = link.href || '';
+      if (!href.includes('zasilkovna.cz/vydejni-mista')) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void openPicker();
+    };
+    document.addEventListener('click', handleClick, true);
+    return () => document.removeEventListener('click', handleClick, true);
+  }, [ready, onSelect]);
 
   return (
     <button type="button" onClick={openPicker} disabled={!ready || loading}
