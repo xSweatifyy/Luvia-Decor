@@ -4,6 +4,7 @@ import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, CheckCircle2, Truck, Send,
 import confetti from 'canvas-confetti';
 import { Order } from '../types';
 import { SafeImage } from '../components/SafeImage';
+import { PacketaPickupWidget } from '../components/PacketaPickupWidget';
 import { findCouponByCodeInFirestore } from '../services/firestoreService';
 
 const carriers = ['DPD', 'Zásilkovna'] as const;
@@ -56,6 +57,22 @@ export const CartPage: React.FC = () => {
   if (!cart.length) return <div id="cart-empty-view" className="max-w-2xl mx-auto px-4 py-20 text-center space-y-6"><div className="w-20 h-20 rounded-full bg-[#FAF5EE] text-[#8C7355] flex items-center justify-center mx-auto border border-[#E8DFC8]"><ShoppingBag className="w-10 h-10" /></div><div className="space-y-2"><h1 className="font-editorial text-3xl sm:text-4xl font-bold text-[#2D2723]">Váš košík je prázdný</h1><p className="text-sm text-[#7B6E63] max-w-md mx-auto">Zatím jste do košíku nevložili žádnou dekoraci. Prohlédněte si naši nabídku věnců, aranžmá a doplňků.</p></div><button onClick={() => setPage('catalog')} className="px-8 py-3.5 bg-[#2D2723] hover:bg-[#8C7355] text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-md transition cursor-pointer">Prozkoumat nabídku dekorací</button></div>;
 
   return <div id="cart-page" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
+    {deliveryMethod === 'pickup_point' && carrier === 'Zásilkovna' && (
+      <div className="bg-white rounded-2xl border border-[#E8DFC8] p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#8C7355]">Zásilkovna</p>
+            <p className="text-sm text-[#2D2723] mt-1">{pickupPoint || 'Výdejní místo zatím není vybrané'}</p>
+          </div>
+          <MapPin className="w-5 h-5 text-[#8C7355] shrink-0" />
+        </div>
+        <PacketaPickupWidget onSelect={(point) => {
+          const label = [point.name, point.street, [point.zip, point.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+          setPickupPoint(label || String(point.id || 'Vybrané výdejní místo'));
+          setPickupPickerOpen(false);
+        }} />
+      </div>
+    )}
     <div className="flex items-center justify-between border-b border-[#E8DFC8] pb-6"><div><button onClick={() => setPage('catalog')} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#8C7355] hover:underline mb-2 cursor-pointer"><ArrowLeft className="w-3.5 h-3.5" />Zpět k výběru dekorací</button><h1 className="font-editorial text-3xl sm:text-4xl font-bold text-[#2D2723]">Nákupní košík & objednávka</h1></div><button onClick={clearCart} className="text-xs text-stone-500 hover:text-rose-600 transition cursor-pointer">Vyprázdnit košík</button></div>
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
       <div className="lg:col-span-7 space-y-4"><h2 className="text-xs font-bold uppercase tracking-wider text-[#8C7355]">Vybrané dekorace ({cart.length})</h2><div className="space-y-3">{cart.map(item => <div key={item.product.id} className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E8DFC8] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"><div className="flex items-center gap-4 flex-1"><div className="w-20 h-20 rounded-xl overflow-hidden border border-[#EBE3D8] shrink-0"><SafeImage src={item.product.imageUrl} alt={item.product.title} className="w-full h-full" loading="lazy" /></div><div><h3 className="font-editorial text-base sm:text-lg font-bold text-[#2D2723] line-clamp-1">{item.product.title}</h3><p className="text-xs font-bold text-[#8C7355] mt-0.5">{item.product.price > 0 ? `${item.product.pricePrefix || ''} ${item.product.price.toLocaleString('cs-CZ')} Kč / ks`.trim() : 'Cena dle dohody (nezávazná poptávka)'}</p>{item.customNote && <p className="text-[11px] text-stone-500 italic mt-1">Pozn.: {item.customNote}</p>}</div></div><div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4"><div className="flex items-center border border-[#E3DACF] rounded-xl bg-[#FAF8F5] p-0.5"><button onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)} className="w-7 h-7 rounded-lg hover:bg-[#EBE2D7] text-xs font-bold flex items-center justify-center transition cursor-pointer"><Minus className="w-3 h-3" /></button><span className="w-8 text-center text-xs font-bold text-[#2D2723]">{item.quantity}</span><button onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)} className="w-7 h-7 rounded-lg hover:bg-[#EBE2D7] text-xs font-bold flex items-center justify-center transition cursor-pointer"><Plus className="w-3 h-3" /></button></div><div className="text-right min-w-[90px]"><span className="text-sm font-bold text-[#2D2723]">{item.product.price > 0 ? `${(item.product.price * item.quantity).toLocaleString('cs-CZ')} Kč` : 'Dle dohody'}</span></div><button onClick={() => removeFromCart(item.product.id)} className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer" title="Odebrat položku"><Trash2 className="w-4 h-4" /></button></div></div>)}</div><div className="bg-[#FAF6F0] rounded-2xl p-5 border border-[#E3DACF] space-y-2 text-xs text-[#5C5046]"><div className="flex items-center gap-2 text-[#8C7355] font-semibold"><Truck className="w-4 h-4" /><span>Doručení kdekoliv + osobní odběr Kroměříž</span></div><p className="text-[11px] text-[#7B6E63]">Objednávka je nezávazná bez okamžité platby kartou. Před doručením či předáním vás budeme kontaktovat a potvrdíme přesný termín i potřebné údaje.</p></div></div>
