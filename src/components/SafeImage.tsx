@@ -11,7 +11,23 @@ interface SafeImageProps {
 const FALLBACK = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1200&q=85';
 
 function normalizeSource(src?: string | null): string {
-  return String(src || '').trim();
+  const value = String(src || '').trim();
+  if (!value) return '';
+
+  // Firebase Storage references can be stored as gs:// URLs. Convert them
+  // to a public media endpoint; if a token is required, the proxy/direct URL
+  // fallback will still get a chance to load the original value.
+  if (/^gs:\/\//i.test(value)) {
+    const withoutScheme = value.slice(5);
+    const slash = withoutScheme.indexOf('/');
+    if (slash > 0) {
+      const bucket = withoutScheme.slice(0, slash);
+      const objectPath = withoutScheme.slice(slash + 1);
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(objectPath)}?alt=media`;
+    }
+  }
+
+  return value;
 }
 
 function proxySource(src: string): string | null {
@@ -35,24 +51,25 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   const original = useMemo(() => normalizeSource(src) || fallbackSrc, [src, fallbackSrc]);
   const proxy = useMemo(() => proxySource(original), [original]);
   const fallback = useMemo(() => normalizeSource(fallbackSrc), [fallbackSrc]);
-  const [currentSrc, setCurrentSrc] = useState(original);
-  const [attempt, setAttempt] = useState(0);
+  const [currentSrc, setCurrentSrc] = useState(proxy || original);
+  const [attempt, setAttempt] = useState(proxy ? 1 : 0);
 
   useEffect(() => {
-    setCurrentSrc(original);
-    setAttempt(0);
-  }, [original]);
+    setCurrentSrc(proxy || original);
+    setAttempt(proxy ? 1 : 0);
+  }, [original, proxy]);
 
   const handleError = () => {
-    // First use the stored URL directly. Firebase Storage download URLs
-    // are valid browser image sources and must not be forced through CORS.
-    // If the source blocks direct loading, retry through our same-origin proxy.
-    if (attempt === 0 && proxy && proxy !== currentSrc) {
-      setAttempt(1);
-      setCurrentSrc(proxy);
+    // If the proxy failed, try the original URL directly. This covers
+    // Firebase download URLs and other sources that allow browser loading
+    // but do not work through a server-side fetch.
+    if (attempt === 1 && original && original !== currentSrc) {
+      setAttempt(0);
+      setCurrentSrc(original);
       return;
     }
-    if (attempt < 2 && fallback && fallback !== currentSrc) {
+
+    if (attempt !== 2 && fallback && fallback !== currentSrc) {
       setAttempt(2);
       setCurrentSrc(fallback);
     }
