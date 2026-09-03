@@ -1,11 +1,17 @@
 import React from 'react';
 import { AdminPage as LegacyAdminPage } from './AdminPageLegacy';
+import { ShippingCouponManager } from '../components/ShippingCouponManager';
 
 /**
  * Main admin entry point.
  *
- * Order management is intentionally rendered inside the dedicated
- * "Objednávky" tab of AdminPageLegacy so it stays with the rest of the
- * administration instead of appearing as a second panel at the bottom.
+ * Order management remains inside the dedicated "Objednávky" tab.
+ * Free-shipping coupon management is added as an admin-only section
+ * alongside the existing administration.
  */
-export const AdminPage: React.FC = () => <LegacyAdminPage />;
+export const AdminPage: React.FC = () => (
+  <>
+    <LegacyAdminPage />
+    <ShippingCouponManager />
+  </>
+);
