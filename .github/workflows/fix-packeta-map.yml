@@ -1,0 +1,64 @@
+name: Fix Packeta map integration
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch Packeta widget
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/components/PacketaPickupWidget.tsx')
+          text = path.read_text(encoding='utf-8')
+
+          marker = "  useEffect(() => {\n    if (!open || !ready || !mapContainerRef.current) return;"
+          listener = """  useEffect(() => {
+    const handleDocumentClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      const link = target?.closest('a[href]') as HTMLAnchorElement | null;
+      if (!link) return;
+
+      const href = link.href || '';
+      if (!href.includes('zasilkovna.cz/vydejni-mista')) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (ready) setOpen(true);
+    };
+
+    document.addEventListener('click', handleDocumentClick, true);
+    return () => document.removeEventListener('click', handleDocumentClick, true);
+  }, [ready]);
+
+"""
+
+          if "zasilkovna.cz/vydejni-mista" not in text or "handleDocumentClick" not in text:
+              if marker not in text:
+                  raise SystemExit('Expected Packeta widget marker not found')
+              text = text.replace(marker, listener + marker, 1)
+              path.write_text(text, encoding='utf-8')
+          else:
+              print('Packeta click interception already present')
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/PacketaPickupWidget.tsx
+          git diff --cached --quiet || git commit -m "Fix Zasilkovna map button to open Packeta widget"
+          git push
+
+      - name: Remove workflow
+        shell: bash
+        run: |
+          git rm .github/workflows/fix-packeta-map.yml
+          git commit -m "Remove temporary Packeta fix workflow"
+          git push
