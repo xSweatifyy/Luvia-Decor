@@ -1,6 +1,7 @@
 {
-  "buildCommand": "vite build",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "regions": ["cdg1"],
   "headers": [
     {
       "source": "/assets/(.*)",
@@ -13,10 +14,6 @@
     }
   ],
   "rewrites": [
-    {
-      "source": "/api/orders/:id/status",
-      "destination": "/api/orders?orderId=:id"
-    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
