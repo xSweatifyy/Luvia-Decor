@@ -72,9 +72,12 @@ export function subscribeProducts(callback: (products: Product[]) => void): () =
 
 export async function saveProductToFirestore(product: Product): Promise<Product> {
   const id = product.id || `prod-${Date.now()}`;
-  // Explicitly omit optional undefined fields such as compareAtPrice/gallery.
+  // A product edit must replace the whole Firestore document. Using merge:true
+  // kept old fields (such as a previously selected badge) when the field was
+  // cleared in the admin form. Undefined fields are stripped because Firestore
+  // does not accept them.
   const data = removeUndefined({ ...product, id, updatedAt: new Date().toISOString() });
-  await setDoc(doc(db, PRODUCTS_COL, id), data, { merge: true });
+  await setDoc(doc(db, PRODUCTS_COL, id), data);
   return data;
 }
 
