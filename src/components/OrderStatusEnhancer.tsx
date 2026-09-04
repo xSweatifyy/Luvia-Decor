@@ -17,7 +17,10 @@ export function OrderStatusEnhancer() {
     const enhance = () => {
       document.querySelectorAll<HTMLSelectElement>('#admin-dashboard-view select').forEach((select) => {
         const values = Array.from(select.options).map((option) => option.value);
-        if (!values.includes('nova') || !values.includes('dokonceno')) return;
+
+        // The order-status select contains these values but the order filter also
+        // contains "all". Never enhance the filter select.
+        if (values.includes('all') || !values.includes('nova') || !values.includes('dokonceno')) return;
 
         STATUS_OPTIONS.forEach(([value, label]) => {
           if (!Array.from(select.options).some((option) => option.value === value)) {
@@ -34,8 +37,12 @@ export function OrderStatusEnhancer() {
           const status = target.value;
           if (!STATUS_VALUES.has(status)) return;
 
-          const card = target.closest('.bg-\\[\\#FAF8F5\\]');
-          const orderNumber = card?.querySelector('span.font-bold.text-sm')?.textContent?.trim();
+          // Find the order card from the status selector instead of relying on a
+          // fragile Tailwind class selector.
+          const card = target.closest('div.border') || target.parentElement?.parentElement?.parentElement;
+          const text = card?.textContent || '';
+          const orderNumberMatch = text.match(/LUV-\d{4}-\d+/i);
+          const orderNumber = orderNumberMatch?.[0]?.trim();
           if (!orderNumber) return;
 
           target.disabled = true;
