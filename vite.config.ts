@@ -13,10 +13,7 @@ function copyCarrierLogos(): Plugin {
       const dist = resolve(root, 'dist');
       const legacyDir = resolve(dist, 'loga-dopravci');
       mkdirSync(legacyDir, { recursive: true });
-
-      // The source files live in the repository root. Copy them into the
-      // Vite output so both the requested root URLs and the existing footer
-      // URLs remain valid after deployment.
+      // Keep root logo files available in the production output.
       copyFileSync(resolve(root, 'zasilkovna-logo.png'), resolve(dist, 'zasilkovna-logo.png'));
       copyFileSync(resolve(root, 'dpd-logo.png'), resolve(dist, 'dpd-logo.png'));
       copyFileSync(resolve(root, 'zasilkovna-logo.png'), resolve(legacyDir, 'zasilkovna.png'));
