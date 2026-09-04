@@ -20,51 +20,58 @@ function variableSymbol(orderNumber: string): string {
 }
 
 function escapeHtml(value: unknown): string {
-  return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] || char));
+  return String(value ?? '').replace(/[&<>\"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;' }[char] || char));
+}
+
+function money(value: unknown): string {
+  return Number(value || 0).toLocaleString('cs-CZ');
 }
 
 function paymentQrUrl(order: any): string {
-  const iban = 'CZ4555000000000963625011';
+  const iban = 'CZ45550000000000963625011';
   const amount = Number(order.totalPrice || 0).toFixed(2);
   const vs = String(order.variableSymbol || '').replace(/\D/g, '');
-  const payload = `SPD*1.0*ACC:${iban}*AM:${amount}*CC:CZK*X-VS:${vs}`;
+  const payload = `SPD*1.0*ACC:${iban}*AM:${amount}*CC:CZK*X-VS:${vs}*X-MSG:Luvia Decor`;
   return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(payload)}`;
 }
 
-async function sendOrderEmails(order: any): Promise<{ customer: boolean; seller: boolean }> {
+function emailLayout(title: string, content: string): string {
+  return `<!doctype html><html lang="cs"><body style="margin:0;background:#f4f0eb;font-family:Arial,Helvetica,sans-serif;color:#302923"><div style="padding:32px 12px"><div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #e7dfd6;border-radius:20px;overflow:hidden;box-shadow:0 8px 30px rgba(45,39,35,.08)"><div style="background:#211c18;padding:28px 32px;text-align:center"><div style="font-size:26px;letter-spacing:5px;font-weight:700;color:#faf6f0">LUVIA DECOR</div><div style="margin-top:7px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#c5a880">Květinový ateliér &amp; dekorace</div></div><div style="padding:32px"><div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#b08f65;font-weight:700;margin-bottom:8px">${escapeHtml(title)}</div>${content}</div><div style="padding:20px 32px;background:#faf8f5;border-top:1px solid #eee5dc;text-align:center;color:#8d8176;font-size:12px">Luvia Decor · Kroměříž · objednavky@luvia-decor.cz</div></div></div></body></html>`;
+}
+
+function itemsHtml(items: any[]): string {
+  if (!items.length) return '<tr><td colspan="3" style="padding:12px;color:#777">Žádné položky</td></tr>';
+  return items.map((item: any) => `<tr><td style="padding:12px;border-bottom:1px solid #eee"><strong>${escapeHtml(item.title)}</strong><br><span style="font-size:11px;color:#8b8178">ID produktu: ${escapeHtml(item.productId || item.id || 'neuvedeno')}</span></td><td style="padding:12px;border-bottom:1px solid #eee;text-align:center">${Number(item.quantity || 1)}</td><td style="padding:12px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${money(item.price)} Kč</td></tr>`).join('');
+}
+
+async function sendOrderEmails(order: any): Promise<{ customer: boolean; seller: boolean; sentAt?: string; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = 'Luvia Decor <objednavky@luvia-decor.cz>';
-  const seller = process.env.ORDER_NOTIFY_EMAIL || 'objednavky@luvia-decor.cz';
-  if (!apiKey) {
-    console.error('Resend API key is missing. Set RESEND_API_KEY in Vercel environment variables.');
-    return { customer: false, seller: false };
-  }
+  const customerEmail = String(order?.customer?.email || '').trim();
+  const sellerEmail = String(process.env.ORDER_NOTIFY_EMAIL || 'objednavky@luvia-decor.cz').trim();
+  if (!apiKey) throw new Error('Chybí RESEND_API_KEY ve Vercel Environment Variables.');
+  if (!customerEmail) throw new Error('Objednávka nemá e-mail zákazníka.');
 
   const resend = new Resend(apiKey);
-  const items = Array.isArray(order.items) ? order.items : [];
-  const itemsHtml = items.map((item: any) =>
-    `<tr><td style="padding:8px;border-bottom:1px solid #eee"><strong>${escapeHtml(item.title)}</strong><br><span style="font-size:12px;color:#777">ID produktu: ${escapeHtml(item.productId || item.id || 'neuvedeno')}</span></td><td style="padding:8px;border-bottom:1px solid #eee;text-align:center">${Number(item.quantity || 1)}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${Number(item.price || 0).toLocaleString('cs-CZ')} Kč</td></tr>`
-  ).join('');
-  const deliveryText = order.delivery?.method === 'personal_pickup' ? 'Osobní odběr – Kroměříž' : order.delivery?.method === 'pickup_point' ? `Výdejní místo – ${order.delivery?.carrier || ''}: ${order.delivery?.pickupPoint || ''}` : `Doručení na adresu – ${order.delivery?.carrier || ''}`;
   const customer = order.customer || {};
-  const qrUrl = paymentQrUrl(order);
-  const common = `<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;color:#2D2723"><h1 style="font-size:28px">Luvia Decor</h1><p>Objednávka <strong>${escapeHtml(order.orderNumber)}</strong></p><p><strong>Variabilní symbol:</strong> ${escapeHtml(order.variableSymbol)}</p><p><strong>Způsob platby:</strong> Bankovní převod</p><p><strong>Doručení:</strong> ${escapeHtml(deliveryText)}</p><table style="width:100%;border-collapse:collapse;margin:20px 0"><thead><tr><th style="text-align:left;padding:8px">Produkt</th><th style="padding:8px">Ks</th><th style="text-align:right;padding:8px">Cena</th></tr></thead><tbody>${itemsHtml}</tbody></table><p><strong>Celkem: ${Number(order.totalPrice || 0).toLocaleString('cs-CZ')} Kč</strong></p><div style="background:#faf8f5;padding:16px;border-radius:12px"><strong>Bankovní převod</strong><br>Číslo účtu: 963625011/5500<br>IBAN: CZ45 5500 0000 0096 3625 011<br>Variabilní symbol: ${escapeHtml(order.variableSymbol)}<br>Částka: ${Number(order.totalPrice || 0).toLocaleString('cs-CZ')} Kč<br><div style="text-align:center;margin-top:14px"><strong>QR platba</strong><br><img src="${qrUrl}" width="220" height="220" alt="QR platba objednávky" style="display:block;margin:10px auto;border:1px solid #eee" /></div></div></div>`;
+  const items = Array.isArray(order.items) ? order.items : [];
+  const deliveryText = order.delivery?.method === 'personal_pickup' ? 'Osobní odběr – Kroměříž' : order.delivery?.method === 'pickup_point' ? `Výdejní místo – ${order.delivery?.carrier || ''}: ${order.delivery?.pickupPoint || ''}` : `Doručení na adresu – ${order.delivery?.carrier || ''}`;
+  const paymentBlock = `<div style="margin-top:24px;padding:20px;background:#faf8f5;border:1px solid #eee5dc;border-radius:14px"><div style="font-weight:700;margin-bottom:10px">Bankovní převod</div><div style="font-size:13px;line-height:1.8">Číslo účtu: <strong>963625011/5500</strong><br>IBAN: <strong>CZ45 5500 0000 0096 3625 011</strong><br>Variabilní symbol: <strong>${escapeHtml(order.variableSymbol)}</strong><br>Částka: <strong>${money(order.totalPrice)} Kč</strong></div><div style="text-align:center;margin-top:16px"><img src="${paymentQrUrl(order)}" width="220" height="220" alt="QR platba" style="display:inline-block;border:1px solid #e6ded5;border-radius:8px"></div></div>`;
+  const common = `<div style="margin:18px 0;padding:16px 18px;background:#faf8f5;border-radius:12px;font-size:13px;line-height:1.8"><strong>Objednávka:</strong> ${escapeHtml(order.orderNumber)}<br><strong>Variabilní symbol:</strong> ${escapeHtml(order.variableSymbol)}<br><strong>Doručení:</strong> ${escapeHtml(deliveryText)}</div><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th style="padding:10px;text-align:left;border-bottom:1px solid #ddd">Položka</th><th style="padding:10px">Ks</th><th style="padding:10px;text-align:right">Cena</th></tr></thead><tbody>${itemsHtml(items)}</tbody></table><p style="font-size:17px;text-align:right;margin:20px 0 0"><strong>Celkem: ${money(order.totalPrice)} Kč</strong></p>${paymentBlock}`;
 
-  const customerResult = await resend.emails.send({
-    from,
-    to: customer.email,
-    subject: `Potvrzení objednávky ${order.orderNumber} – Luvia Decor`,
-    html: `${common}<p>Děkujeme za Vaši objednávku. Objednávka byla přijata a čeká na úhradu bankovním převodem.</p>`
-  });
+  const customerHtml = emailLayout('Potvrzení objednávky', `<h1 style="margin:0 0 12px;font-size:25px">Děkujeme za Vaši objednávku</h1><p style="font-size:15px;line-height:1.7">Dobrý den, ${escapeHtml(customer.fullName)},<br>Vaše objednávka byla úspěšně přijata. Jakmile obdržíme platbu, budeme ji dále zpracovávat.</p>${common}<p style="margin-top:24px;font-size:13px;color:#756b63">O změně stavu objednávky Vás budeme informovat e-mailem.</p>`);
+  const sellerHtml = emailLayout('Nová objednávka', `<h1 style="margin:0 0 12px;font-size:25px">Nová objednávka ${escapeHtml(order.orderNumber)}</h1><p style="font-size:14px;line-height:1.7"><strong>Zákazník:</strong> ${escapeHtml(customer.fullName)}<br><strong>E-mail:</strong> ${escapeHtml(customer.email)}<br><strong>Telefon:</strong> ${escapeHtml(customer.phone)}<br><strong>Adresa:</strong> ${escapeHtml(customer.street)}, ${escapeHtml(customer.zip)} ${escapeHtml(customer.city)}<br><strong>Poznámka:</strong> ${escapeHtml(customer.note || '—')}</p>${common}<p style="font-size:12px;color:#756b63">ID produktů: ${items.map((item: any) => escapeHtml(item.productId || item.id || 'neuvedeno')).join(', ')}</p>`);
 
-  const sellerResult = await resend.emails.send({
-    from,
-    to: seller,
-    subject: `NOVÁ OBJEDNÁVKA ${order.orderNumber} – ${customer.fullName}`,
-    html: `${common}<h2>Nová objednávka od zákazníka</h2><p><strong>${escapeHtml(customer.fullName)}</strong><br>${escapeHtml(customer.email)}<br>${escapeHtml(customer.phone)}<br>${escapeHtml(customer.street)}, ${escapeHtml(customer.zip)} ${escapeHtml(customer.city)}</p><p><strong>ID produktů v objednávce:</strong> ${items.map((item: any) => escapeHtml(item.productId || item.id || 'neuvedeno')).join(', ')}</p><p>Poznámka: ${escapeHtml(customer.note)}</p>`
-  });
+  const results = await Promise.allSettled([
+    resend.emails.send({ from: 'Luvia Decor <objednavky@luvia-decor.cz>', to: customerEmail, replyTo: 'podpora@luvia-decor.cz', subject: `Potvrzení objednávky · ${order.orderNumber} | Luvia Decor`, html: customerHtml }),
+    resend.emails.send({ from: 'Luvia Decor <objednavky@luvia-decor.cz>', to: sellerEmail, subject: `NOVÁ OBJEDNÁVKA · ${order.orderNumber} | Luvia Decor`, html: sellerHtml })
+  ]);
 
-  return { customer: !customerResult.error, seller: !sellerResult.error };
+  const failed = results.find((result: any) => result.status === 'rejected' || result.value?.error);
+  if (failed) {
+    const reason = failed.status === 'rejected' ? failed.reason?.message : failed.value?.error?.message;
+    throw new Error(reason || 'Resend odmítl odeslání e-mailu.');
+  }
+  return { customer: true, seller: true, sentAt: new Date().toISOString() };
 }
 
 async function handler(req: VercelRequest, res: VercelResponse) {
@@ -115,7 +122,8 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       id, orderNumber, variableSymbol: vs, paymentMethod: 'bank_transfer', createdAt: new Date().toISOString(),
       customer: { fullName: customer.fullName, email: customer.email, phone: customer.phone, street: customer.street || '', city: customer.city || '', zip: customer.zip || '', country: customer.country || 'Česká republika', note: customer.note || '' },
       items: orderItems, subtotal, shipping, discount: discount || undefined, couponCode: appliedCouponCode,
-      totalPrice: Math.max(0, subtotal - discount + shipping), delivery: delivery || { method: 'address' }, status: 'nova', emails: { customer: false, seller: false }
+      totalPrice: Math.max(0, subtotal - discount + shipping), delivery: delivery || { method: 'address' }, status: 'nova',
+      emails: { customer: false, seller: false }
     };
 
     await sql`INSERT INTO orders (id, data) VALUES (${id}, ${JSON.stringify(newOrder)}::jsonb)`;
@@ -123,10 +131,11 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const emailStatus = await sendOrderEmails(newOrder);
       newOrder.emails = emailStatus;
-      await sql`UPDATE orders SET data = ${JSON.stringify(newOrder)}::jsonb WHERE id = ${id}`;
-    } catch (emailError) {
+    } catch (emailError: any) {
       console.error('Order email error:', emailError);
+      newOrder.emails = { customer: false, seller: false, error: emailError?.message || 'Odeslání e-mailu selhalo.', failedAt: new Date().toISOString() };
     }
+    await sql`UPDATE orders SET data = ${JSON.stringify(newOrder)}::jsonb WHERE id = ${id}`;
 
     return res.status(201).json({ success: true, order: newOrder });
   } catch (error: any) {
