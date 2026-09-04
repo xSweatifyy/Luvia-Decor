@@ -10,21 +10,18 @@ export type DpdPoint = {
   [key: string]: unknown;
 };
 
-type Props = { onSelect: (point: DpdPoint) => void };
-
 type Carrier = 'DPD' | 'Zásilkovna';
+type Props = { onSelect: (point: DpdPoint) => void; initialCarrier?: Carrier };
 
 const DPD_WIDGET_URL = 'https://api.dpd.cz/widget/latest/index.html?countries=CZ&hideCloseButton=true';
 
-function selectCarrierButton(carrier: Carrier) {
-  const buttons = Array.from(document.querySelectorAll('button'));
-  const button = buttons.find((candidate) => candidate.textContent?.trim() === carrier) as HTMLButtonElement | undefined;
-  button?.click();
-}
-
-export const DpdPickupWidget: React.FC<Props> = ({ onSelect }) => {
-  const [carrier, setCarrier] = useState<Carrier | null>(null);
+export const DpdPickupWidget: React.FC<Props> = ({ onSelect, initialCarrier }) => {
+  const [carrier, setCarrier] = useState<Carrier | null>(initialCarrier ?? null);
   const [open, setOpen] = useState(true);
+
+  useEffect(() => {
+    if (initialCarrier) setCarrier(initialCarrier);
+  }, [initialCarrier]);
 
   useEffect(() => {
     if (carrier !== 'DPD') return;
@@ -52,10 +49,7 @@ export const DpdPickupWidget: React.FC<Props> = ({ onSelect }) => {
     return () => window.removeEventListener('message', handler);
   }, [carrier, onSelect]);
 
-  const chooseCarrier = (nextCarrier: Carrier) => {
-    setCarrier(nextCarrier);
-    selectCarrierButton(nextCarrier);
-  };
+  const chooseCarrier = (nextCarrier: Carrier) => setCarrier(nextCarrier);
 
   if (!open) return null;
 
@@ -88,7 +82,7 @@ export const DpdPickupWidget: React.FC<Props> = ({ onSelect }) => {
     return (
       <>
         <PacketaPickupWidget onSelect={(point) => { setOpen(false); onSelect({ ...point, carrier: 'Zásilkovna' }); }} />
-        <button type="button" onClick={() => setCarrier(null)} className="fixed left-4 bottom-4 z-[220] px-4 py-2.5 rounded-xl bg-white border border-[#E3DACF] shadow-lg text-xs font-bold text-[#2D2723]">← Změnit dopravce</button>
+        {!initialCarrier && <button type="button" onClick={() => setCarrier(null)} className="fixed left-4 bottom-4 z-[220] px-4 py-2.5 rounded-xl bg-white border border-[#E3DACF] shadow-lg text-xs font-bold text-[#2D2723]">← Změnit dopravce</button>}
       </>
     );
   }
@@ -96,7 +90,7 @@ export const DpdPickupWidget: React.FC<Props> = ({ onSelect }) => {
   return (
     <div className="fixed inset-0 z-[200] bg-white">
       <div className="absolute top-4 left-4 z-[210]">
-        <button type="button" onClick={() => setCarrier(null)} className="px-4 py-2.5 rounded-xl bg-white/95 border border-[#E3DACF] shadow-lg text-xs font-bold text-[#2D2723]">← Změnit dopravce</button>
+        {!initialCarrier && <button type="button" onClick={() => setCarrier(null)} className="px-4 py-2.5 rounded-xl bg-white/95 border border-[#E3DACF] shadow-lg text-xs font-bold text-[#2D2723]">← Změnit dopravce</button>}
       </div>
       <iframe
         title="DPD výdejní místa"
