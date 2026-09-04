@@ -5,7 +5,11 @@
     --font-serif: 'Cormorant Garamond', Georgia, serif;
     --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   }
-  body { font-family: var(--font-sans); color: #2D2723; background-color: #FAF8F5; }
+  html { overflow-x: hidden; scroll-behavior: smooth; }
+  body { margin: 0; min-width: 320px; width: 100%; max-width: 100vw; overflow-x: hidden; font-family: var(--font-sans); color: #2D2723; background-color: #FAF8F5; }
+  img, video, canvas, svg { max-width: 100%; }
+  button, input, select, textarea { font: inherit; }
+  input, select, textarea { max-width: 100%; }
   h1, h2, h3, .font-editorial { font-family: var(--font-serif); letter-spacing: -0.01em; }
 }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -13,8 +17,20 @@
 ::-webkit-scrollbar-thumb { background: #D9CFC4; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #BAABA0; }
 
+/* Luvia Decor – responsive foundation */
+#root { width: 100%; min-height: 100vh; overflow-x: clip; }
+main { width: 100%; min-width: 0; }
+@media (max-width: 640px) {
+  h1 { overflow-wrap: anywhere; }
+  table { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  button { max-width: 100%; }
+}
+@media (max-width: 420px) {
+  .font-editorial { letter-spacing: -0.015em; }
+}
+
 /* Luvia Decor admin polish */
-.admin-panel { --admin-border: rgba(93,72,55,.12); }
+.admin-panel { --admin-border: rgba(93,72,55,.12); min-width: 0; width: 100%; }
 .admin-panel input, .admin-panel textarea, .admin-panel select { transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease, transform .18s ease; }
 .admin-panel input:focus, .admin-panel textarea:focus, .admin-panel select:focus { outline:none; border-color:rgba(139,111,90,.65)!important; box-shadow:0 0 0 3px rgba(139,111,90,.10)!important; }
 .admin-panel button { transition:transform .16s ease, box-shadow .16s ease, opacity .16s ease; }
@@ -57,4 +73,11 @@
 #main-footer > div > div.flex.flex-col.sm\\:flex-row.items-center.justify-center.gap-3 > div:nth-of-type(3) {
   background-image: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpmMaFs51fvks0QDYXdOAijgCg34wD37UAsysaN2pdZV7SETU-hg9gHtw&s=10');
 }
-@media (max-width:768px) { .admin-panel { font-size:14px; } }
+@media (max-width:768px) {
+  .admin-panel { font-size:14px; }
+  .admin-panel table { width:100%; display:block; overflow-x:auto; }
+}
+@media (max-width:480px) {
+  #main-footer > div > div.flex.flex-col.sm\\:flex-row.items-center.justify-center.gap-3 > div:nth-of-type(2),
+  #main-footer > div > div.flex.flex-col.sm\\:flex-row.items-center.justify-center.gap-3 > div:nth-of-type(3) { width: min(150px, 42vw); height: 48px; padding-inline: 10px; }
+}
