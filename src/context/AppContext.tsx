@@ -19,14 +19,35 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const getPageFromHash = (): PageRoute => {
-    const hash = window.location.hash.replace('#', '').toLowerCase();
-    const valid: PageRoute[] = ['home', 'catalog', 'custom-order', 'gallery', 'contact', 'cart', 'admin'];
-    return valid.includes(hash as PageRoute) ? hash as PageRoute : 'home';
+const routeFromLocation = (): PageRoute => {
+  const hash = window.location.hash.replace(/^#/, '').toLowerCase();
+  const hashRoutes: PageRoute[] = ['home', 'catalog', 'custom-order', 'gallery', 'contact', 'cart', 'terms', 'admin'];
+  if (hashRoutes.includes(hash as PageRoute)) return hash as PageRoute;
+
+  const path = window.location.pathname.replace(/\/+$/, '').toLowerCase();
+  const pathRoutes: Record<string, PageRoute> = {
+    '/': 'home',
+    '/home': 'home',
+    '/eshop': 'catalog',
+    '/e-shop': 'catalog',
+    '/catalog': 'catalog',
+    '/zakazkova-tvorba': 'custom-order',
+    '/custom-order': 'custom-order',
+    '/galerie': 'gallery',
+    '/gallery': 'gallery',
+    '/kontakt': 'contact',
+    '/contact': 'contact',
+    '/kosik': 'cart',
+    '/cart': 'cart',
+    '/obchodni-podminky': 'terms',
+    '/terms': 'terms',
+    '/admin': 'admin'
   };
-  const [page, setPageState] = useState<PageRoute>(getPageFromHash);
-  // Do not put development/demo products into state. Firestore is authoritative.
+  return pathRoutes[path] || 'home';
+};
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [page, setPageState] = useState<PageRoute>(routeFromLocation);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [config, setConfig] = useState<SiteConfig>(initialSiteConfig);
@@ -71,11 +92,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (config.faviconUrl) { const link = document.getElementById('favicon-link') as HTMLLinkElement | null; if (link) link.href = config.faviconUrl; }
     if (config.siteName) document.title = `${config.siteName} | ${config.slogan || 'Ruční dekorace Kroměříž'}`;
   }, [config]);
-  useEffect(() => { const fn = () => setPageState(getPageFromHash()); window.addEventListener('hashchange', fn); return () => window.removeEventListener('hashchange', fn); }, []);
+
+  useEffect(() => {
+    const fn = () => setPageState(routeFromLocation());
+    window.addEventListener('hashchange', fn);
+    window.addEventListener('popstate', fn);
+    return () => { window.removeEventListener('hashchange', fn); window.removeEventListener('popstate', fn); };
+  }, []);
 
   const addToast = (type: 'success' | 'error' | 'info', title: string, message?: string) => { const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2,6)}`; setToasts(p => [...p, { id, type, title, message }]); window.setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4500); };
   const removeToast = (id: string) => setToasts(p => p.filter(t => t.id !== id));
-  const setPage = (newPage: PageRoute, params?: { category?: string; productId?: string }) => { if (params?.category) setSelectedCategory(params.category); if (params?.productId) setQuickViewProduct(products.find(p => p.id === params.productId) || null); setPageState(newPage); window.location.hash = newPage === 'home' ? '' : newPage; window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const setPage = (newPage: PageRoute, params?: { category?: string; productId?: string }) => {
+    if (params?.category) setSelectedCategory(params.category);
+    if (params?.productId) setQuickViewProduct(products.find(p => p.id === params.productId) || null);
+    setPageState(newPage);
+    const nextHash = newPage === 'home' ? '' : newPage;
+    if (window.location.hash !== (nextHash ? `#${nextHash}` : '')) window.location.hash = nextHash;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const addToCart = (product: Product, quantity = 1, note?: string) => { if (!product.inStock) return addToast('error','Produkt není skladem','Tento produkt momentálně nelze vložit do košíku.'); setCart(prev => { const old = prev.find(i => i.product.id === product.id); return old ? prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + quantity, customNote: note || i.customNote } : i) : [...prev, { product, quantity, customNote: note }]; }); addToast('success','Vloženo do košíku',`${product.title} (${quantity} ks) byl přidán do košíku.`); };
   const removeFromCart = (id: string) => setCart(prev => prev.filter(i => i.product.id !== id));
   const updateCartQuantity = (id: string, quantity: number) => quantity <= 0 ? removeFromCart(id) : setCart(prev => prev.map(i => i.product.id === id ? { ...i, quantity } : i));
