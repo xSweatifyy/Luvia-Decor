@@ -15,7 +15,7 @@ import { CatalogPage } from './pages/CatalogPage';
 import { CustomOrderPage } from './pages/CustomOrderPage';
 import { GalleryPage } from './pages/GalleryPage';
 import { ContactPage } from './pages/ContactPage';
-import { StableCartPage } from './pages/StableCartPage';
+import { CheckoutCartPage } from './pages/CheckoutCartPage';
 import { TermsPage } from './pages/TermsPage';
 import { AdminPage } from './pages/AdminPage';
 import { CookieConsent, getCookieConsent } from './components/CookieConsent';
@@ -43,7 +43,7 @@ const AppContent: React.FC = () => {
   return <div className="min-h-screen bg-[#FCFAF7] text-[#2D2723] flex flex-col font-sans selection:bg-[#8C7355] selection:text-white">
     <Navbar /><main className="flex-1">
       {page === 'home' && <HomePage />}{page === 'catalog' && <CatalogPage />}{page === 'custom-order' && <CustomOrderPage />}
-      {page === 'gallery' && <GalleryPage />}{page === 'contact' && <ContactPage />}{page === 'cart' && <StableCartPage />}
+      {page === 'gallery' && <GalleryPage />}{page === 'contact' && <ContactPage />}{page === 'cart' && <CheckoutCartPage />}
       {page === 'terms' && <><TermsPage /><NonPickupTermsSection /></>}{page === 'admin' && <AdminPage />}
     </main><Footer /><ProductDetailModal /><ToastContainer /><TermsAgreementEnhancer />
     {analyticsConsent && <Analytics />}<CookieConsent onConsent={(choice) => setAnalyticsConsent(choice === 'all')} />
