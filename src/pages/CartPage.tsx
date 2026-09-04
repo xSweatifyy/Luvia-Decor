@@ -6,6 +6,7 @@ import { SafeImage } from '../components/SafeImage';
 import { PacketaPickupWidget } from '../components/PacketaPickupWidget';
 import { DpdPickupWidget } from '../components/DpdPickupWidget';
 import { findCouponByCodeInFirestore } from '../services/firestoreService';
+import { useApp } from '../context/AppContext';
 
 const DEFAULT_SHIPPING = {
   carriers: {
