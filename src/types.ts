@@ -5,10 +5,10 @@ export interface Product { id:string; title:string; category:string; price:numbe
 export interface CartItem { product:Product; quantity:number; customNote?:string; }
 export interface OrderItem { productId:string; title:string; price:number; quantity:number; imageUrl:string; customNote?:string; }
 export interface OrderCustomer { fullName:string; email:string; phone:string; street:string; city:string; zip:string; country:string; note?:string; }
-export type DeliveryMethod = 'address'|'pickup_point'|'box'|'personal_pickup';
+export type DeliveryMethod = 'address'|'pickup_point'|'personal_pickup';
 export type DeliveryCarrier = string;
 export interface DeliverySelection { method:DeliveryMethod; carrier?:DeliveryCarrier; pickupPoint?:string; }
-export interface ShippingCarrierConfig { enabled:boolean; address:number; pickup_point:number; box:number; }
+export interface ShippingCarrierConfig { enabled:boolean; address:number; pickup_point:number; }
 export interface ShippingConfig { carriers:Record<string, ShippingCarrierConfig>; personalPickup:{ enabled:boolean; price:number; label:string; }; }
 export type OrderStatus = 'nova'|'zpracovava_se'|'zaplaceno'|'u_prepravce'|'odeslano'|'dokonceno'|'zruseno';
 export interface Order { id:string; orderNumber:string; createdAt:string; customer:OrderCustomer; items:OrderItem[]; subtotal:number; shipping:number; discount?:number; couponCode?:string; totalPrice:number; delivery?:DeliverySelection; status:OrderStatus; resendSent?:boolean; resendError?:string; }
