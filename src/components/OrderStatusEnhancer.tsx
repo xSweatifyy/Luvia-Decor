@@ -26,45 +26,73 @@ function isOrderStatusSelect(select: HTMLSelectElement) {
 function ensureStatusOptions() {
   document.querySelectorAll<HTMLSelectElement>('#admin-dashboard-view select').forEach((select) => {
     const values = Array.from(select.options).map((option) => option.value);
-
-    // The Orders tab filter also gets the complete list of statuses.
     if (values.includes('all') && values.includes('nova')) {
       addMissingStatusOptions(select);
       return;
     }
-
     if (!isOrderStatusSelect(select)) return;
     addMissingStatusOptions(select);
     if (!select.dataset.previousStatus) select.dataset.previousStatus = select.value;
   });
 }
 
-function findOrderNumber(select: HTMLSelectElement): string | null {
-  const card = select.closest('div.border');
-  return card?.textContent?.match(/LUV-\d{4}-\d+/i)?.[0] || null;
+function getOrderCard(select: HTMLSelectElement): HTMLElement | null {
+  return select.closest<HTMLElement>('div.border');
+}
+
+async function loadOrders() {
+  const response = await fetch('/api/orders', { cache: 'no-store' });
+  if (!response.ok) throw new Error('Nepodařilo se načíst objednávky.');
+  const data = await response.json();
+  if (!Array.isArray(data)) throw new Error('Server vrátil neplatná data objednávek.');
+  return data;
 }
 
 async function saveOrderStatus(select: HTMLSelectElement, status: string) {
-  const orderNumber = findOrderNumber(select);
-  if (!orderNumber) throw new Error('Nepodařilo se najít číslo objednávky.');
+  const card = getOrderCard(select);
+  const cardText = card?.textContent?.trim() || '';
+  if (!cardText) throw new Error('Nepodařilo se najít objednávku.');
 
-  const ordersResponse = await fetch('/api/orders', { cache: 'no-store' });
-  if (!ordersResponse.ok) throw new Error('Nepodařilo se načíst objednávky.');
-  const orders = await ordersResponse.json();
-  const order = Array.isArray(orders)
-    ? orders.find((item: any) => String(item.orderNumber).toLowerCase() === orderNumber.toLowerCase())
-    : null;
-  if (!order?.id) throw new Error(`Objednávka ${orderNumber} nebyla nalezena.`);
+  const orders = await loadOrders();
 
-  const response = await fetch(`/api/orders/${encodeURIComponent(order.id)}/status`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
+  // Do not rely only on a hard-coded LUV-YYYY-#### format. This also works
+  // for older orders that may use a different order-number format.
+  const order = orders.find((item: any) => {
+    const number = String(item?.orderNumber || '').trim();
+    return number && cardText.toLowerCase().includes(number.toLowerCase());
   });
 
-  if (!response.ok) {
+  if (!order?.id) throw new Error('Objednávku se nepodařilo jednoznačně najít. Obnovte stránku a zkuste to znovu.');
+
+  const payload = JSON.stringify({ status });
+  let primaryError = '';
+
+  try {
+    const response = await fetch(`/api/orders/${encodeURIComponent(String(order.id))}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: payload,
+    });
+
     const data = await response.json().catch(() => null);
-    throw new Error(data?.error || 'Aktualizace stavu selhala.');
+    if (response.ok && data && data.status === status) return data;
+    primaryError = data?.error || `Server vrátil chybu ${response.status}.`;
+  } catch (error) {
+    primaryError = error instanceof Error ? error.message : 'Primární aktualizace selhala.';
+  }
+
+  // Compatibility fallback for both legacy and newly created orders.
+  try {
+    const fallback = await fetch('/api/order-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ orderId: String(order.id), status }),
+    });
+    const data = await fallback.json().catch(() => null);
+    if (fallback.ok && data?.success) return data.order;
+    throw new Error(data?.error || `Aktualizace selhala (${fallback.status}).`);
+  } catch (fallbackError) {
+    throw new Error(fallbackError instanceof Error ? fallbackError.message : primaryError || 'Aktualizace stavu selhala.');
   }
 }
 
@@ -76,6 +104,8 @@ function handleStatusChange(event: Event) {
 
   const nextStatus = target.value;
   const previousStatus = target.dataset.previousStatus || nextStatus;
+  if (nextStatus === previousStatus) return;
+
   target.disabled = true;
 
   void saveOrderStatus(target, nextStatus)
