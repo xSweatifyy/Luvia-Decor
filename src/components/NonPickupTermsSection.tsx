@@ -63,6 +63,13 @@ Prodávající se zavazuje při vzniku situace související s nepřevzetím zá
 15. Případná úhrada nákladů
 Pokud prodávajícímu v důsledku bezdůvodného nepřevzetí zásilky vzniknou náklady nebo škoda, bude zákazník o jejich výši a důvodu vzniku informován. Případná požadovaná částka musí být přiměřená a odpovídat skutečně vzniklým nákladům nebo škodě.`;
 
-export const NonPickupTermsSection: React.FC = () => {
-  return <section className="pt-4 border-t border-[#E8DFC8]"><h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#2D2723] mb-4">NEPŘEVZETÍ ZÁSILKY</h2><div className="bg-[#FAF8F5] rounded-2xl border border-[#E8DFC8] p-5 sm:p-7 text-sm leading-7 text-[#5C5046] whitespace-pre-line">{text}</div></section>;
-};
+export const NonPickupTermsSection: React.FC = () => (
+  <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 sm:pb-16">
+    <div className="bg-white rounded-3xl border border-[#E8DFC8] shadow-sm overflow-hidden">
+      <div className="p-6 sm:p-10">
+        <h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#2D2723] mb-4">NEPŘEVZETÍ ZÁSILKY</h2>
+        <div className="bg-[#FAF8F5] rounded-2xl border border-[#E8DFC8] p-5 sm:p-7 text-sm leading-7 text-[#5C5046] whitespace-pre-line">{text}</div>
+      </div>
+    </div>
+  </section>
+);
