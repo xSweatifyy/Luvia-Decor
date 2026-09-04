@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 
 const sql = neon(process.env.DATABASE_URL || '');
-const allowed = new Set(['nova','zpracovava_se','zaplaceno','odeslano','dokonceno','zruseno']);
+const allowed = new Set(['nova','zpracovava_se','zaplaceno','u_prepravce','odeslano','dokonceno','zruseno']);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(204).end();
