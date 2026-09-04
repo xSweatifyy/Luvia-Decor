@@ -7,8 +7,16 @@ const STATUS_OPTIONS = [
   ['u_prepravce', 'U přepravce'],
   ['odeslano', 'Odesláno'],
   ['dokonceno', 'Dokončeno'],
-  ['zruseno', 'Zrušit'],
+  ['zruseno', 'Zrušeno'],
 ] as const;
+
+function addMissingStatusOptions(select: HTMLSelectElement) {
+  STATUS_OPTIONS.forEach(([value, label]) => {
+    if (!Array.from(select.options).some((option) => option.value === value)) {
+      select.add(new Option(label, value));
+    }
+  });
+}
 
 function isOrderStatusSelect(select: HTMLSelectElement) {
   const values = Array.from(select.options).map((option) => option.value);
@@ -17,12 +25,16 @@ function isOrderStatusSelect(select: HTMLSelectElement) {
 
 function ensureStatusOptions() {
   document.querySelectorAll<HTMLSelectElement>('#admin-dashboard-view select').forEach((select) => {
+    const values = Array.from(select.options).map((option) => option.value);
+
+    // The Orders tab filter also gets the complete list of statuses.
+    if (values.includes('all') && values.includes('nova')) {
+      addMissingStatusOptions(select);
+      return;
+    }
+
     if (!isOrderStatusSelect(select)) return;
-    STATUS_OPTIONS.forEach(([value, label]) => {
-      if (!Array.from(select.options).some((option) => option.value === value)) {
-        select.add(new Option(label, value));
-      }
-    });
+    addMissingStatusOptions(select);
     if (!select.dataset.previousStatus) select.dataset.previousStatus = select.value;
   });
 }
@@ -60,8 +72,6 @@ function handleStatusChange(event: Event) {
   const target = event.target;
   if (!(target instanceof HTMLSelectElement) || !isOrderStatusSelect(target)) return;
 
-  // This select is the per-order status control. Stop the legacy React handler
-  // from sending a second request and potentially overwriting the new status.
   event.stopImmediatePropagation();
 
   const nextStatus = target.value;
