@@ -18,6 +18,7 @@ import { ContactPage } from './pages/ContactPage';
 import { CheckoutCartPage } from './pages/CheckoutCartPage';
 import { CartPromoCode } from './components/CartPromoCode';
 import { TermsPage } from './pages/TermsPage';
+import { PrivacyPage } from './pages/PrivacyPage';
 import { AdminPage } from './pages/AdminPage';
 import { CookieConsent, getCookieConsent } from './components/CookieConsent';
 import { TermsAgreementEnhancer } from './components/TermsAgreementEnhancer';
@@ -30,23 +31,25 @@ const AppContent: React.FC = () => {
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [page]);
   useEffect(() => {
     const openTerms = () => setPage('terms');
+    const openPrivacy = () => setPage('privacy');
     window.addEventListener('open-terms', openTerms);
+    window.addEventListener('open-privacy', openPrivacy);
     const handleTermsClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       const control = target?.closest('button, a');
       if (!control) return;
-      if ((control.textContent || '').toLowerCase().includes('obchodní podmínky')) {
-        event.preventDefault(); event.stopPropagation(); setPage('terms');
-      }
+      const text = (control.textContent || '').toLowerCase();
+      if (text.includes('obchodní podmínky')) { event.preventDefault(); event.stopPropagation(); setPage('terms'); }
+      else if (text.includes('ochrana osobních údajů') || text.includes('gdpr')) { event.preventDefault(); event.stopPropagation(); setPage('privacy'); }
     };
     document.addEventListener('click', handleTermsClick, true);
-    return () => { window.removeEventListener('open-terms', openTerms); document.removeEventListener('click', handleTermsClick, true); };
+    return () => { window.removeEventListener('open-terms', openTerms); window.removeEventListener('open-privacy', openPrivacy); document.removeEventListener('click', handleTermsClick, true); };
   }, [setPage]);
 
   return <div className="min-h-screen bg-[#FCFAF7] text-[#2D2723] flex flex-col font-sans selection:bg-[#8C7355] selection:text-white"><Navbar/><main className="flex-1">
     {page === 'home' && <HomePage/>}{page === 'catalog' && <CatalogPage/>}{page === 'custom-order' && <CustomOrderPage/>}{page === 'gallery' && <GalleryPage/>}{page === 'contact' && <ContactPage/>}
     {page === 'cart' && <><CartPromoCode/><CheckoutCartPage/></>}
-    {page === 'terms' && <><TermsPage/><NonPickupTermsSection/></>}{page === 'admin' && <AdminPage/>}
+    {page === 'terms' && <><TermsPage/><NonPickupTermsSection/></>}{page === 'privacy' && <PrivacyPage/>}{page === 'admin' && <AdminPage/>}
   </main><Footer/><ProductDetailModal/><ToastContainer/><TermsAgreementEnhancer/>{analyticsConsent&&<Analytics/>}<CookieConsent onConsent={(choice)=>setAnalyticsConsent(choice==='all')}/></div>;
 };
 export default function App(){return <AppProvider><AppContent/></AppProvider>}
