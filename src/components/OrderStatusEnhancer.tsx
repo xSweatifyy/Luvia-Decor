@@ -28,6 +28,10 @@ function ensureStatusOptions() {
   });
 }
 
+async function parseResponse(response: Response) {
+  return response.json().catch(() => ({} as Record<string, unknown>));
+}
+
 async function changeOrderStatus(select: HTMLSelectElement, status: string) {
   if (!STATUS_VALUES.has(status)) return;
 
@@ -48,17 +52,31 @@ async function changeOrderStatus(select: HTMLSelectElement, status: string) {
     if (!ordersResponse.ok) throw new Error('Objednávky se nepodařilo načíst.');
     const orders = await ordersResponse.json();
     const order = Array.isArray(orders)
-      ? orders.find((item: any) => String(item.orderNumber) === orderNumber || String(item.id) === orderNumber)
+      ? orders.find((item: any) => String(item.orderNumber).trim() === orderNumber || String(item.id).trim() === orderNumber)
       : null;
     if (!order?.id) throw new Error(`Objednávka ${orderNumber} nebyla nalezena.`);
 
-    const response = await fetch(`/api/orders/${encodeURIComponent(order.id)}/status`, {
+    // Primary endpoint also handles status-change e-mails.
+    let response = await fetch(`/api/orders/${encodeURIComponent(order.id)}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
     });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Aktualizace stavu selhala.');
+    let data = await parseResponse(response);
+
+    // Keep compatibility with the older endpoint used by the original admin.
+    if (!response.ok) {
+      response = await fetch('/api/order-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id, status })
+      });
+      data = await parseResponse(response);
+    }
+
+    if (!response.ok) {
+      throw new Error(String(data?.error || 'Aktualizace stavu selhala.'));
+    }
 
     select.dataset.savedStatus = status;
     select.value = status;
@@ -76,10 +94,6 @@ export function OrderStatusEnhancer() {
   useEffect(() => {
     ensureStatusOptions();
 
-    // Use one delegated capture listener. React can replace the <select> node
-    // during re-renders, so listeners attached directly to the old node are
-    // unreliable. Capture also prevents the legacy handler from overwriting
-    // the selected value before our server update completes.
     const onChange = (event: Event) => {
       const target = event.target;
       if (!(target instanceof HTMLSelectElement)) return;
