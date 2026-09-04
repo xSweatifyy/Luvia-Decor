@@ -17,9 +17,7 @@ export function OrderStatusEnhancer() {
     const enhance = () => {
       document.querySelectorAll<HTMLSelectElement>('#admin-dashboard-view select').forEach((select) => {
         const values = Array.from(select.options).map((option) => option.value);
-        // Only enhance the per-order status selector, not unrelated admin filters.
         if (!values.includes('nova') || !values.includes('dokonceno')) return;
-        if (select.dataset.luviaStatusEnhanced === '1') return;
 
         STATUS_OPTIONS.forEach(([value, label]) => {
           if (!Array.from(select.options).some((option) => option.value === value)) {
@@ -27,34 +25,44 @@ export function OrderStatusEnhancer() {
           }
         });
 
+        if (select.dataset.luviaStatusEnhanced === '1') return;
         select.dataset.luviaStatusEnhanced = '1';
+        select.dataset.savedStatus = select.value;
+
         select.addEventListener('change', async (event) => {
           const target = event.currentTarget as HTMLSelectElement;
           const status = target.value;
-          const orderCard = target.closest('[data-order-id]') as HTMLElement | null;
-          const orderId = orderCard?.dataset.orderId;
-
-          // Legacy cards did not expose the order ID, so fall back to the nearest card
-          // by reading the order number and looking it up from the visible order data.
           if (!STATUS_VALUES.has(status)) return;
-          if (!orderId) return;
+
+          const card = target.closest('.bg-\\[\\#FAF8F5\\]');
+          const orderNumber = card?.querySelector('span.font-bold.text-sm')?.textContent?.trim();
+          if (!orderNumber) return;
 
           target.disabled = true;
           try {
-            const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/status`, {
+            const ordersResponse = await fetch('/api/orders', { cache: 'no-store' });
+            if (!ordersResponse.ok) throw new Error('Objednávky se nepodařilo načíst.');
+            const orders = await ordersResponse.json();
+            const order = Array.isArray(orders)
+              ? orders.find((item: any) => String(item.orderNumber) === orderNumber || String(item.id) === orderNumber)
+              : null;
+            if (!order?.id) throw new Error(`Objednávka ${orderNumber} nebyla nalezena.`);
+
+            const response = await fetch(`/api/orders/${encodeURIComponent(order.id)}/status`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ status })
             });
-            if (!response.ok) {
-              const data = await response.json().catch(() => ({}));
-              throw new Error(data.error || 'Aktualizace stavu selhala');
-            }
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || 'Aktualizace stavu selhala.');
+
             target.dataset.savedStatus = status;
+            target.value = status;
+            window.setTimeout(() => window.location.reload(), 150);
           } catch (error) {
-            const previous = target.dataset.savedStatus;
-            if (previous) target.value = previous;
+            target.value = target.dataset.savedStatus || 'nova';
             console.error('Luvia Decor: změna stavu objednávky selhala', error);
+            window.alert(error instanceof Error ? error.message : 'Stav objednávky se nepodařilo změnit.');
           } finally {
             target.disabled = false;
           }
