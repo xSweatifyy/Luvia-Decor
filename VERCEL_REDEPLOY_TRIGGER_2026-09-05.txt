@@ -1,0 +1,1 @@
+Production redeploy trigger after Vercel configuration cleanup and build fixes.
