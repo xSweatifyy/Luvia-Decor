@@ -1,10 +1,32 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import {fileURLToPath, URL} from 'node:url';
-import {defineConfig} from 'vite';
+import { fileURLToPath, URL } from 'node:url';
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { defineConfig, type Plugin } from 'vite';
+
+function copyCarrierLogos(): Plugin {
+  return {
+    name: 'copy-carrier-logos',
+    closeBundle() {
+      const root = fileURLToPath(new URL('./', import.meta.url));
+      const dist = resolve(root, 'dist');
+      const legacyDir = resolve(dist, 'loga-dopravci');
+      mkdirSync(legacyDir, { recursive: true });
+
+      // The source files live in the repository root. Copy them into the
+      // Vite output so both the requested root URLs and the existing footer
+      // URLs remain valid after deployment.
+      copyFileSync(resolve(root, 'zasilkovna-logo.png'), resolve(dist, 'zasilkovna-logo.png'));
+      copyFileSync(resolve(root, 'dpd-logo.png'), resolve(dist, 'dpd-logo.png'));
+      copyFileSync(resolve(root, 'zasilkovna-logo.png'), resolve(legacyDir, 'zasilkovna.png'));
+      copyFileSync(resolve(root, 'dpd-logo.png'), resolve(legacyDir, 'dpd.png'));
+    },
+  };
+}
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), copyCarrierLogos()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./', import.meta.url)),
