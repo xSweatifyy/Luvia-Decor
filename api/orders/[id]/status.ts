@@ -16,6 +16,16 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   zruseno: 'Objednávka zrušena'
 };
 
+const STATUS_MESSAGES: Record<OrderStatus, string> = {
+  nova: 'Vaše objednávka byla přijata.',
+  zpracovava_se: 'Vaši objednávku jsme začali zpracovávat.',
+  zaplaceno: 'Platbu za Vaši objednávku jsme zaznamenali.',
+  u_prepravce: 'Vaše objednávka byla předána přepravci.',
+  odeslano: 'Vaše objednávka byla odeslána.',
+  dokonceno: 'Vaše objednávka byla dokončena. Děkujeme za Vaši důvěru.',
+  zruseno: 'Vaše objednávka byla zrušena. Pokud potřebujete více informací, kontaktujte nás.'
+};
+
 function escapeHtml(value: unknown): string {
   return String(value ?? '').replace(/[&<>\"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;' }[char] || char));
 }
@@ -28,8 +38,8 @@ function carrierLabel(order: any): string {
   return String(order?.delivery?.carrier || order?.deliveryCarrier || 'neuvedený přepravce');
 }
 
-function shippingPrice(order: any): number {
-  return Number(order?.shipping || order?.delivery?.price || 0);
+function money(value: unknown): string {
+  return Number(value || 0).toLocaleString('cs-CZ');
 }
 
 function paymentQrUrl(order: any): string {
@@ -41,74 +51,72 @@ function paymentQrUrl(order: any): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(payload)}`;
 }
 
-async function sendStatusEmail(order: any, status: OrderStatus) {
+function emailLayout(title: string, content: string): string {
+  return `<!doctype html><html lang="cs"><body style="margin:0;background:#f4f0eb;font-family:Arial,Helvetica,sans-serif;color:#302923"><div style="padding:32px 12px"><div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #e7dfd6;border-radius:20px;overflow:hidden;box-shadow:0 8px 30px rgba(45,39,35,.08)"><div style="background:#211c18;padding:28px 32px;text-align:center"><div style="font-size:26px;letter-spacing:5px;font-weight:700;color:#faf6f0">LUVIA DECOR</div><div style="margin-top:7px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#c5a880">Květinový ateliér &amp; dekorace</div></div><div style="padding:32px"><div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#b08f65;font-weight:700;margin-bottom:8px">${escapeHtml(title)}</div>${content}</div><div style="padding:20px 32px;background:#faf8f5;border-top:1px solid #eee5dc;text-align:center;color:#8d8176;font-size:12px">Luvia Decor · Kroměříž · objednavky@luvia-decor.cz</div></div></div></body></html>`;
+}
+
+function itemsHtml(order: any): string {
+  const items = Array.isArray(order.items) ? order.items : [];
+  if (!items.length) return '<tr><td colspan="3" style="padding:12px;color:#777">Žádné položky</td></tr>';
+  return items.map((item: any) => `<tr><td style="padding:12px;border-bottom:1px solid #eee"><strong>${escapeHtml(item.title)}</strong><br><span style="font-size:11px;color:#8b8178">ID produktu: ${escapeHtml(item.productId || item.id || 'neuvedeno')}</span></td><td style="padding:12px;border-bottom:1px solid #eee;text-align:center">${Number(item.quantity || 1)}</td><td style="padding:12px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${money(item.price)} Kč</td></tr>`).join('');
+}
+
+async function sendStatusEmails(order: any, status: OrderStatus) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = 'Luvia Decor <objednavky@luvia-decor.cz>';
-  if (!apiKey || !order?.customer?.email) return;
+  const customerEmail = String(order?.customer?.email || '').trim();
+  const sellerEmail = String(process.env.ORDER_NOTIFY_EMAIL || 'objednavky@luvia-decor.cz').trim();
+  if (!apiKey) throw new Error('Chybí RESEND_API_KEY ve Vercel Environment Variables.');
+  if (!customerEmail) throw new Error('Objednávka nemá e-mail zákazníka.');
 
   const resend = new Resend(apiKey);
   const label = STATUS_LABELS[status];
-  const customerName = escapeHtml(order.customer.fullName);
-  const orderNumber = escapeHtml(order.orderNumber);
-  const vs = escapeHtml(order.variableSymbol || variableSymbol(order.orderNumber));
+  const customerName = escapeHtml(order?.customer?.fullName || 'zákazníku');
+  const orderNumber = escapeHtml(order?.orderNumber || order?.id);
+  const vs = escapeHtml(order?.variableSymbol || variableSymbol(order?.orderNumber));
   const carrier = escapeHtml(carrierLabel(order));
-  const shipping = shippingPrice(order);
+  const items = itemsHtml(order);
+  const payment = (status === 'nova' || status === 'zpracovava_se') ? `<div style="margin-top:24px;padding:20px;background:#faf8f5;border:1px solid #eee5dc;border-radius:14px"><div style="font-weight:700;margin-bottom:10px">Bankovní převod</div><div style="font-size:13px;line-height:1.8">Číslo účtu: <strong>963625011/5500</strong><br>IBAN: <strong>CZ45 5500 0000 0096 3625 011</strong><br>Variabilní symbol: <strong>${vs}</strong><br>Částka: <strong>${money(order.totalPrice)} Kč</strong></div><div style="text-align:center;margin-top:16px"><img src="${paymentQrUrl(order)}" width="220" height="220" alt="QR platba" style="display:inline-block;border:1px solid #e6ded5;border-radius:8px"></div></div>` : '';
 
-  const messages: Record<OrderStatus, string> = {
-    nova: 'Vaše objednávka byla přijata.',
-    zpracovava_se: 'Vaši objednávku jsme začali zpracovávat.',
-    zaplaceno: 'Platbu za Vaši objednávku jsme zaznamenali.',
-    u_prepravce: 'Vaše objednávka byla předána přepravci.',
-    odeslano: 'Vaše objednávka byla odeslána.',
-    dokonceno: 'Vaše objednávka byla dokončena. Děkujeme za Vaši důvěru.',
-    zruseno: 'Vaše objednávka byla zrušena. Pokud potřebujete více informací, kontaktujte nás.'
-  };
+  const customerContent = `<h1 style="margin:0 0 12px;font-size:25px">${escapeHtml(label)}</h1><p style="font-size:15px;line-height:1.7">Dobrý den, ${customerName},<br>${escapeHtml(STATUS_MESSAGES[status])}</p><div style="margin:22px 0;padding:16px 18px;background:#faf8f5;border-radius:12px;font-size:13px;line-height:1.8"><strong>Objednávka:</strong> ${orderNumber}<br><strong>Variabilní symbol:</strong> ${vs}<br><strong>Přepravce:</strong> ${carrier}</div><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th style="padding:10px;text-align:left;border-bottom:1px solid #ddd">Položka</th><th style="padding:10px">Ks</th><th style="padding:10px;text-align:right">Cena</th></tr></thead><tbody>${items}</tbody></table><p style="font-size:17px;text-align:right;margin:20px 0 0"><strong>Celkem: ${money(order.totalPrice)} Kč</strong></p>${payment}<p style="margin-top:24px;font-size:13px;color:#756b63">V případě dotazů nám odpovězte na tento e-mail nebo nás kontaktujte na objednavky@luvia-decor.cz.</p>`;
 
-  const itemsHtml = (Array.isArray(order.items) ? order.items : []).map((item: any) =>
-    `<tr><td style="padding:8px;border-bottom:1px solid #eee"><strong>${escapeHtml(item.title)}</strong><br><span style="font-size:12px;color:#777">ID produktu: ${escapeHtml(item.productId || item.id || 'neuvedeno')}</span></td><td style="padding:8px;border-bottom:1px solid #eee;text-align:center">${Number(item.quantity || 1)}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${Number(item.price || 0).toLocaleString('cs-CZ')} Kč</td></tr>`
-  ).join('');
+  const sellerContent = `<h1 style="margin:0 0 12px;font-size:25px">${escapeHtml(label)}</h1><div style="margin:20px 0;padding:16px 18px;background:#faf8f5;border-radius:12px;font-size:13px;line-height:1.8"><strong>Objednávka:</strong> ${orderNumber}<br><strong>Zákazník:</strong> ${escapeHtml(order?.customer?.fullName)}<br><strong>E-mail:</strong> ${escapeHtml(customerEmail)}<br><strong>Telefon:</strong> ${escapeHtml(order?.customer?.phone)}<br><strong>Přepravce:</strong> ${carrier}</div><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th style="padding:10px;text-align:left;border-bottom:1px solid #ddd">Produkt</th><th style="padding:10px">Ks</th><th style="padding:10px;text-align:right">Cena</th></tr></thead><tbody>${items}</tbody></table><p style="font-size:17px;text-align:right;margin:20px 0 0"><strong>Celkem: ${money(order.totalPrice)} Kč</strong></p>`;
 
-  const shippingHtml = `<tr><td style="padding:8px;border-bottom:1px solid #eee"><strong>Doprava</strong><br><span style="font-size:12px;color:#777">Přepravce: ${carrier}</span></td><td style="padding:8px;border-bottom:1px solid #eee;text-align:center">1×</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${shipping.toLocaleString('cs-CZ')} Kč</td></tr>`;
-
-  const paymentBlock = status === 'nova' || status === 'zpracovava_se'
-    ? `<div style="background:#faf8f5;padding:16px;border-radius:12px;margin-top:20px"><strong>Bankovní převod</strong><br>Číslo účtu: 963625011/5500<br>IBAN: CZ45 5500 0000 0096 3625 011<br>Variabilní symbol: ${vs}<br>Částka: ${Number(order.totalPrice || 0).toLocaleString('cs-CZ')} Kč<br><div style="text-align:center;margin-top:14px"><strong>QR platba</strong><br><img src="${paymentQrUrl(order)}" width="220" height="220" alt="QR platba objednávky ${orderNumber}" style="display:block;margin:10px auto;border:1px solid #eee" /><br><span style="font-size:12px;color:#777">Poznámka pro příjemce: ${orderNumber}</span></div></div>`
-    : '';
-
-  const customerHtml = `<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;color:#2D2723"><h1 style="font-size:28px">Luvia Decor</h1><p>Dobrý den, ${customerName},</p><h2>${escapeHtml(label)}</h2><p>${messages[status]}</p><div style="background:#faf8f5;padding:16px;border-radius:12px;margin:20px 0"><strong>Objednávka:</strong> ${orderNumber}<br><strong>Variabilní symbol:</strong> ${vs}</div><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:8px">Položka</th><th style="padding:8px">Ks</th><th style="text-align:right;padding:8px">Cena</th></tr></thead><tbody>${itemsHtml}${shippingHtml}</tbody></table><p style="margin-top:20px"><strong>Celkem: ${Number(order.totalPrice || 0).toLocaleString('cs-CZ')} Kč</strong></p>${paymentBlock}<p>Pokud máte dotaz k objednávce, neváhejte nás kontaktovat.</p><p><strong>Luvia Decor</strong><br>objednavky@luvia-decor.cz</p></div>`;
-
-  const sellerHtml = `<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;color:#2D2723"><h1>Luvia Decor – objednávka</h1><p><strong>Stav:</strong> ${escapeHtml(label)}</p><p><strong>Objednávka:</strong> ${orderNumber}</p><p><strong>Zákazník:</strong> ${customerName} · ${escapeHtml(order.customer.email)} · ${escapeHtml(order.customer.phone)}</p><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:8px">Produkt</th><th style="padding:8px">Ks</th><th style="text-align:right;padding:8px">Cena</th></tr></thead><tbody>${itemsHtml}${shippingHtml}</tbody></table><p style="margin-top:20px"><strong>Celkem: ${Number(order.totalPrice || 0).toLocaleString('cs-CZ')} Kč</strong></p><p><strong>Přepravce:</strong> ${carrier}</p></div>`;
-
-  const results = await Promise.all([
-    resend.emails.send({ from, to: order.customer.email, subject: `${label} ${order.orderNumber} – Luvia Decor`, html: customerHtml }),
-    process.env.RESEND_NOTIFY_EMAIL ? resend.emails.send({ from, to: process.env.RESEND_NOTIFY_EMAIL, subject: `${label} ${order.orderNumber} – Luvia Decor`, html: sellerHtml }) : Promise.resolve({ error: null })
+  const results = await Promise.allSettled([
+    resend.emails.send({ from: 'Luvia Decor <objednavky@luvia-decor.cz>', to: customerEmail, replyTo: 'podpora@luvia-decor.cz', subject: `${label} · ${order.orderNumber} | Luvia Decor`, html: emailLayout('Informace k objednávce', customerContent) }),
+    resend.emails.send({ from: 'Luvia Decor <objednavky@luvia-decor.cz>', to: sellerEmail, subject: `${label} · ${order.orderNumber} | Luvia Decor`, html: emailLayout('Administrace objednávky', sellerContent) })
   ]);
-  const failed = results.find((result: any) => result?.error);
-  if (failed?.error) throw new Error(failed.error.message || 'E-mail se nepodařilo odeslat.');
+
+  const failed = results.find((result: any) => result.status === 'rejected' || result.value?.error);
+  if (failed) {
+    const reason = failed.status === 'rejected' ? failed.reason?.message : failed.value?.error?.message;
+    throw new Error(reason || 'Resend odmítl odeslání e-mailu.');
+  }
+
+  return { customer: true, seller: true, sentAt: new Date().toISOString() };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'PUT') return res.status(405).json({ error: 'Metoda není podporovaná.' });
-
   try {
-    const id = String(req.query.id || '').trim();
+    const requestedId = String(req.query.id || '').trim();
     const status = String(req.body?.status || '') as OrderStatus;
-
-    if (!id) return res.status(400).json({ error: 'Chybí ID objednávky.' });
+    if (!requestedId) return res.status(400).json({ error: 'Chybí ID objednávky.' });
     if (!Object.prototype.hasOwnProperty.call(STATUS_LABELS, status)) return res.status(400).json({ error: 'Neplatný stav objednávky.' });
 
-    const rows = await sql`SELECT id, data FROM orders WHERE id = ${id} LIMIT 1`;
-    if (!rows.length) return res.status(404).json({ error: 'Objednávka nebyla nalezena.' });
+    const rows = await sql`SELECT id, data FROM orders WHERE id = ${requestedId} OR data->>'orderNumber' = ${requestedId} LIMIT 1`;
+    if (!rows.length) return res.status(404).json({ error: 'Objednávka nebyla nalezena podle ID ani čísla objednávky.' });
 
-    const order = { ...(rows[0].data || {}), id: rows[0].id };
-    const previousStatus = order.status;
-    const updatedOrder = { ...order, status };
+    const dbId = String(rows[0].id);
+    const order = { ...(rows[0].data || {}), id: dbId };
+    const previousStatus = String(order.status || 'nova') as OrderStatus;
+    const updatedOrder = { ...order, status, updatedAt: new Date().toISOString() };
 
-    await sql`UPDATE orders SET data = ${JSON.stringify(updatedOrder)}::jsonb WHERE id = ${id}`;
+    await sql`UPDATE orders SET data = ${JSON.stringify(updatedOrder)}::jsonb WHERE id = ${dbId}`;
 
     if (previousStatus !== status) {
       try {
-        await sendStatusEmail(updatedOrder, status);
-        updatedOrder.statusEmail = { sent: true, status, sentAt: new Date().toISOString() };
+        const emailStatus = await sendStatusEmails(updatedOrder, status);
+        updatedOrder.statusEmail = { sent: true, status, ...emailStatus };
         updatedOrder.resendSent = true;
         updatedOrder.resendError = undefined;
       } catch (emailError: any) {
@@ -117,10 +125,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         updatedOrder.resendSent = false;
         updatedOrder.resendError = emailError?.message || 'Odeslání e-mailu selhalo.';
       }
-      await sql`UPDATE orders SET data = ${JSON.stringify(updatedOrder)}::jsonb WHERE id = ${id}`;
+      await sql`UPDATE orders SET data = ${JSON.stringify(updatedOrder)}::jsonb WHERE id = ${dbId}`;
     }
 
-    return res.status(200).json(updatedOrder);
+    return res.status(200).json({ ...updatedOrder, success: true });
   } catch (error: any) {
     console.error('Order status API error:', error);
     return res.status(500).json({ error: error?.message || 'Chyba serveru.' });
