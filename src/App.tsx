@@ -20,6 +20,7 @@ import { TermsPage } from './pages/TermsPage';
 import { AdminPage } from './pages/AdminPage';
 import { CookieConsent, getCookieConsent } from './components/CookieConsent';
 import { TermsAgreementEnhancer } from './components/TermsAgreementEnhancer';
+import { NonPickupTermsSection } from './components/NonPickupTermsSection';
 
 const AppContent: React.FC = () => {
   const { page, setPage } = useApp();
@@ -30,10 +31,6 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const openTerms = () => setPage('terms');
     window.addEventListener('open-terms', openTerms);
-
-    // Capture clicks before individual footer/button handlers. This makes
-    // every visible "Obchodní podmínky" control open the page immediately,
-    // including when the current hash is already #terms or React is re-rendering.
     const handleTermsClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       const control = target?.closest('button, a');
@@ -44,7 +41,6 @@ const AppContent: React.FC = () => {
         setPage('terms');
       }
     };
-
     document.addEventListener('click', handleTermsClick, true);
     return () => {
       window.removeEventListener('open-terms', openTerms);
@@ -62,7 +58,7 @@ const AppContent: React.FC = () => {
         {page === 'gallery' && <GalleryPage />}
         {page === 'contact' && <ContactPage />}
         {page === 'cart' && <CartPage />}
-        {page === 'terms' && <TermsPage />}
+        {page === 'terms' && <><TermsPage /><NonPickupTermsSection /></>}
         {page === 'admin' && <AdminPage />}
       </main>
       <Footer />
