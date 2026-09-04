@@ -12,9 +12,7 @@ const STATUS_OPTIONS = [
 
 function addMissingStatusOptions(select: HTMLSelectElement) {
   STATUS_OPTIONS.forEach(([value, label]) => {
-    if (!Array.from(select.options).some((option) => option.value === value)) {
-      select.add(new Option(label, value));
-    }
+    if (!Array.from(select.options).some((option) => option.value === value)) select.add(new Option(label, value));
   });
 }
 
@@ -54,64 +52,74 @@ async function saveOrderStatus(select: HTMLSelectElement, status: string) {
   if (!cardText) throw new Error('Nepodařilo se najít objednávku.');
 
   const orders = await loadOrders();
-
-  // Do not rely only on a hard-coded LUV-YYYY-#### format. This also works
-  // for older orders that may use a different order-number format.
   const order = orders.find((item: any) => {
     const number = String(item?.orderNumber || '').trim();
-    return number && cardText.toLowerCase().includes(number.toLowerCase());
+    const id = String(item?.id || '').trim();
+    return (number && cardText.toLowerCase().includes(number.toLowerCase())) || (id && cardText.includes(id));
   });
-
   if (!order?.id) throw new Error('Objednávku se nepodařilo jednoznačně najít. Obnovte stránku a zkuste to znovu.');
 
   const payload = JSON.stringify({ status });
   let primaryError = '';
-
   try {
     const response = await fetch(`/api/orders/${encodeURIComponent(String(order.id))}/status`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: payload,
     });
-
     const data = await response.json().catch(() => null);
-    if (response.ok && data && data.status === status) return data;
+    if (response.ok && data?.success && data.status === status) return data;
     primaryError = data?.error || `Server vrátil chybu ${response.status}.`;
   } catch (error) {
     primaryError = error instanceof Error ? error.message : 'Primární aktualizace selhala.';
   }
 
-  // Compatibility fallback for both legacy and newly created orders.
   try {
     const fallback = await fetch('/api/order-status', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ orderId: String(order.id), status }),
     });
     const data = await fallback.json().catch(() => null);
-    if (fallback.ok && data?.success) return data.order;
-    throw new Error(data?.error || `Aktualizace selhala (${fallback.status}).`);
+    if (fallback.ok && data?.success && data?.order?.status === status) return data.order;
+    throw new Error(data?.error || primaryError || `Aktualizace selhala (${fallback.status}).`);
   } catch (fallbackError) {
     throw new Error(fallbackError instanceof Error ? fallbackError.message : primaryError || 'Aktualizace stavu selhala.');
   }
 }
 
+function updateVisibleStatus(card: HTMLElement | null, previousStatus: string, nextStatus: string) {
+  if (!card) return;
+  const previousLabel = STATUS_OPTIONS.find(([value]) => value === previousStatus)?.[1];
+  const nextLabel = STATUS_OPTIONS.find(([value]) => value === nextStatus)?.[1] || nextStatus;
+  if (!previousLabel) return;
+
+  // Update visible status labels/badges without forcing a full page reload.
+  card.querySelectorAll<HTMLElement>('*').forEach((element) => {
+    if (element === card) return;
+    const text = element.textContent?.trim();
+    if (text === previousLabel) element.textContent = nextLabel;
+  });
+  card.dataset.orderStatus = nextStatus;
+}
+
 function handleStatusChange(event: Event) {
   const target = event.target;
   if (!(target instanceof HTMLSelectElement) || !isOrderStatusSelect(target)) return;
-
   event.stopImmediatePropagation();
 
   const nextStatus = target.value;
   const previousStatus = target.dataset.previousStatus || nextStatus;
   if (nextStatus === previousStatus) return;
 
+  const card = getOrderCard(target);
   target.disabled = true;
 
   void saveOrderStatus(target, nextStatus)
     .then(() => {
       target.dataset.previousStatus = nextStatus;
-      window.dispatchEvent(new CustomEvent('luvia-order-status-updated', { detail: { status: nextStatus } }));
+      updateVisibleStatus(card, previousStatus, nextStatus);
+      window.dispatchEvent(new CustomEvent('luvia-order-status-updated', { detail: { orderId: card?.dataset.orderId, status: nextStatus } }));
     })
     .catch((error) => {
       target.value = previousStatus;
