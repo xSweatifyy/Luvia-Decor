@@ -1,4 +1,4 @@
-export type PageRoute = 'home' | 'catalog' | 'custom-order' | 'gallery' | 'contact' | 'cart' | 'terms' | 'admin';
+export type PageRoute = 'home' | 'catalog' | 'custom-order' | 'gallery' | 'contact' | 'cart' | 'terms' | 'privacy' | 'admin';
 
 export interface ProductCategory { id: string; name: string; }
 export interface Product { id:string; title:string; category:string; price:number; isPriceFrom?:boolean; pricePrefix?:string; compareAtPrice?:number; description:string; shortDescription?:string; details?:string[]; imageUrl:string; gallery?:string[]; badge?:'Bestseller'|'Novinka'|'Limitovaná edice'|'Na zakázku'|'Oblíbené'; inStock:boolean; featured?:boolean; dimensions?:string; materials?:string; estimatedDelivery?:string; }
