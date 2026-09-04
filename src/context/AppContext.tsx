@@ -16,9 +16,7 @@ interface AppContextType {
   addGalleryItem: (item: Omit<GalleryItem, 'id'> & { id?: string }) => Promise<GalleryItem>; deleteGalleryItem: (id: string) => Promise<boolean>;
   toasts: ToastMessage[]; addToast: (type: 'success' | 'error' | 'info', title: string, message?: string) => void; removeToast: (id: string) => void;
 }
-
 const AppContext = createContext<AppContextType | undefined>(undefined);
-
 const routeFromLocation = (): PageRoute => {
   const hash = window.location.hash.replace(/^#/, '').toLowerCase();
   const hashRoutes: PageRoute[] = ['home', 'catalog', 'custom-order', 'gallery', 'contact', 'cart', 'terms', 'admin'];
@@ -37,44 +35,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [cart, setCart] = useState<CartItem[]>(() => { try { const raw = JSON.parse(localStorage.getItem('luvia_cart') || '[]'); return Array.isArray(raw) ? raw.filter((item: any) => item?.product?.id && Number(item?.quantity) > 0) : []; } catch { return []; } });
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('luvia_cart') || '[]');
+      if (!Array.isArray(raw)) return [];
+      return raw.filter((item: any) => item?.product?.id && Number(item?.quantity) > 0).map((item: any) => ({ ...item, quantity: Math.max(1, Math.floor(Number(item.quantity) || 1)) }));
+    } catch { return []; }
+  });
   const [adminUser, setAdminUser] = useState<AdminUser | null>(() => { try { return JSON.parse(localStorage.getItem('luvia_admin_user') || 'null'); } catch { return null; } });
   const [adminToken, setAdminToken] = useState<string | null>(() => { try { return localStorage.getItem('luvia_admin_token'); } catch { return null; } });
 
-  useEffect(() => { try { localStorage.setItem('luvia_cart', JSON.stringify(cart)); } catch {} }, [cart]);
-
+  useEffect(() => { try { localStorage.setItem('luvia_cart', JSON.stringify(cart)); } catch (e) { console.warn('Cart storage warning:', e); } }, [cart]);
   useEffect(() => {
     if (!products.length) return;
     setCart(prev => prev.map(item => {
-      const current = products.find(product => product.id === item.product.id);
-      return current ? { ...item, product: current, quantity: Math.max(1, Number(item.quantity) || 1) } : item;
+      const current = products.find(product => String(product.id) === String(item.product.id));
+      return current ? { ...item, product: current, quantity: Math.max(1, Math.floor(Number(item.quantity) || 1)) } : item;
     }));
   }, [products]);
 
   useEffect(() => {
-    let cancelled = false;
-    let unProducts: (() => void) | undefined, unConfig: (() => void) | undefined, unGallery: (() => void) | undefined;
-    let categoryTimer: number | undefined;
+    let cancelled = false; let unProducts: (() => void) | undefined, unConfig: (() => void) | undefined, unGallery: (() => void) | undefined; let categoryTimer: number | undefined;
     const syncCategories = async () => { try { const r = await fetch('/api/categories', { cache: 'no-store' }); if (!r.ok) return; const data = await r.json(); if (!cancelled && Array.isArray(data)) setCategories(data); } catch (e) { console.warn('Categories load warning:', e); } };
-    const start = async () => {
-      try { await initializeFirestoreIfNeeded(); if (cancelled) return; unProducts = subscribeProducts(items => { if (!cancelled) setProducts(items); }); unConfig = subscribeSiteConfig(value => { if (!cancelled && value) setConfig(value); }); unGallery = subscribeGallery(items => { if (!cancelled) setGallery(items.length ? items : initialGallery); }); } catch (e) { console.warn('Firestore initialization warning:', e); }
-      await syncCategories(); categoryTimer = window.setInterval(syncCategories, 5000);
-    };
-    start();
-    return () => { cancelled = true; if (categoryTimer) window.clearInterval(categoryTimer); unProducts?.(); unConfig?.(); unGallery?.(); };
+    const start = async () => { try { await initializeFirestoreIfNeeded(); if (cancelled) return; unProducts = subscribeProducts(items => { if (!cancelled) setProducts(items); }); unConfig = subscribeSiteConfig(value => { if (!cancelled && value) setConfig(value); }); unGallery = subscribeGallery(items => { if (!cancelled) setGallery(items.length ? items : initialGallery); }); } catch (e) { console.warn('Firestore initialization warning:', e); } await syncCategories(); categoryTimer = window.setInterval(syncCategories, 5000); };
+    start(); return () => { cancelled = true; if (categoryTimer) window.clearInterval(categoryTimer); unProducts?.(); unConfig?.(); unGallery?.(); };
   }, []);
-
   useEffect(() => { if (config.faviconUrl) { const link = document.getElementById('favicon-link') as HTMLLinkElement | null; if (link) link.href = config.faviconUrl; } if (config.siteName) document.title = `${config.siteName} | ${config.slogan || 'Ruční dekorace Kroměříž'}`; }, [config]);
   useEffect(() => { const fn = () => setPageState(routeFromLocation()); window.addEventListener('hashchange', fn); window.addEventListener('popstate', fn); return () => { window.removeEventListener('hashchange', fn); window.removeEventListener('popstate', fn); }; }, []);
 
   const addToast = (type: 'success' | 'error' | 'info', title: string, message?: string) => { const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2,6)}`; setToasts(p => [...p, { id, type, title, message }]); window.setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4500); };
   const removeToast = (id: string) => setToasts(p => p.filter(t => t.id !== id));
   const setPage = (newPage: PageRoute, params?: { category?: string; productId?: string }) => { if (params?.category) setSelectedCategory(params.category); if (params?.productId) setQuickViewProduct(products.find(p => p.id === params.productId) || null); setPageState(newPage); const nextHash = newPage === 'home' ? '' : newPage; if (window.location.hash !== (nextHash ? `#${nextHash}` : '')) window.location.hash = nextHash; window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const addToCart = (product: Product, quantity = 1, note?: string) => { if (!product.inStock) return addToast('error','Produkt není skladem','Tento produkt momentálně nelze vložit do košíku.'); const safeQuantity = Math.max(1, Math.floor(Number(quantity) || 1)); setCart(prev => { const old = prev.find(i => i.product.id === product.id); return old ? prev.map(i => i.product.id === product.id ? { ...i, product, quantity: i.quantity + safeQuantity, customNote: note || i.customNote } : i) : [...prev, { product, quantity: safeQuantity, customNote: note }]; }); addToast('success','Vloženo do košíku',`${product.title} (${safeQuantity} ks) byl přidán do košíku.`); };
-  const removeFromCart = (id: string) => setCart(prev => prev.filter(i => i.product.id !== id));
-  const updateCartQuantity = (id: string, quantity: number) => { const safeQuantity = Math.floor(Number(quantity) || 0); return safeQuantity <= 0 ? removeFromCart(id) : setCart(prev => prev.map(i => i.product.id === id ? { ...i, quantity: safeQuantity } : i)); };
+  const addToCart = (product: Product, quantity = 1, note?: string) => {
+    if (!product?.id) return addToast('error', 'Produkt nelze přidat', 'Produkt nemá platné ID.');
+    if (product.inStock === false) return addToast('error','Produkt není skladem','Tento produkt momentálně nelze vložit do košíku.');
+    const safeQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
+    setCart(prev => { const old = prev.find(i => String(i.product.id) === String(product.id)); return old ? prev.map(i => String(i.product.id) === String(product.id) ? { ...i, product, quantity: Math.max(1, Number(i.quantity) || 1) + safeQuantity, customNote: note || i.customNote } : i) : [...prev, { product, quantity: safeQuantity, customNote: note }]; });
+    addToast('success','Vloženo do košíku',`${product.title} (${safeQuantity} ks) byl přidán do košíku.`);
+  };
+  const removeFromCart = (id: string) => setCart(prev => prev.filter(i => String(i.product.id) !== String(id)));
+  const updateCartQuantity = (id: string, quantity: number) => { const safeQuantity = Math.floor(Number(quantity) || 0); return safeQuantity <= 0 ? removeFromCart(id) : setCart(prev => prev.map(i => String(i.product.id) === String(id) ? { ...i, quantity: safeQuantity } : i)); };
   const clearCart = () => setCart([]);
-  const cartCount = cart.reduce((s,i) => s + Math.max(0, Number(i.quantity) || 0), 0), cartTotal = cart.reduce((s,i) => s + Number(i.product.price || 0) * Math.max(0, Number(i.quantity) || 0), 0);
+  const cartCount = cart.reduce((s,i) => s + Math.max(0, Number(i.quantity) || 0), 0);
+  const cartTotal = cart.reduce((s,i) => s + Number(i.product?.price || 0) * Math.max(0, Number(i.quantity) || 0), 0);
   const loginAdmin = (user: AdminUser, token: string) => { setAdminUser(user); setAdminToken(token); localStorage.setItem('luvia_admin_user',JSON.stringify(user)); localStorage.setItem('luvia_admin_token',token); };
   const logoutAdmin = () => { setAdminUser(null); setAdminToken(null); localStorage.removeItem('luvia_admin_user'); localStorage.removeItem('luvia_admin_token'); setPage('home'); };
   const refreshData = async () => { try { const [c,k] = await Promise.all([fetch('/api/config',{cache:'no-store'}),fetch('/api/categories',{cache:'no-store'})]); if(c.ok){const d=await c.json();if(d&&Object.keys(d).length)setConfig(p=>({...p,...d}));} if(k.ok){const d=await k.json();if(Array.isArray(d))setCategories(d);} } catch(e){console.warn('Refresh warning:',e);} };
@@ -88,7 +91,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteCategory = async(id:string) => { const r=await fetch(`/api/categories/${encodeURIComponent(id)}`,{method:'DELETE'}); if(!r.ok)throw new Error((await r.json().catch(()=>null))?.error||'Kategorie se nepodařilo smazat.'); setCategories(p=>p.filter(x=>x.id!==id)); return true; };
   const addGalleryItem = async(data:Omit<GalleryItem,'id'> & {id?:string}) => { const item={...data,id:data.id||`gal-${Date.now()}`} as GalleryItem; const saved=await saveGalleryItemToFirestore(item); try{await fetch('/api/gallery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(saved)});}catch{} setGallery(p=>[saved,...p.filter(x=>x.id!==saved.id)]); return saved; };
   const deleteGalleryItem = async(id:string) => { await deleteGalleryItemFromFirestore(id); try{await fetch(`/api/gallery/${encodeURIComponent(id)}`,{method:'DELETE'});}catch{} setGallery(p=>p.filter(x=>x.id!==id)); return true; };
-
   return <AppContext.Provider value={{page,setPage,products,categories,setProducts,config,gallery,cart,cartCount,cartTotal,addToCart,removeFromCart,updateCartQuantity,clearCart,selectedCategory,setSelectedCategory,quickViewProduct,setQuickViewProduct,adminUser,adminToken,loginAdmin,logoutAdmin,refreshData,updateConfigState,addProductItem,updateProductItem,deleteProductItem,addCategory,updateCategory,deleteCategory,addGalleryItem,deleteGalleryItem,toasts,addToast,removeToast}}>{children}</AppContext.Provider>;
 };
 export const useApp = () => { const context=useContext(AppContext); if(!context) throw new Error('useApp must be used inside AppProvider'); return context; };
