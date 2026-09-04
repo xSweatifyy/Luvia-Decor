@@ -4,7 +4,7 @@ import { neon } from '@neondatabase/serverless';
 const sql = neon(process.env.DATABASE_URL || '');
 
 async function ensureProductsTable() {
-  await sql`CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
+  await sql`CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`;
 }
 
 async function ensureConfigTable() {
@@ -29,7 +29,9 @@ function corsHeaders() {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') {
-    res.status(204).set(corsHeaders()).end();
+    const headers = corsHeaders();
+    Object.entries(headers).forEach(([key, value]) => res.setHeader(key, value));
+    res.status(204).end();
     return;
   }
 
