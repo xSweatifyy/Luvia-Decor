@@ -30,4 +30,31 @@
 .admin-panel .status-blue { color:#315f9b; background:#eaf2ff; border-color:#b8cff2; }
 .admin-panel .status-green { color:#176b47; background:#e5f8ef; border-color:#a8dfc4; }
 .admin-panel .status-red { color:#a43c3c; background:#fff0f0; border-color:#efbcbc; }
+
+/* Carrier logos in the footer – supplied URLs, displayed cleanly without the old text-only badges. */
+#main-footer > div > div.flex.flex-col.sm\\:flex-row.items-center.justify-center.gap-3 > div:nth-of-type(2),
+#main-footer > div > div.flex.flex-col.sm\\:flex-row.items-center.justify-center.gap-3 > div:nth-of-type(3) {
+  width: 150px;
+  height: 54px;
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background-color: #fff;
+  color: transparent;
+  font-size: 0;
+  line-height: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  border: 1px solid #E5DED6;
+  overflow: hidden;
+}
+#main-footer > div > div.flex.flex-col.sm\\:flex-row.items-center.justify-center.gap-3 > div:nth-of-type(2) {
+  background-image: url('https://koralkydni.cz/wp-content/uploads/2018/03/zasilkovna-logo.png');
+}
+#main-footer > div > div.flex.flex-col.sm\\:flex-row.items-center.justify-center.gap-3 > div:nth-of-type(3) {
+  background-image: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpmMaFs51fvks0QDYXdOAijgCg34wD37UAsysaN2pdZV7SETU-hg9gHtw&s=10');
+}
 @media (max-width:768px) { .admin-panel { font-size:14px; } }
