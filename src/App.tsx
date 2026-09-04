@@ -30,7 +30,26 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const openTerms = () => setPage('terms');
     window.addEventListener('open-terms', openTerms);
-    return () => window.removeEventListener('open-terms', openTerms);
+
+    // Capture clicks before individual footer/button handlers. This makes
+    // every visible "Obchodní podmínky" control open the page immediately,
+    // including when the current hash is already #terms or React is re-rendering.
+    const handleTermsClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      const control = target?.closest('button, a');
+      if (!control) return;
+      if ((control.textContent || '').toLowerCase().includes('obchodní podmínky')) {
+        event.preventDefault();
+        event.stopPropagation();
+        setPage('terms');
+      }
+    };
+
+    document.addEventListener('click', handleTermsClick, true);
+    return () => {
+      window.removeEventListener('open-terms', openTerms);
+      document.removeEventListener('click', handleTermsClick, true);
+    };
   }, [setPage]);
 
   return (
