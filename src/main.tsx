@@ -5,6 +5,7 @@ import './index.css';
 
 const root = document.getElementById('root')!;
 
+// Carrier logos are served from Vite's public directory so production URLs resolve correctly.
 function fixCarrierLogoPaths() {
   document.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
     if (img.src.includes('/loga-dopravci/zasilkovna.png') || img.getAttribute('src') === '/loga-dopravci/zasilkovna.png') {
