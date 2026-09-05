@@ -29,12 +29,16 @@ function toAbsoluteUrl(value: string): string {
   }
 }
 
-/**
- * Product/gallery images are stored as URLs. Use the original URL first so
- * Firebase Storage, Googleusercontent and other valid public image URLs load
- * directly in the browser. Only fall back to the same-origin proxy when the
- * original source rejects browser loading.
- */
+function shouldProxyFirst(url: string): boolean {
+  try {
+    const parsed = new URL(url, window.location.href);
+    const host = parsed.hostname.toLowerCase();
+    return host === 'firebasestorage.googleapis.com' || host.endsWith('.firebasestorage.app') || host.endsWith('googleusercontent.com');
+  } catch {
+    return false;
+  }
+}
+
 export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   src,
   alt = '',
@@ -55,26 +59,28 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
     }
   }, [directUrl]);
 
-  const [currentSrc, setCurrentSrc] = useState(directUrl);
-  const [triedProxy, setTriedProxy] = useState(false);
+  const firstSrc = useMemo(() => shouldProxyFirst(directUrl) ? proxyUrl : directUrl, [directUrl, proxyUrl]);
+  const [currentSrc, setCurrentSrc] = useState(firstSrc);
+  const [triedAlternate, setTriedAlternate] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    setCurrentSrc(directUrl);
-    setTriedProxy(false);
+    setCurrentSrc(firstSrc);
+    setTriedAlternate(false);
     setFailed(false);
-  }, [directUrl]);
+  }, [firstSrc]);
 
   const handleError = () => {
-    if (!triedProxy && proxyUrl !== directUrl) {
-      setTriedProxy(true);
-      setCurrentSrc(proxyUrl);
+    if (!triedAlternate) {
+      setTriedAlternate(true);
+      setCurrentSrc(currentSrc === directUrl ? proxyUrl : directUrl);
       return;
     }
 
-    if (directUrl !== fallbackSrc && currentSrc !== fallbackSrc) {
+    const normalizedFallback = normalizeImageSource(fallbackSrc);
+    if (currentSrc !== normalizedFallback) {
       setFailed(true);
-      setCurrentSrc(normalizeImageSource(fallbackSrc));
+      setCurrentSrc(normalizedFallback);
     }
   };
 
