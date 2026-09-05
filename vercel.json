@@ -4,5 +4,10 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "functions": {
+    "api/[...all].ts": {
+      "runtime": "nodejs22.x"
+    }
+  }
 }
