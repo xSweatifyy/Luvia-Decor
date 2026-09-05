@@ -6,7 +6,7 @@ import { PacketaPickupWidget } from '../components/PacketaPickupWidget';
 
 type Method = 'address' | 'pickup_point' | 'personal_pickup';
 type Shipping = { enabled?: boolean; address?: number; pickup_point?: number };
-const DEFAULT = { carriers: { DPD: { enabled: true, address: 105, pickup_point: 75 }, 'Zásilkovna': { enabled: true, address: 89, pickup_point: 62 }, PPL: { enabled: true, address: 105 } }, personalPickup: { enabled: true, price: 0, label: 'Osobní odběr – Kroměříž' } };
+const DEFAULT = { carriers: { DPD: { enabled: true, address: 105, pickup_point: 75 }, 'Zásilkovna': { enabled: true, address: 89, pickup_point: 62 }, PPL: { enabled: true, address: 105, pickup_point: 75 } }, personalPickup: { enabled: true, price: 0, label: 'Osobní odběr – Kroměříž' } };
 const IBAN = 'CZ45550000000000963625011';
 const input = 'w-full rounded-2xl border border-[#E5DCD2] bg-[#FCFAF7] px-4 py-3.5 text-sm text-[#302923] outline-none focus:border-[#9A7B58] focus:bg-white focus:ring-4 focus:ring-[#9A7B58]/10 placeholder:text-[#A79C91]';
 const option = (active: boolean) => `relative rounded-2xl border p-4 text-left transition ${active ? 'border-[#9A7B58] bg-[#FBF6EF] shadow-sm' : 'border-[#E8E0D8] bg-white hover:border-[#C8B39B]'}`;
@@ -29,7 +29,7 @@ export const CheckoutCartPage: React.FC = () => {
   const total = cartTotal + shipping;
   useEffect(() => { if (!entries.some(([n]) => n === carrier)) { setCarrier(entries[0]?.[0] || 'DPD'); setMethod('address'); setPoint(null); setPicker(false); } }, [shippingConfig, pplEligible, carrier, entries.length]);
   const chooseCarrier = (c: string) => { setCarrier(c); setPoint(null); setPicker(false); if (c === 'PPL') setMethod('address'); else if (method === 'pickup_point') setPicker(true); };
-  const chooseMethod = (m: Method) => { if (carrier === 'PPL' && m === 'pickup_point') return; setMethod(m); setPoint(null); setPicker(m === 'pickup_point'); };
+  const chooseMethod = (m: Method) => { setMethod(m); setPoint(null); setPicker(m === 'pickup_point'); };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +38,7 @@ export const CheckoutCartPage: React.FC = () => {
     if (!validInternationalPhone(phone)) return addToast('error', 'Neplatný telefon', 'Telefon zadejte včetně mezinárodní předvolby, například +420 123 456 789.');
     if (!carrier || !entries.some(([n]) => n === carrier)) return addToast('error', 'Vyberte přepravce', 'Vyberte dostupného přepravce.');
     if (carrier === 'PPL' && !pplEligible) return addToast('error', 'PPL není pro tento košík dostupné', 'PPL lze zvolit pouze tehdy, když jsou v košíku výhradně produkty z kategorie Doplňky.');
-    if (carrier === 'PPL' && method !== 'address') return addToast('error', 'PPL doručuje na adresu', 'Pro PPL je dostupné pouze doručení na adresu.');
+    
     if (!method) return addToast('error', 'Vyberte způsob doručení', 'Vyberte způsob doručení.');
     if (method === 'address' && (!street.trim() || !city.trim() || !zip.trim())) return addToast('error', 'Chybí adresa', 'Ulice a číslo popisné, město a PSČ jsou povinné.');
     if (method === 'pickup_point' && !point) return addToast('error', 'Vyberte výdejní místo', 'Vyberte výdejní místo na otevřené mapě.');

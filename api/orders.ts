@@ -8,7 +8,7 @@ const DEFAULT_SHIPPING = {
   carriers: {
     DPD: { enabled: true, address: 105, pickup_point: 75, box: 75 },
     'Zásilkovna': { enabled: true, address: 89, pickup_point: 62, box: 62 },
-    PPL: { enabled: true, address: 105 }
+    PPL: { enabled: true, address: 105, pickup_point: 75 }
   },
   personalPickup: { enabled: true, price: 0, label: 'Osobní odběr – Kroměříž' }
 };
@@ -69,7 +69,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     const pplEligible = items.every((item: any) => normalizeCategory(item?.category) === 'doplnky');
     const shippingConfig = await getShippingConfig(); const deliveryMethod = String(delivery?.method || 'address'); const carrier = String(delivery?.carrier || '');
     if (deliveryMethod === 'personal_pickup') { if (!shippingConfig.personalPickup.enabled) return res.status(400).json({ error: 'Osobní odběr momentálně není dostupný.' }); }
-    else { const carrierConfig = shippingConfig.carriers[carrier] || (carrier === 'PPL' ? DEFAULT_SHIPPING.carriers.PPL : null); if (!carrierConfig || carrierConfig.enabled === false) return res.status(400).json({ error: 'Zvolený dopravce není dostupný.' }); if (carrier === 'PPL' && !pplEligible) return res.status(400).json({ error: 'PPL je dostupné pouze pro objednávky obsahující výhradně produkty z kategorie Doplňky.' }); if (carrier === 'PPL' && deliveryMethod !== 'address') return res.status(400).json({ error: 'PPL je dostupné pouze pro doručení na adresu.' }); if (!['address','pickup_point','box'].includes(deliveryMethod)) return res.status(400).json({ error: 'Neplatný způsob doručení.' }); if ((deliveryMethod === 'pickup_point' || deliveryMethod === 'box') && !String(delivery?.pickupPoint || '').trim()) return res.status(400).json({ error: 'Je nutné vybrat výdejní místo nebo box.' }); if (deliveryMethod === 'address' && (!String(customer.street || '').trim() || !String(customer.city || '').trim() || !String(customer.zip || '').trim())) return res.status(400).json({ error: 'Pro doručení na adresu je nutné vyplnit celou adresu.' }); }
+    else { const carrierConfig = shippingConfig.carriers[carrier] || (carrier === 'PPL' ? DEFAULT_SHIPPING.carriers.PPL : null); if (!carrierConfig || carrierConfig.enabled === false) return res.status(400).json({ error: 'Zvolený dopravce není dostupný.' }); if (carrier === 'PPL' && !pplEligible) return res.status(400).json({ error: 'PPL je dostupné pouze pro objednávky obsahující výhradně produkty z kategorie Doplňky.' });  if (!['address','pickup_point','box'].includes(deliveryMethod)) return res.status(400).json({ error: 'Neplatný způsob doručení.' }); if ((deliveryMethod === 'pickup_point' || deliveryMethod === 'box') && !String(delivery?.pickupPoint || '').trim()) return res.status(400).json({ error: 'Je nutné vybrat výdejní místo nebo box.' }); if (deliveryMethod === 'address' && (!String(customer.street || '').trim() || !String(customer.city || '').trim() || !String(customer.zip || '').trim())) return res.status(400).json({ error: 'Pro doručení na adresu je nutné vyplnit celou adresu.' }); }
 
     let subtotal = 0;
     const orderItems = items.map((item: any) => { const price = Number(item.price) || 0; const quantity = Math.max(1, Number(item.quantity) || 1); subtotal += price * quantity; return { productId: item.productId || item.id || 'custom', title: String(item.title || ''), price, quantity, imageUrl: item.imageUrl || '', customNote: item.customNote || '', category: String(item.category || '') }; });
