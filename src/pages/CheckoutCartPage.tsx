@@ -11,6 +11,7 @@ const IBAN = 'CZ45550000000000963625011';
 const input = 'w-full rounded-2xl border border-[#E5DCD2] bg-[#FCFAF7] px-4 py-3.5 text-sm text-[#302923] outline-none focus:border-[#9A7B58] focus:bg-white focus:ring-4 focus:ring-[#9A7B58]/10 placeholder:text-[#A79C91]';
 const option = (active: boolean) => `relative rounded-2xl border p-4 text-left transition ${active ? 'border-[#9A7B58] bg-[#FBF6EF] shadow-sm' : 'border-[#E8E0D8] bg-white hover:border-[#C8B39B]'}`;
 const normalizeCategory = (value: unknown) => String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const isPplEligibleCategory = (value: unknown) => { const c = normalizeCategory(value); return c === 'doplnky-ostatni' || c === 'doplnky-a-ostatni' || (c.includes('doplnky') && c.includes('ostatni')); };
 const vsOf = (o: any) => String(o?.orderNumber || o?.id || '').replace(/\D/g, '');
 const qrOf = (o: any) => { const n = String(o?.orderNumber || o?.id || ''); const p = `SPD*1.0*ACC:${IBAN}*AM:${Number(o?.totalPrice || 0).toFixed(2)}*CC:CZK*X-VS:${vsOf(o)}*X-MSG:${n}`; return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=8&data=${encodeURIComponent(p)}`; };
 const normalizePhone = (value: string) => value.replace(/[\s()-]/g, '');
@@ -20,7 +21,7 @@ export const CheckoutCartPage: React.FC = () => {
   const { cart, cartTotal, removeFromCart, updateCartQuantity, clearCart, setPage, addToast, config } = useApp();
   const shippingConfig: any = (config as any)?.shipping || DEFAULT;
   const baseEntries = (Object.entries(shippingConfig.carriers || DEFAULT.carriers) as [string, Shipping][]).filter(([, c]) => c?.enabled !== false);
-  const pplEligible = cart.length > 0 && cart.every(item => normalizeCategory(item.product.category) === 'doplnky-ostatni');
+  const pplEligible = cart.length > 0 && cart.every(item => isPplEligibleCategory(item.product.category));
   const entries = [...baseEntries.filter(([name]) => name !== 'PPL'), ...(pplEligible ? [['PPL', (shippingConfig.carriers?.PPL || DEFAULT.carriers.PPL)] as [string, Shipping]] : [])];
   const [carrier, setCarrier] = useState('DPD'); const [method, setMethod] = useState<Method>('address'); const [point, setPoint] = useState<any>(null); const [picker, setPicker] = useState(false);
   const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [phone, setPhone] = useState(''); const [street, setStreet] = useState(''); const [city, setCity] = useState(''); const [zip, setZip] = useState(''); const [note, setNote] = useState(''); const [termsAccepted, setTermsAccepted] = useState(false); const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false); const [sending, setSending] = useState(false); const [done, setDone] = useState<any>(null);
@@ -37,7 +38,7 @@ export const CheckoutCartPage: React.FC = () => {
     if (!name.trim() || !email.trim() || !phone.trim()) return addToast('error', 'Chybí údaje', 'Jméno a příjmení, e-mail a telefon jsou povinné.');
     if (!validInternationalPhone(phone)) return addToast('error', 'Neplatný telefon', 'Telefon zadejte včetně mezinárodní předvolby, například +420 123 456 789.');
     if (!carrier || !entries.some(([n]) => n === carrier)) return addToast('error', 'Vyberte přepravce', 'Vyberte dostupného přepravce.');
-    if (carrier === 'PPL' && !pplEligible) return addToast('error', 'PPL není pro tento košík dostupné', 'PPL lze zvolit pouze tehdy, když jsou v košíku výhradně produkty z kategorie Doplňky.');
+    if (carrier === 'PPL' && !pplEligible) return addToast('error', 'PPL není pro tento košík dostupné', 'PPL lze zvolit pouze tehdy, když jsou v košíku výhradně produkty z kategorie Doplňky & ostatní.');
     
     if (!method) return addToast('error', 'Vyberte způsob doručení', 'Vyberte způsob doručení.');
     if (method === 'address' && (!street.trim() || !city.trim() || !zip.trim())) return addToast('error', 'Chybí adresa', 'Ulice a číslo popisné, město a PSČ jsou povinné.');

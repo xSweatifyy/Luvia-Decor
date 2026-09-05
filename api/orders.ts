@@ -14,6 +14,7 @@ const DEFAULT_SHIPPING = {
 };
 
 const normalizeCategory = (value: unknown) => String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const isPplEligibleCategory = (value: unknown) => { const c = normalizeCategory(value); return c === 'doplnky-ostatni' || c === 'doplnky-a-ostatni' || (c.includes('doplnky') && c.includes('ostatni')); };
 
 async function ensureTables() {
   await sql`CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
@@ -66,7 +67,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Košík je prázdný.' });
     if (paymentMethod && paymentMethod !== 'bank_transfer') return res.status(400).json({ error: 'Jediný dostupný způsob platby je bankovní převod.' });
 
-    const pplEligible = items.every((item: any) => normalizeCategory(item?.category) === 'doplnky-ostatni');
+    const pplEligible = items.length > 0 && items.every((item: any) => isPplEligibleCategory(item?.category));
     const shippingConfig = await getShippingConfig(); const deliveryMethod = String(delivery?.method || 'address'); const carrier = String(delivery?.carrier || '');
     if (deliveryMethod === 'personal_pickup') { if (!shippingConfig.personalPickup.enabled) return res.status(400).json({ error: 'Osobní odběr momentálně není dostupný.' }); }
     else { const carrierConfig = shippingConfig.carriers[carrier] || (carrier === 'PPL' ? DEFAULT_SHIPPING.carriers.PPL : null); if (!carrierConfig || carrierConfig.enabled === false) return res.status(400).json({ error: 'Zvolený dopravce není dostupný.' }); if (carrier === 'PPL' && !pplEligible) return res.status(400).json({ error: 'PPL je dostupné pouze pro objednávky obsahující výhradně produkty z kategorie Doplňky & ostatní.' });  if (!['address','pickup_point','box'].includes(deliveryMethod)) return res.status(400).json({ error: 'Neplatný způsob doručení.' }); if ((deliveryMethod === 'pickup_point' || deliveryMethod === 'box') && !String(delivery?.pickupPoint || '').trim()) return res.status(400).json({ error: 'Je nutné vybrat výdejní místo nebo box.' }); if (deliveryMethod === 'address' && (!String(customer.street || '').trim() || !String(customer.city || '').trim() || !String(customer.zip || '').trim())) return res.status(400).json({ error: 'Pro doručení na adresu je nutné vyplnit celou adresu.' }); }
