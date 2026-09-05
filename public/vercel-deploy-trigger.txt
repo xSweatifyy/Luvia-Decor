@@ -1,1 +1,1 @@
-PPL visibility and carrier logo update deployment trigger.
+PPL visibility, carrier logo and checkout category update deployment trigger.
