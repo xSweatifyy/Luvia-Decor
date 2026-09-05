@@ -1,0 +1,48 @@
+name: Fix PPL pickup point
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch PPL pickup support
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text()
+          s = s.replace("PPL: { enabled: true, address: 105 }", "PPL: { enabled: true, address: 105, pickup_point: 75 }")
+          s = s.replace("const chooseMethod = (m: Method) => { if (carrier === 'PPL' && m === 'pickup_point') return; setMethod(m); setPoint(null); setPicker(m === 'pickup_point'); };", "const chooseMethod = (m: Method) => { setMethod(m); setPoint(null); setPicker(m === 'pickup_point'); };")
+          s = s.replace("if (carrier === 'PPL' && method !== 'address') return addToast('error', 'PPL doručuje na adresu', 'Pro PPL je dostupné pouze doručení na adresu.');", "")
+          p.write_text(s)
+
+          p = Path('api/orders.ts')
+          s = p.read_text()
+          s = s.replace("PPL: { enabled: true, address: 105 }", "PPL: { enabled: true, address: 105, pickup_point: 75 }")
+          s = s.replace("if (carrier === 'PPL' && deliveryMethod !== 'address') return res.status(400).json({ error: 'PPL je dostupné pouze pro doručení na adresu.' });", "")
+          p.write_text(s)
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/CheckoutCartPage.tsx api/orders.ts
+          git diff --cached --quiet && exit 0
+          git commit -m "Allow PPL delivery to pickup points"
+          git push
+
+      - name: Remove temporary workflow
+        if: always()
+        run: |
+          git rm -f .github/workflows/fix-ppl-pickup.yml || true
+          git diff --cached --quiet || git commit -m "Remove temporary PPL patch workflow"
+          git push || true
