@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 
 interface SafeImageProps {
   src?: string | null;
@@ -10,10 +10,30 @@ interface SafeImageProps {
 
 const FALLBACK = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1200&q=85';
 
+function normalizeImageSource(value: string): string {
+  const input = value.trim();
+  if (!input.startsWith('gs://')) return input;
+  const withoutScheme = input.slice(5);
+  const slash = withoutScheme.indexOf('/');
+  if (slash <= 0) return input;
+  const bucket = withoutScheme.slice(0, slash);
+  const path = withoutScheme.slice(slash + 1);
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+}
+
+function toAbsoluteUrl(value: string): string {
+  try {
+    return new URL(value, window.location.href).toString();
+  } catch {
+    return value;
+  }
+}
+
 /**
- * External product image hosts can block browser hotlinking or referrers.
- * Load them through the existing same-origin /api/image proxy first so the
- * public shop receives the image from the Luvia domain consistently.
+ * Product/gallery images are stored as URLs. Use the original URL first so
+ * Firebase Storage, Googleusercontent and other valid public image URLs load
+ * directly in the browser. Only fall back to the same-origin proxy when the
+ * original source rejects browser loading.
  */
 export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   src,
@@ -22,46 +42,39 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   fallbackSrc = FALLBACK,
   loading = 'lazy'
 }) {
-  const imageUrl = useMemo(() => (src || '').trim() || fallbackSrc, [src, fallbackSrc]);
+  const imageUrl = useMemo(() => normalizeImageSource((src || '').trim()) || normalizeImageSource(fallbackSrc), [src, fallbackSrc]);
+  const directUrl = useMemo(() => toAbsoluteUrl(imageUrl), [imageUrl]);
 
-  const directUrl = useMemo(() => {
-    try {
-      return new URL(imageUrl, window.location.href).toString();
-    } catch {
-      return imageUrl;
-    }
-  }, [imageUrl]);
-
-  const publicUrl = useMemo(() => {
+  const proxyUrl = useMemo(() => {
     try {
       const parsed = new URL(directUrl, window.location.href);
-      if (parsed.origin === window.location.origin || parsed.pathname.startsWith('/api/image')) return directUrl;
+      if (parsed.origin === window.location.origin || parsed.protocol === 'data:' || parsed.protocol === 'blob:') return directUrl;
       return `/api/image?url=${encodeURIComponent(directUrl)}`;
     } catch {
       return directUrl;
     }
   }, [directUrl]);
 
-  const [currentSrc, setCurrentSrc] = useState(publicUrl);
-  const [triedDirect, setTriedDirect] = useState(false);
+  const [currentSrc, setCurrentSrc] = useState(directUrl);
+  const [triedProxy, setTriedProxy] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  React.useEffect(() => {
-    setCurrentSrc(publicUrl);
-    setTriedDirect(false);
+  useEffect(() => {
+    setCurrentSrc(directUrl);
+    setTriedProxy(false);
     setFailed(false);
-  }, [publicUrl]);
+  }, [directUrl]);
 
   const handleError = () => {
-    if (!triedDirect && directUrl !== publicUrl) {
-      setTriedDirect(true);
-      setCurrentSrc(directUrl);
+    if (!triedProxy && proxyUrl !== directUrl) {
+      setTriedProxy(true);
+      setCurrentSrc(proxyUrl);
       return;
     }
 
-    if (currentSrc !== fallbackSrc) {
+    if (directUrl !== fallbackSrc && currentSrc !== fallbackSrc) {
       setFailed(true);
-      setCurrentSrc(fallbackSrc);
+      setCurrentSrc(normalizeImageSource(fallbackSrc));
     }
   };
 
