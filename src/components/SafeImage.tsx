@@ -11,28 +11,11 @@ interface SafeImageProps {
 const FALLBACK = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1200&q=85';
 
 function toAbsoluteUrl(value: string): string {
-  try {
-    return new URL(value, window.location.href).toString();
-  } catch {
-    return value;
-  }
+  try { return new URL(value, window.location.href).toString(); } catch { return value; }
 }
 
-function getImageUrl(value: string): string {
-  const absolute = toAbsoluteUrl(value);
-
-  try {
-    const parsed = new URL(absolute, window.location.href);
-    // Všechny externí obrázky načítáme přes náš veřejný Vercel proxy endpoint.
-    // Díky tomu obrázky nejsou závislé na CORS, referreru ani oprávnění
-    // konkrétního prohlížeče. Lokální/data/blob URL necháváme přímo.
-    if (parsed.origin === window.location.origin || parsed.protocol === 'data:' || parsed.protocol === 'blob:') {
-      return absolute;
-    }
-    return `/api/image?url=${encodeURIComponent(absolute)}`;
-  } catch {
-    return absolute;
-  }
+function getProxyUrl(value: string): string {
+  return `/api/image?url=${encodeURIComponent(toAbsoluteUrl(value))}`;
 }
 
 export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
@@ -44,26 +27,26 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
 }) {
   const imageUrl = useMemo(() => (src || '').trim() || fallbackSrc, [src, fallbackSrc]);
   const directUrl = useMemo(() => toAbsoluteUrl(imageUrl), [imageUrl]);
-  const publicUrl = useMemo(() => getImageUrl(imageUrl), [imageUrl]);
+  const proxyUrl = useMemo(() => getProxyUrl(imageUrl), [imageUrl]);
 
-  const [currentSrc, setCurrentSrc] = useState(publicUrl);
-  const [triedDirect, setTriedDirect] = useState(false);
+  // The saved public URL is always the first choice. Proxy is only a fallback.
+  // This keeps existing product URLs unchanged and does not use Firebase Storage.
+  const [currentSrc, setCurrentSrc] = useState(directUrl);
+  const [triedProxy, setTriedProxy] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    setCurrentSrc(publicUrl);
-    setTriedDirect(false);
+    setCurrentSrc(directUrl);
+    setTriedProxy(false);
     setFailed(false);
-  }, [publicUrl]);
+  }, [directUrl]);
 
   const handleError = () => {
-    // Pokud proxy selže, zkusíme ještě přímý veřejný URL zdroj.
-    if (!triedDirect && publicUrl !== directUrl) {
-      setTriedDirect(true);
-      setCurrentSrc(directUrl);
+    if (!triedProxy && proxyUrl !== directUrl && !directUrl.startsWith('blob:')) {
+      setTriedProxy(true);
+      setCurrentSrc(proxyUrl);
       return;
     }
-
     if (currentSrc !== fallbackSrc) {
       setFailed(true);
       setCurrentSrc(fallbackSrc);
