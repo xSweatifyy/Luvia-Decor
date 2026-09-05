@@ -1,1 +1,3 @@
 Deploy trigger: product loading and product creation fixes are ready for production.
+
+Deployment retriggered: 2026-09-05T21:00:00Z
