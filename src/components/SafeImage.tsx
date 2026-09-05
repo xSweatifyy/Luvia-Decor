@@ -18,6 +18,23 @@ function toAbsoluteUrl(value: string): string {
   }
 }
 
+function getImageUrl(value: string): string {
+  const absolute = toAbsoluteUrl(value);
+
+  try {
+    const parsed = new URL(absolute, window.location.href);
+    // Všechny externí obrázky načítáme přes náš veřejný Vercel proxy endpoint.
+    // Díky tomu obrázky nejsou závislé na CORS, referreru ani oprávnění
+    // konkrétního prohlížeče. Lokální/data/blob URL necháváme přímo.
+    if (parsed.origin === window.location.origin || parsed.protocol === 'data:' || parsed.protocol === 'blob:') {
+      return absolute;
+    }
+    return `/api/image?url=${encodeURIComponent(absolute)}`;
+  } catch {
+    return absolute;
+  }
+}
+
 export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   src,
   alt = '',
@@ -27,31 +44,23 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
 }) {
   const imageUrl = useMemo(() => (src || '').trim() || fallbackSrc, [src, fallbackSrc]);
   const directUrl = useMemo(() => toAbsoluteUrl(imageUrl), [imageUrl]);
+  const publicUrl = useMemo(() => getImageUrl(imageUrl), [imageUrl]);
 
-  const proxyUrl = useMemo(() => {
-    try {
-      const parsed = new URL(directUrl, window.location.href);
-      if (parsed.origin === window.location.origin || parsed.protocol === 'data:' || parsed.protocol === 'blob:') return directUrl;
-      return `/api/image?url=${encodeURIComponent(directUrl)}`;
-    } catch {
-      return directUrl;
-    }
-  }, [directUrl]);
-
-  const [currentSrc, setCurrentSrc] = useState(directUrl);
-  const [triedProxy, setTriedProxy] = useState(false);
+  const [currentSrc, setCurrentSrc] = useState(publicUrl);
+  const [triedDirect, setTriedDirect] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    setCurrentSrc(directUrl);
-    setTriedProxy(false);
+    setCurrentSrc(publicUrl);
+    setTriedDirect(false);
     setFailed(false);
-  }, [directUrl]);
+  }, [publicUrl]);
 
   const handleError = () => {
-    if (!triedProxy && proxyUrl !== directUrl) {
-      setTriedProxy(true);
-      setCurrentSrc(proxyUrl);
+    // Pokud proxy selže, zkusíme ještě přímý veřejný URL zdroj.
+    if (!triedDirect && publicUrl !== directUrl) {
+      setTriedDirect(true);
+      setCurrentSrc(directUrl);
       return;
     }
 
