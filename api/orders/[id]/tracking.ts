@@ -131,12 +131,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
 
     if (autoRefresh) {
-      // Update only the tracking object and only if the carrier/number have not
-      // changed since the refresh started. This prevents an older poll from
-      // reverting an admin's newly saved carrier.
+      // Automatické obnovení smí aktualizovat pouze informace získané od přepravce.
+      // Nesmí přepsat ručně uloženého dopravce, číslo zásilky ani ruční stav.
       const result = await sql`
         UPDATE orders
-        SET data = jsonb_set(data, '{tracking}', ${JSON.stringify(tracking)}::jsonb, true)
+        SET data = jsonb_set(
+          data,
+          '{tracking}',
+          (
+            COALESCE(data->'tracking', '{}'::jsonb)
+            || jsonb_build_object(
+              'externalStatus', ${externalStatus === null ? null : JSON.stringify(externalStatus)}::jsonb,
+              'history', ${JSON.stringify(trackingHistory)}::jsonb,
+              'updatedAt', ${new Date().toISOString()},
+              'refreshError', ${refreshError ?? null}
+            )
+          ),
+          true
+        )
         WHERE id = ${id}
           AND COALESCE(data->'tracking'->>'carrier', '') = ${String(existing.carrier || '')}
           AND COALESCE(data->'tracking'->>'trackingNumber', '') = ${String(existing.trackingNumber || '')}
