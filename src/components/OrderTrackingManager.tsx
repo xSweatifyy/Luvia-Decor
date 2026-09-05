@@ -20,6 +20,7 @@ export const OrderTrackingManager: React.FC = () => {
   const [form, setForm] = useState<Record<string, FormValues>>({});
   const refreshing = useRef(false);
   const savingIds = useRef(new Set<string>());
+  const dirtyIds = useRef(new Set<string>());
   const formRef = useRef(form);
 
   useEffect(() => { formRef.current = form; }, [form]);
@@ -43,7 +44,10 @@ export const OrderTrackingManager: React.FC = () => {
       setForm(prev => {
         const next = { ...prev };
         list.forEach(order => {
-          if (savingIds.current.has(order.id)) return;
+          // Polling must never replace an admin's locally edited carrier,
+          // tracking number or status. Only a successful save/clear clears
+          // this dirty lock for that order.
+          if (savingIds.current.has(order.id) || dirtyIds.current.has(order.id)) return;
           const t = order.tracking || {};
           next[order.id] = {
             carrier: normalizeCarrier(t.carrier || order.delivery?.carrier || 'PPL'),
@@ -55,19 +59,17 @@ export const OrderTrackingManager: React.FC = () => {
       });
 
       if (refreshTracking) {
-        // Important: automatic polling must use ONLY the already persisted
-        // tracking carrier/number. It must never use the admin form state,
-        // otherwise a stale form value can overwrite a newly selected carrier.
-        const tracked = list.filter(order => order.tracking?.trackingNumber && !savingIds.current.has(order.id));
+        // Automatic polling uses ONLY persisted tracking data, never the form.
+        const tracked = list.filter(order => order.tracking?.trackingNumber && !savingIds.current.has(order.id) && !dirtyIds.current.has(order.id));
         for (let i = 0; i < tracked.length; i += 4) {
           const batch = tracked.slice(i, i + 4);
           await Promise.all(batch.map(async order => {
-            if (savingIds.current.has(order.id)) return null;
+            if (savingIds.current.has(order.id) || dirtyIds.current.has(order.id)) return null;
             try {
               const t = order.tracking || {};
-              const carrier = normalizeCarrier(t.carrier || order.delivery?.carrier || 'PPL');
+              const carrier = normalizeCarrier(t.carrier);
               const trackingNumber = String(t.trackingNumber || '').trim();
-              if (!trackingNumber || savingIds.current.has(order.id)) return null;
+              if (!trackingNumber || savingIds.current.has(order.id) || dirtyIds.current.has(order.id)) return null;
               const r = await fetch(`/api/orders/${order.id}/tracking`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -95,6 +97,7 @@ export const OrderTrackingManager: React.FC = () => {
   }, [load]);
 
   const updateForm = (id: string, patch: Partial<FormValues>) => {
+    dirtyIds.current.add(id);
     setForm(prev => {
       const updated = {
         ...prev,
@@ -131,11 +134,20 @@ export const OrderTrackingManager: React.FC = () => {
       if (!res.ok) throw new Error(data.error || 'Uložení sledování selhalo.');
       setOrders(prev => prev.map(item => item.id === order.id ? data : item));
       const t = data.tracking || {};
-      updateForm(order.id, {
-        carrier: normalizeCarrier(t.carrier),
-        trackingNumber: t.trackingNumber || payload.trackingNumber,
-        status: t.status || payload.status,
+      setForm(prev => {
+        const updated = {
+          ...prev,
+          [order.id]: {
+            carrier: normalizeCarrier(t.carrier || payload.carrier),
+            trackingNumber: t.trackingNumber || payload.trackingNumber,
+            status: t.status || payload.status,
+          },
+        };
+        formRef.current = updated;
+        return updated;
       });
+      // Only now allow the next poll to read the persisted server state.
+      dirtyIds.current.delete(order.id);
     } catch (e: any) {
       window.alert(e?.message || 'Chyba při ukládání sledování.');
     } finally {
@@ -151,7 +163,12 @@ export const OrderTrackingManager: React.FC = () => {
       const res = await fetch(`/api/orders/${order.id}/tracking`, { method: 'DELETE', cache: 'no-store' });
       if (!res.ok) throw new Error('Smazání sledování selhalo.');
       setOrders(prev => prev.map(item => item.id === order.id ? { ...item, tracking: undefined } : item));
-      updateForm(order.id, { trackingNumber: '', status: 'Zásilka evidována' });
+      setForm(prev => {
+        const updated = { ...prev, [order.id]: { ...(prev[order.id] || { carrier: 'PPL' as Carrier, trackingNumber: '', status: 'Zásilka evidována' }), trackingNumber: '', status: 'Zásilka evidována' } };
+        formRef.current = updated;
+        return updated;
+      });
+      dirtyIds.current.delete(order.id);
     } catch (e: any) {
       window.alert(e?.message || 'Chyba při mazání sledování.');
     } finally {
