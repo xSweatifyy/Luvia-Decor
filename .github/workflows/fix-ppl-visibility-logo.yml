@@ -1,0 +1,67 @@
+name: Fix PPL visibility and logo
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch PPL category and logos
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text()
+          replacements = [
+            ("normalizeCategory(item.product.category) === 'doplnky'", "normalizeCategory(item.product.category) === 'doplnky-ostatni'"),
+            ("<b>{n}</b>}<span className=\"block text-[11px] text-[#8B8178] mt-2\">{n === 'PPL' ? 'Pouze na adresu · jen pro Doplňky' : 'Doručení na adresu / výdejní místo'}</span>", "<b>{n}</b>}<span className=\"block text-[11px] text-[#8B8178] mt-2\">{n === 'PPL' ? 'Adresa / výdejní místo · jen pro Doplňky & ostatní' : 'Doručení na adresu / výdejní místo'}</span>"),
+            (": n === 'DPD' ? <img src=\"/dpd-logo.png\" alt=\"DPD\" className=\"h-8 max-w-[110px] object-contain\"/> : <b>{n}</b>", ": n === 'DPD' ? <img src=\"/dpd-logo.png\" alt=\"DPD\" className=\"h-8 max-w-[110px] object-contain\"/> : <img src=\"/ppl-logo.jpg\" alt=\"PPL\" className=\"h-8 max-w-[145px] object-contain\"/>"),
+            ("{carrier !== 'PPL' && <button type=\"button\" onClick={() => chooseMethod('pickup_point')}", "{<button type=\"button\" onClick={() => chooseMethod('pickup_point')}")
+          ]
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit(f'Checkout replacement not found: {old[:80]}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          p = Path('api/orders.ts')
+          s = p.read_text()
+          old = "normalizeCategory(item?.category) === 'doplnky'"
+          if old not in s:
+              raise SystemExit('Orders category check not found')
+          s = s.replace(old, "normalizeCategory(item?.category) === 'doplnky-ostatni'", 1)
+          s = s.replace('výhradně produkty z kategorie Doplňky.', 'výhradně produkty z kategorie Doplňky & ostatní.')
+          p.write_text(s)
+
+          p = Path('src/components/Footer.tsx')
+          s = p.read_text()
+          old = '<div className="h-14 w-40 flex items-center justify-center rounded-xl bg-transparent"><SafeImage src="/dpd-logo.png" alt="DPD" className="max-h-10 max-w-full object-contain bg-transparent" loading="lazy" /></div></div>'
+          new = '<div className="h-14 w-40 flex items-center justify-center rounded-xl bg-transparent"><SafeImage src="/dpd-logo.png" alt="DPD" className="max-h-10 max-w-full object-contain bg-transparent" loading="lazy" /></div><div className="h-14 w-40 flex items-center justify-center rounded-xl bg-transparent"><SafeImage src="/ppl-logo.jpg" alt="PPL" className="max-h-10 max-w-full object-contain bg-transparent" loading="lazy" /></div></div>'
+          if old not in s:
+              raise SystemExit('Footer DPD carrier block not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/CheckoutCartPage.tsx api/orders.ts src/components/Footer.tsx
+          git commit -m "Fix PPL visibility for Doplňky & ostatní and add logo"
+          git push
+
+      - name: Remove temporary workflow
+        if: always()
+        run: |
+          git rm -f .github/workflows/fix-ppl-visibility-logo.yml || true
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Remove temporary PPL visibility workflow"
+            git push || true
+          fi
