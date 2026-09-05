@@ -43,7 +43,7 @@ async function seedFirestoreIfNeeded(): Promise<void> {
 
 export function initializeFirestoreIfNeeded(): Promise<void> { if (!initializationPromise) initializationPromise = seedFirestoreIfNeeded(); return initializationPromise; }
 
-/** Products are served from the public Neon API, not Firestore. This is important because product data/images must be identical for every visitor. */
+/** Products are served from the public Neon API so admin and public catalog use the same persistent product data and image URLs. */
 export function subscribeProducts(callback: (products: Product[]) => void): () => void {
   let cancelled = false;
   let timer: number | undefined;
@@ -76,8 +76,20 @@ export function subscribeProducts(callback: (products: Product[]) => void): () =
   return () => { cancelled = true; if (timer) window.clearInterval(timer); };
 }
 
-export async function saveProductToFirestore(product: Product): Promise<Product> { const id = product.id || `prod-${Date.now()}`; const data = removeUndefined({ ...product, id, updatedAt: new Date().toISOString() }); await setDoc(doc(db, PRODUCTS_COL, id), data); return data; }
-export async function deleteProductFromFirestore(productId: string): Promise<boolean> { await deleteDoc(doc(db, PRODUCTS_COL, productId)); return true; }
+export async function saveProductToFirestore(product: Product): Promise<Product> {
+  const id = product.id || `prod-${Date.now()}`;
+  const data = removeUndefined({ ...product, id, updatedAt: new Date().toISOString() });
+  await setDoc(doc(db, PRODUCTS_COL, id), data);
+  const response = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+  if (!response.ok) throw new Error(`Produkty API: HTTP ${response.status}`);
+  return data;
+}
+export async function deleteProductFromFirestore(productId: string): Promise<boolean> {
+  await deleteDoc(doc(db, PRODUCTS_COL, productId));
+  const response = await fetch(`/api/products?id=${encodeURIComponent(productId)}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error(`Produkty API: HTTP ${response.status}`);
+  return true;
+}
 
 export function subscribeOrders(callback: (orders: Order[]) => void): () => void { return onSnapshot(collection(db, ORDERS_COL), snapshot => { const orders: Order[] = []; snapshot.forEach(d => orders.push({ ...(d.data() as Order), id: d.id })); orders.sort((a,b)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime()); callback(orders); }, err=>console.error('Firestore orders subscription error:',err)); }
 export async function createOrderInFirestore(order: Order): Promise<Order> { const id=order.id||`ord-${Date.now()}`; const data=removeUndefined({...order,id,createdAt:order.createdAt||new Date().toISOString()}); await setDoc(doc(db,ORDERS_COL,id),data); return data; }
