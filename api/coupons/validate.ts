@@ -8,6 +8,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Metoda není podporovaná.' });
   try {
     await sql`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, type TEXT NOT NULL, value NUMERIC NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), note TEXT)`;
+    await sql`INSERT INTO coupons (id, code, type, value, active, note) VALUES ('coupon-luvia10', 'LUVIA10', 'percent', 10, TRUE, '') ON CONFLICT (code) DO NOTHING`;
     const code = String(req.body?.code || '').trim().toUpperCase();
     if (!code) return res.status(400).json({ valid: false, error: 'Zadejte slevový kód.' });
     const rows = await sql`SELECT code, type, value, active FROM coupons WHERE code = ${code} AND active = TRUE LIMIT 1`;
