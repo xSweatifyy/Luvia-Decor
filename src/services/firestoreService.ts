@@ -3,7 +3,6 @@ import { db } from '../lib/firebase';
 import { Product, Order, SiteConfig, GalleryItem, Review, AdminUser, Coupon } from '../types';
 import { initialSiteConfig, initialGallery, initialReviews, initialAdminUsers } from '../data/initialData';
 
-const PRODUCTS_COL = 'products';
 const ORDERS_COL = 'orders';
 const CONFIG_COL = 'site_config';
 const CONFIG_DOC = 'main';
@@ -43,7 +42,7 @@ async function seedFirestoreIfNeeded(): Promise<void> {
 
 export function initializeFirestoreIfNeeded(): Promise<void> { if (!initializationPromise) initializationPromise = seedFirestoreIfNeeded(); return initializationPromise; }
 
-/** Products are served from the public Neon API so admin and public catalog use the same persistent product data and image URLs. */
+/** Products use the same Neon API for both admin and public catalog. Product images remain the exact URLs entered by the admin. */
 export function subscribeProducts(callback: (products: Product[]) => void): () => void {
   let cancelled = false;
   let timer: number | undefined;
@@ -62,6 +61,8 @@ export function subscribeProducts(callback: (products: Product[]) => void): () =
           featured: Boolean(item?.featured),
           isPriceFrom: Boolean(item?.isPriceFrom),
           pricePrefix: item?.isPriceFrom ? (item?.pricePrefix || 'Od') : undefined,
+          imageUrl: typeof item?.imageUrl === 'string' ? item.imageUrl.trim() : '',
+          gallery: Array.isArray(item?.gallery) ? item.gallery.filter((url: unknown): url is string => typeof url === 'string' && url.trim().length > 0).map((url: string) => url.trim()) : [],
         })).filter((item: Product) => item.id);
         products.sort((a: Product, b: Product) => String(a.title || '').localeCompare(String(b.title || ''), 'cs'));
         callback(products);
@@ -79,15 +80,22 @@ export function subscribeProducts(callback: (products: Product[]) => void): () =
 export async function saveProductToFirestore(product: Product): Promise<Product> {
   const id = product.id || `prod-${Date.now()}`;
   const data = removeUndefined({ ...product, id, updatedAt: new Date().toISOString() });
-  await setDoc(doc(db, PRODUCTS_COL, id), data);
   const response = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-  if (!response.ok) throw new Error(`Produkty API: HTTP ${response.status}`);
+  if (!response.ok) {
+    let message = `Produkty API: HTTP ${response.status}`;
+    try { const error = await response.json(); if (error?.error) message = String(error.error); } catch {}
+    throw new Error(message);
+  }
   return data;
 }
+
 export async function deleteProductFromFirestore(productId: string): Promise<boolean> {
-  await deleteDoc(doc(db, PRODUCTS_COL, productId));
-  const response = await fetch(`/api/products?id=${encodeURIComponent(productId)}`, { method: 'DELETE' });
-  if (!response.ok) throw new Error(`Produkty API: HTTP ${response.status}`);
+  const response = await fetch(`/api/products/${encodeURIComponent(productId)}`, { method: 'DELETE' });
+  if (!response.ok) {
+    let message = `Produkty API: HTTP ${response.status}`;
+    try { const error = await response.json(); if (error?.error) message = String(error.error); } catch {}
+    throw new Error(message);
+  }
   return true;
 }
 
