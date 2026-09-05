@@ -7,10 +7,13 @@ const sql = neon(process.env.DATABASE_URL || '');
 const DEFAULT_SHIPPING = {
   carriers: {
     DPD: { enabled: true, address: 105, pickup_point: 75, box: 75 },
-    'Zásilkovna': { enabled: true, address: 89, pickup_point: 62, box: 62 }
+    'Zásilkovna': { enabled: true, address: 89, pickup_point: 62, box: 62 },
+    PPL: { enabled: true, address: 105 }
   },
   personalPickup: { enabled: true, price: 0, label: 'Osobní odběr – Kroměříž' }
 };
+
+const normalizeCategory = (value: unknown) => String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 async function ensureTables() {
   await sql`CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
@@ -63,13 +66,14 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Košík je prázdný.' });
     if (paymentMethod && paymentMethod !== 'bank_transfer') return res.status(400).json({ error: 'Jediný dostupný způsob platby je bankovní převod.' });
 
+    const pplEligible = items.every((item: any) => normalizeCategory(item?.category) === 'doplnky');
     const shippingConfig = await getShippingConfig(); const deliveryMethod = String(delivery?.method || 'address'); const carrier = String(delivery?.carrier || '');
     if (deliveryMethod === 'personal_pickup') { if (!shippingConfig.personalPickup.enabled) return res.status(400).json({ error: 'Osobní odběr momentálně není dostupný.' }); }
-    else { const carrierConfig = shippingConfig.carriers[carrier]; if (!carrierConfig || carrierConfig.enabled === false) return res.status(400).json({ error: 'Zvolený dopravce není dostupný.' }); if (!['address','pickup_point','box'].includes(deliveryMethod)) return res.status(400).json({ error: 'Neplatný způsob doručení.' }); if ((deliveryMethod === 'pickup_point' || deliveryMethod === 'box') && !String(delivery?.pickupPoint || '').trim()) return res.status(400).json({ error: 'Je nutné vybrat výdejní místo nebo box.' }); if (deliveryMethod === 'address' && (!String(customer.street || '').trim() || !String(customer.city || '').trim() || !String(customer.zip || '').trim())) return res.status(400).json({ error: 'Pro doručení na adresu je nutné vyplnit celou adresu.' }); }
+    else { const carrierConfig = shippingConfig.carriers[carrier] || (carrier === 'PPL' ? DEFAULT_SHIPPING.carriers.PPL : null); if (!carrierConfig || carrierConfig.enabled === false) return res.status(400).json({ error: 'Zvolený dopravce není dostupný.' }); if (carrier === 'PPL' && !pplEligible) return res.status(400).json({ error: 'PPL je dostupné pouze pro objednávky obsahující výhradně produkty z kategorie Doplňky.' }); if (carrier === 'PPL' && deliveryMethod !== 'address') return res.status(400).json({ error: 'PPL je dostupné pouze pro doručení na adresu.' }); if (!['address','pickup_point','box'].includes(deliveryMethod)) return res.status(400).json({ error: 'Neplatný způsob doručení.' }); if ((deliveryMethod === 'pickup_point' || deliveryMethod === 'box') && !String(delivery?.pickupPoint || '').trim()) return res.status(400).json({ error: 'Je nutné vybrat výdejní místo nebo box.' }); if (deliveryMethod === 'address' && (!String(customer.street || '').trim() || !String(customer.city || '').trim() || !String(customer.zip || '').trim())) return res.status(400).json({ error: 'Pro doručení na adresu je nutné vyplnit celou adresu.' }); }
 
     let subtotal = 0;
     const orderItems = items.map((item: any) => { const price = Number(item.price) || 0; const quantity = Math.max(1, Number(item.quantity) || 1); subtotal += price * quantity; return { productId: item.productId || item.id || 'custom', title: String(item.title || ''), price, quantity, imageUrl: item.imageUrl || '', customNote: item.customNote || '', category: String(item.category || '') }; });
-    const carrierConfig = carrier ? shippingConfig.carriers[carrier] : null;
+    const carrierConfig = carrier ? (shippingConfig.carriers[carrier] || (carrier === 'PPL' ? DEFAULT_SHIPPING.carriers.PPL : null)) : null;
     const shipping = deliveryMethod === 'personal_pickup' ? shippingConfig.personalPickup.price : deliveryMethod === 'address' ? Number(carrierConfig?.address || 0) : deliveryMethod === 'box' ? Number(carrierConfig?.box || 0) : Number(carrierConfig?.pickup_point || 0);
 
     let discount = 0; let appliedCouponCode: string | undefined; let voucherConsumed = 0; let voucherId: string | undefined;
