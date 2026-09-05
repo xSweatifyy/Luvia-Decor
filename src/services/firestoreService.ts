@@ -42,7 +42,7 @@ async function seedFirestoreIfNeeded(): Promise<void> {
 
 export function initializeFirestoreIfNeeded(): Promise<void> { if (!initializationPromise) initializationPromise = seedFirestoreIfNeeded(); return initializationPromise; }
 
-/** Products use the same Neon API for both admin and public catalog. Product images remain the exact URLs entered by the admin. */
+/** Products use the dedicated Neon API. Images remain the exact URLs entered by the admin; Firebase Storage is not used. */
 export function subscribeProducts(callback: (products: Product[]) => void): () => void {
   let cancelled = false;
   let timer: number | undefined;
@@ -90,7 +90,7 @@ export async function saveProductToFirestore(product: Product): Promise<Product>
 }
 
 export async function deleteProductFromFirestore(productId: string): Promise<boolean> {
-  const response = await fetch(`/api/products/${encodeURIComponent(productId)}`, { method: 'DELETE' });
+  const response = await fetch(`/api/products?id=${encodeURIComponent(productId)}`, { method: 'DELETE' });
   if (!response.ok) {
     let message = `Produkty API: HTTP ${response.status}`;
     try { const error = await response.json(); if (error?.error) message = String(error.error); } catch {}
@@ -102,7 +102,6 @@ export async function deleteProductFromFirestore(productId: string): Promise<boo
 export function subscribeOrders(callback: (orders: Order[]) => void): () => void { return onSnapshot(collection(db, ORDERS_COL), snapshot => { const orders: Order[] = []; snapshot.forEach(d => orders.push({ ...(d.data() as Order), id: d.id })); orders.sort((a,b)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime()); callback(orders); }, err=>console.error('Firestore orders subscription error:',err)); }
 export async function createOrderInFirestore(order: Order): Promise<Order> { const id=order.id||`ord-${Date.now()}`; const data=removeUndefined({...order,id,createdAt:order.createdAt||new Date().toISOString()}); await setDoc(doc(db,ORDERS_COL,id),data); return data; }
 export async function updateOrderStatusInFirestore(orderId:string,status:Order['status']):Promise<void>{await updateDoc(doc(db,ORDERS_COL,orderId),{status,updatedAt:new Date().toISOString()});}
-
 export function subscribeSiteConfig(callback:(config:SiteConfig)=>void):()=>void{return onSnapshot(doc(db,CONFIG_COL,CONFIG_DOC),snapshot=>{if(snapshot.exists())callback(snapshot.data() as SiteConfig);else initializeFirestoreIfNeeded().then(()=>callback(initialSiteConfig));},err=>{console.error('Firestore site config subscription error:',err);callback(initialSiteConfig);});}
 export async function updateSiteConfigInFirestore(updates:Partial<SiteConfig>):Promise<SiteConfig>{const ref=doc(db,CONFIG_COL,CONFIG_DOC);const snap=await getDoc(ref);const current=snap.exists()?snap.data() as SiteConfig:initialSiteConfig;const merged=removeUndefined({...current,...updates});await setDoc(ref,merged,{merge:true});return merged;}
 export function subscribeGallery(callback:(items:GalleryItem[])=>void):()=>void{return onSnapshot(collection(db,GALLERY_COL),snapshot=>{const items:GalleryItem[]=[];snapshot.forEach(d=>items.push({...d.data() as GalleryItem,id:d.id}));callback(items);},err=>{console.error('Firestore gallery subscription error:',err);callback([]);});}
