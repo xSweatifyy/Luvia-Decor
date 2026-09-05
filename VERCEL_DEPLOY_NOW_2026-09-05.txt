@@ -1,0 +1,2 @@
+Production redeploy trigger for Luvia Decor.
+Product images must remain URL-based and publicly visible without Firebase Storage.
