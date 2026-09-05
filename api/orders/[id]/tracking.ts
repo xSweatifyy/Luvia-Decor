@@ -130,9 +130,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       refreshError,
     };
 
-    const updated = { ...order, tracking };
-    if (mappedStatus && autoRefresh !== true) updated.status = mappedStatus;
+    if (autoRefresh) {
+      // Update only the tracking object and only if the carrier/number have not
+      // changed since the refresh started. This prevents an older poll from
+      // reverting an admin's newly saved carrier.
+      const result = await sql`
+        UPDATE orders
+        SET data = jsonb_set(data, '{tracking}', ${JSON.stringify(tracking)}::jsonb, true)
+        WHERE id = ${id}
+          AND COALESCE(data->'tracking'->>'carrier', '') = ${String(existing.carrier || '')}
+          AND COALESCE(data->'tracking'->>'trackingNumber', '') = ${String(existing.trackingNumber || '')}
+        RETURNING id, data
+      `;
+      if (!result.length) {
+        const latest = await sql`SELECT id, data FROM orders WHERE id = ${id} LIMIT 1`;
+        if (!latest.length) return res.status(404).json({ error: 'Objednávka nebyla nalezena.' });
+        return res.status(200).json({ ...(latest[0].data || {}), id: latest[0].id });
+      }
+      return res.status(200).json({ ...(result[0].data || {}), id: result[0].id });
+    }
 
+    const updated = { ...order, tracking };
+    if (mappedStatus) updated.status = mappedStatus;
     await sql`UPDATE orders SET data = ${JSON.stringify(updated)}::jsonb WHERE id = ${id}`;
     return res.status(200).json(updated);
   } catch (error: any) {
