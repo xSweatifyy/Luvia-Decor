@@ -5,12 +5,24 @@ const carriers = ['PPL', 'DPD', 'Zásilkovna'] as const;
 type Carrier = typeof carriers[number];
 const statusOptions = ['Zásilka evidována', 'Převzata přepravcem', 'Na depu', 'V přepravě', 'Doručována', 'Připravena k vyzvednutí', 'Doručena', 'Vrácena', 'Problém se zásilkou'];
 
+type FormValues = { carrier: Carrier; trackingNumber: string; status: string };
+
 export const OrderTrackingManager: React.FC = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [form, setForm] = useState<Record<string, { carrier: Carrier; trackingNumber: string; status: string }>>({});
+  const [form, setForm] = useState<Record<string, FormValues>>({});
   const refreshing = useRef(false);
+  const formRef = useRef(form);
+  const savingIdRef = useRef<string | null>(savingId);
+
+  useEffect(() => {
+    formRef.current = form;
+  }, [form]);
+
+  useEffect(() => {
+    savingIdRef.current = savingId;
+  }, [savingId]);
 
   const load = useCallback(async (refreshTracking = false) => {
     if (refreshTracking && refreshing.current) return;
@@ -26,25 +38,47 @@ export const OrderTrackingManager: React.FC = () => {
         const next = { ...prev };
         list.forEach(order => {
           const t = order.tracking || {};
-          if (!next[order.id]) next[order.id] = { carrier: (t.carrier || order.delivery?.carrier || 'PPL') as Carrier, trackingNumber: t.trackingNumber || '', status: t.status || 'Zásilka evidována' };
+          if (!next[order.id]) {
+            next[order.id] = {
+              carrier: (t.carrier || order.delivery?.carrier || 'PPL') as Carrier,
+              trackingNumber: t.trackingNumber || '',
+              status: t.status || 'Zásilka evidována',
+            };
+          }
         });
         return next;
       });
 
       if (refreshTracking) {
-        const tracked = list.filter(order => order.tracking?.trackingNumber);
+        const tracked = list.filter(order => order.tracking?.trackingNumber && order.id !== savingIdRef.current);
         for (let i = 0; i < tracked.length; i += 4) {
           const batch = tracked.slice(i, i + 4);
           const results = await Promise.all(batch.map(async order => {
             try {
-              const t = order.tracking;
-              const r = await fetch(`/api/orders/${order.id}/tracking`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store', body: JSON.stringify({ carrier: t.carrier, trackingNumber: t.trackingNumber, refresh: true }) });
+              // Always use the current admin form values. This prevents the 60-second
+              // background refresh from sending an old carrier back to the API while
+              // the administrator has just changed it.
+              const current = formRef.current[order.id];
+              const t = order.tracking || {};
+              const carrier = current?.carrier || t.carrier || order.delivery?.carrier || 'PPL';
+              const trackingNumber = current?.trackingNumber?.trim() || t.trackingNumber || '';
+              if (!trackingNumber || order.id === savingIdRef.current) return null;
+              const r = await fetch(`/api/orders/${order.id}/tracking`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                cache: 'no-store',
+                body: JSON.stringify({ carrier, trackingNumber, refresh: true }),
+              });
               if (!r.ok) return null;
               return await r.json();
-            } catch { return null; }
+            } catch {
+              return null;
+            }
           }));
           const successful = results.filter(Boolean);
-          if (successful.length) setOrders(prev => prev.map(item => successful.find(updated => updated.id === item.id) || item));
+          if (successful.length) {
+            setOrders(prev => prev.map(item => successful.find(updated => updated.id === item.id) || item));
+          }
         }
       }
     } catch (e) {
@@ -61,21 +95,45 @@ export const OrderTrackingManager: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [load]);
 
-  const updateForm = (id: string, patch: Partial<{ carrier: Carrier; trackingNumber: string; status: string }>) => setForm(prev => ({ ...prev, [id]: { ...(prev[id] || { carrier: 'PPL', trackingNumber: '', status: 'Zásilka evidována' }), ...patch } }));
+  const updateForm = (id: string, patch: Partial<FormValues>) => {
+    setForm(prev => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] || { carrier: 'PPL', trackingNumber: '', status: 'Zásilka evidována' }),
+        ...patch,
+      },
+    }));
+  };
 
   const save = async (order: any, refresh = false) => {
     const values = form[order.id];
     if (!values?.trackingNumber.trim()) return;
     setSavingId(order.id);
     try {
-      const res = await fetch(`/api/orders/${order.id}/tracking`, { method: refresh ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...values, refresh }) });
+      const res = await fetch(`/api/orders/${order.id}/tracking`, {
+        method: refresh ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          carrier: values.carrier,
+          trackingNumber: values.trackingNumber.trim(),
+          status: values.status,
+          refresh,
+        }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Uložení sledování selhalo.');
       setOrders(prev => prev.map(item => item.id === order.id ? data : item));
       const t = data.tracking || {};
-      updateForm(order.id, { carrier: t.carrier, trackingNumber: t.trackingNumber, status: t.status });
-    } catch (e: any) { window.alert(e?.message || 'Chyba při ukládání sledování.'); }
-    finally { setSavingId(null); }
+      updateForm(order.id, {
+        carrier: t.carrier,
+        trackingNumber: t.trackingNumber,
+        status: t.status,
+      });
+    } catch (e: any) {
+      window.alert(e?.message || 'Chyba při ukládání sledování.');
+    } finally {
+      setSavingId(null);
+    }
   };
 
   const clear = async (order: any) => {
@@ -85,8 +143,11 @@ export const OrderTrackingManager: React.FC = () => {
       if (!res.ok) throw new Error('Smazání sledování selhalo.');
       setOrders(prev => prev.map(item => item.id === order.id ? { ...item, tracking: undefined } : item));
       updateForm(order.id, { trackingNumber: '', status: 'Zásilka evidována' });
-    } catch (e: any) { window.alert(e?.message || 'Chyba při mazání sledování.'); }
-    finally { setSavingId(null); }
+    } catch (e: any) {
+      window.alert(e?.message || 'Chyba při mazání sledování.');
+    } finally {
+      setSavingId(null);
+    }
   };
 
   return <section className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E8DFC8] shadow-sm space-y-5">
