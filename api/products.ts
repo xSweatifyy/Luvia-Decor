@@ -13,6 +13,15 @@ async function ensureProductsTable() {
   await sql`CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
 }
 
+function normalizeProduct(input: any, id: string) {
+  const product = { ...(input || {}) };
+  product.id = id;
+  if (!product.title && product.name) product.title = String(product.name);
+  if (typeof product.imageUrl === 'string') product.imageUrl = product.imageUrl.trim();
+  if (Array.isArray(product.gallery)) product.gallery = product.gallery.filter((url: unknown): url is string => typeof url === 'string' && url.trim().length > 0).map((url: string) => url.trim());
+  return product;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -31,11 +40,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
-      const product = req.body;
-      if (!product?.id || !product?.title) {
-        return res.status(400).json({ error: 'Produkt nemá povinné údaje.' });
-      }
-      await sql`INSERT INTO products (id, data) VALUES (${String(product.id)}, ${JSON.stringify(product)}::jsonb) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`;
+      const requestedId = String(req.body?.id || '').trim();
+      const product = normalizeProduct(req.body, requestedId || `prod-${Date.now()}`);
+      if (!product.title) return res.status(400).json({ error: 'Produkt nemá název.' });
+      await sql`INSERT INTO products (id, data) VALUES (${product.id}, ${JSON.stringify(product)}::jsonb) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`;
       return res.status(201).json(product);
     }
 
@@ -43,7 +51,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return res.status(400).json({ error: 'Chybí ID produktu.' });
       const rows = await sql`SELECT data FROM products WHERE id = ${id} LIMIT 1`;
       const current = rows.length ? rows[0].data : {};
-      const merged = { ...current, ...(req.body || {}), id };
+      const merged = normalizeProduct({ ...current, ...(req.body || {}) }, id);
+      if (!merged.title) return res.status(400).json({ error: 'Produkt nemá název.' });
       await sql`INSERT INTO products (id, data) VALUES (${id}, ${JSON.stringify(merged)}::jsonb) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`;
       return res.status(200).json(merged);
     }
