@@ -1,0 +1,26 @@
+name: Force Vercel production deploy
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  deploy:
+    if: github.event.head_commit.message != 'Remove temporary Vercel deploy workflow'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy with Vercel token and team scope
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx vercel@latest --prod --yes --token "$VERCEL_TOKEN" --scope itz-andileks-projects
+      - name: Remove temporary workflow
+        if: always()
+        run: |
+          git rm -f .github/workflows/vercel-force-production.yml || true
+          if ! git diff --cached --quiet; then
+            git config user.name "xSweatifyy"
+            git config user.email "136999210+xSweatifyy@users.noreply.github.com"
+            git commit -m "Remove temporary Vercel deploy workflow"
+            git push || true
+          fi
