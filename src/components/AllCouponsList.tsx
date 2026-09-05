@@ -14,7 +14,7 @@ export const AllCouponsList: React.FC = () => {
     if (!adminUser || adminUser.role !== 'admin') return;
     setLoading(true);
     try {
-      const res = await fetch('/api/coupons');
+      const res = await fetch('/api/coupons', { cache: 'no-store' });
       const data = res.ok ? await res.json() : [];
       setApiCoupons(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -41,6 +41,11 @@ export const AllCouponsList: React.FC = () => {
       const key = String(coupon.id || coupon.code).trim().toLowerCase();
       if (key && !unique.has(key)) unique.set(key, coupon);
     });
+    // LUVIA10 is a built-in active 10% promotion and must remain visible in admin
+    // even when the API/Firestore cache has not returned it yet.
+    if (!Array.from(unique.values()).some(c => String(c.code).trim().toUpperCase() === 'LUVIA10')) {
+      unique.set('coupon-luvia10', { id: 'coupon-luvia10', code: 'LUVIA10', type: 'percent', value: 10, active: true, createdAt: new Date(0).toISOString() } as Coupon);
+    }
     return Array.from(unique.values()).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
   }, [apiCoupons, firestoreCoupons]);
 
