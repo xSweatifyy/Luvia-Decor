@@ -162,7 +162,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ ...(result[0].data || {}), id: result[0].id });
     }
 
-    const updated = { ...order, tracking };
+    // Ruční uložení musí změnit dopravce i na samotné objednávce, nejen v tracking záznamu.
+    // To je důležité hlavně u starších objednávek, které mají v delivery uloženého původního přepravce.
+    const updated = {
+      ...order,
+      delivery: { ...(order.delivery || {}), carrier },
+      tracking,
+    };
     if (mappedStatus) updated.status = mappedStatus;
     await sql`UPDATE orders SET data = ${JSON.stringify(updated)}::jsonb WHERE id = ${id}`;
     return res.status(200).json(updated);
