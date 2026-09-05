@@ -133,6 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (autoRefresh) {
       // Automatické obnovení smí aktualizovat pouze informace získané od přepravce.
       // Nesmí přepsat ručně uloženého dopravce, číslo zásilky ani ruční stav.
+      const refreshedAt = new Date().toISOString();
       const result = await sql`
         UPDATE orders
         SET data = jsonb_set(
@@ -143,8 +144,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             || jsonb_build_object(
               'externalStatus', ${externalStatus === null ? null : JSON.stringify(externalStatus)}::jsonb,
               'history', ${JSON.stringify(trackingHistory)}::jsonb,
-              'updatedAt', ${new Date().toISOString()},
-              'refreshError', ${refreshError ?? null}
+              'updatedAt', ${refreshedAt}::text,
+              'refreshError', ${refreshError ?? null}::text
             )
           ),
           true
