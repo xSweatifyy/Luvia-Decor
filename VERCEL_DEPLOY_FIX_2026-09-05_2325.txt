@@ -1,0 +1,1 @@
+Force production deploy after restoring product creation/photos, categories, coupons and gift vouchers.
