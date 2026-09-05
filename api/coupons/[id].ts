@@ -1,0 +1,49 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { neon } from '@neondatabase/serverless';
+
+const sql = neon(process.env.DATABASE_URL || '');
+
+async function ensureCouponsTable() {
+  await sql`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, type TEXT NOT NULL, value NUMERIC NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), note TEXT, category_ids JSONB NOT NULL DEFAULT '[]'::jsonb, remaining_value NUMERIC)`;
+  await sql`ALTER TABLE coupons ADD COLUMN IF NOT EXISTS category_ids JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await sql`ALTER TABLE coupons ADD COLUMN IF NOT EXISTS remaining_value NUMERIC`;
+  await sql`UPDATE coupons SET remaining_value = value WHERE note = 'gift-voucher' AND remaining_value IS NULL`;
+}
+
+function toCoupon(row: any) {
+  return { id: row.id, code: row.code, type: row.type, value: Number(row.value), active: row.active, createdAt: row.created_at, note: row.note || '', categoryIds: Array.isArray(row.category_ids) ? row.category_ids.map(String) : [], remainingValue: row.remaining_value == null ? undefined : Number(row.remaining_value) };
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  try {
+    await ensureCouponsTable();
+    const id = String(Array.isArray(req.query.id) ? req.query.id[0] : req.query.id || '').trim();
+    if (!id) return res.status(400).json({ error: 'Chybí ID slevového kódu.' });
+
+    if (req.method === 'PUT') {
+      const body = req.body || {};
+      const currentRows = await sql`SELECT * FROM coupons WHERE id = ${id} LIMIT 1`;
+      if (!currentRows.length) return res.status(404).json({ error: 'Slevový kód nenalezen.' });
+      const current = currentRows[0];
+      const active = typeof body.active === 'boolean' ? body.active : current.active;
+      const value = body.value === undefined ? Number(current.value) : Number(body.value);
+      const categoryIds = body.categoryIds === undefined ? (Array.isArray(current.category_ids) ? current.category_ids : []) : [...new Set((Array.isArray(body.categoryIds) ? body.categoryIds : []).map(String).filter(Boolean))];
+      if (value <= 0) return res.status(400).json({ error: 'Hodnota slevy musí být kladná.' });
+      if (current.type === 'percent' && value > 100) return res.status(400).json({ error: 'Procentní sleva může být nejvýše 100 %.' });
+      if (current.note === 'gift-voucher' && categoryIds.length) return res.status(400).json({ error: 'Dárkový poukaz nelze omezit na kategorii.' });
+      const rows = await sql`UPDATE coupons SET active = ${active}, value = ${value}, category_ids = ${JSON.stringify(categoryIds)}::jsonb WHERE id = ${id} RETURNING id, code, type, value, active, created_at, note, category_ids, remaining_value`;
+      return res.status(200).json(toCoupon(rows[0]));
+    }
+
+    if (req.method === 'DELETE') {
+      await sql`DELETE FROM coupons WHERE id = ${id}`;
+      return res.status(200).json({ success: true });
+    }
+
+    return res.status(405).json({ error: 'Metoda není podporovaná.' });
+  } catch (error: any) {
+    console.error('Coupon item API error:', error);
+    return res.status(500).json({ error: error?.message || 'Chyba serveru.' });
+  }
+}
