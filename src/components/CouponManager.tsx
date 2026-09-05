@@ -14,9 +14,11 @@ export const CouponManager: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
 
+  const normalizeCategory = (value:string) => String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+
   const effectiveCategories = useMemo<ProductCategory[]>(() => {
     const map = new Map<string, ProductCategory>();
-    const slugify = (value:string) => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    const slugify = (value:string) => normalizeCategory(value);
     categories.forEach(c => {
       const name = String(c?.name || '').trim();
       if (!name) return;
@@ -25,7 +27,7 @@ export const CouponManager: React.FC = () => {
     products.forEach(p => {
       const name = String(p?.category || '').trim();
       if (!name) return;
-      const existing = [...map.values()].find(c => c.name.toLowerCase() === name.toLowerCase() || c.id === name);
+      const existing = [...map.values()].find(c => normalizeCategory(c.name) === normalizeCategory(name) || normalizeCategory(c.id) === normalizeCategory(name));
       if (!existing) {
         const id = slugify(name) || name;
         map.set(id, { id, name });
@@ -67,7 +69,12 @@ export const CouponManager: React.FC = () => {
     const clean=code.trim().toUpperCase();
     const amount=Number(value);
     const selectedCategoryIds = [...categoryIds];
-    const selectedCategoryNames = selectedCategoryIds.map(id => categoryMap.get(id) || id).filter(Boolean);
+    // Ukládáme skutečné názvy kategorií produktů, ne interní ID UI.
+    // Produkt má v košíku uložený název kategorie, takže se omezení spolehlivě propojí.
+    const selectedCategoryNames = selectedCategoryIds
+      .map(id => effectiveCategories.find(c => String(c.id) === String(id))?.name || categoryMap.get(id) || id)
+      .map(name => String(name || '').trim())
+      .filter(Boolean);
     if(!clean||amount<=0)return addToast('error','Chybí údaje','Zadejte kód a kladnou hodnotu slevy.');
     if(type==='percent'&&amount>100)return addToast('error','Neplatná hodnota','Procentní sleva může být nejvýše 100 %.');
     try{
@@ -75,7 +82,7 @@ export const CouponManager: React.FC = () => {
       const d=await r.json().catch(()=>null);
       if(!r.ok)throw new Error(d?.error||'Slevový kód se nepodařilo uložit.');
       setCode(''); setValue(''); setCategoryIds([]); setCategorySearch(''); await load();
-      addToast('success','Slevový kód vytvořen',selectedCategoryIds.length?`${clean} platí pro vybrané kategorie.`:`${clean} platí pro celý sortiment.`)
+      addToast('success','Slevový kód vytvořen',selectedCategoryNames.length?`${clean} platí pro vybrané kategorie.`:`${clean} platí pro celý sortiment.`)
     }catch(e:any){addToast('error','Slevový kód',e?.message||'Slevový kód se nepodařilo uložit.')}
   };
 
