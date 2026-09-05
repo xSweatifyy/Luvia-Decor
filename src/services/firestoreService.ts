@@ -43,13 +43,37 @@ async function seedFirestoreIfNeeded(): Promise<void> {
 
 export function initializeFirestoreIfNeeded(): Promise<void> { if (!initializationPromise) initializationPromise = seedFirestoreIfNeeded(); return initializationPromise; }
 
+/** Products are served from the public Neon API, not Firestore. This is important because product data/images must be identical for every visitor. */
 export function subscribeProducts(callback: (products: Product[]) => void): () => void {
-  return onSnapshot(collection(db, PRODUCTS_COL), snapshot => {
-    const products: Product[] = [];
-    snapshot.forEach(d => products.push({ ...(d.data() as Product), id: d.id }));
-    products.sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'cs'));
-    callback(products);
-  }, err => { console.error('Firestore products subscription error:', err); callback([]); });
+  let cancelled = false;
+  let timer: number | undefined;
+  const load = async () => {
+    try {
+      const response = await fetch('/api/products', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (!cancelled && Array.isArray(data)) {
+        const products = data.map((item: any) => ({
+          ...item,
+          id: String(item?.id || ''),
+          price: Number(item?.price) || 0,
+          compareAtPrice: item?.compareAtPrice ? Number(item.compareAtPrice) : undefined,
+          inStock: item?.inStock !== false,
+          featured: Boolean(item?.featured),
+          isPriceFrom: Boolean(item?.isPriceFrom),
+          pricePrefix: item?.isPriceFrom ? (item?.pricePrefix || 'Od') : undefined,
+        })).filter((item: Product) => item.id);
+        products.sort((a: Product, b: Product) => String(a.title || '').localeCompare(String(b.title || ''), 'cs'));
+        callback(products);
+      }
+    } catch (err) {
+      console.error('Public products API error:', err);
+      if (!cancelled) callback([]);
+    }
+  };
+  void load();
+  timer = window.setInterval(load, 5000);
+  return () => { cancelled = true; if (timer) window.clearInterval(timer); };
 }
 
 export async function saveProductToFirestore(product: Product): Promise<Product> { const id = product.id || `prod-${Date.now()}`; const data = removeUndefined({ ...product, id, updatedAt: new Date().toISOString() }); await setDoc(doc(db, PRODUCTS_COL, id), data); return data; }
