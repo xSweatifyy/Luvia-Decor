@@ -7,7 +7,6 @@ const firebaseConfig = {
   appId: firebaseConfigJson.appId,
   apiKey: firebaseConfigJson.apiKey,
   authDomain: firebaseConfigJson.authDomain,
-  storageBucket: firebaseConfigJson.storageBucket,
   messagingSenderId: firebaseConfigJson.messagingSenderId,
 };
 
