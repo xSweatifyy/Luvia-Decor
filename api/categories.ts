@@ -13,7 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     await sql`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
 
-    // Recover categories automatically from products if the category table was lost/empty.
+    // Recover categories automatically from existing products when the category table is empty.
     const count = await sql`SELECT COUNT(*)::int AS count FROM categories`;
     if (Number(count[0]?.count || 0) === 0) {
       await sql`INSERT INTO categories (id, name) SELECT DISTINCT regexp_replace(regexp_replace(lower(trim(data->>'category')), '[^a-z0-9]+', '-', 'g'), '(^-|-$)', '', 'g'), trim(data->>'category') FROM products WHERE COALESCE(trim(data->>'category'),'') <> '' ON CONFLICT (id) DO NOTHING`;
