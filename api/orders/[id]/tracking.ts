@@ -85,9 +85,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(updated);
     }
 
-    // Automatic refreshes are allowed to update tracking status only. They MUST
-    // use the already-saved tracking carrier and number, never the order's
-    // delivery carrier or a stale value from an open admin form.
     const autoRefresh = req.body?.autoRefresh === true;
     const carrier: Carrier = autoRefresh
       ? normalizeCarrier(existing.carrier)
@@ -95,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const trackingNumber = autoRefresh
       ? String(existing.trackingNumber || '').trim()
-      : String(req.body?.trackingNumber ?? existing.trackingNumber || '').trim();
+      : String(req.body?.trackingNumber ?? existing.trackingNumber ?? '').trim();
 
     if (!trackingNumber) return res.status(400).json({ error: 'Zadejte číslo zásilky.' });
 
