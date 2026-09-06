@@ -18,7 +18,6 @@ function normalizeProduct(input: any) {
   }
   if (!product.id) product.id = `prod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  // Accept every image format used by older and newer product records.
   const imageCandidates = [
     product.imageUrl,
     product.image,
@@ -37,9 +36,15 @@ function normalizeProduct(input: any) {
   return product;
 }
 
-// Remove duplicate rows while preserving/merging ALL image URLs from every copy.
+// Remove duplicate rows while preserving every image URL. IMPORTANT: when a
+// product is edited, its updated_at is newer than its original created_at, so
+// the edited row must be kept instead of an older duplicate.
 async function removeDuplicateProducts() {
-  const rows = await sql`SELECT id, data, created_at FROM products ORDER BY created_at DESC`;
+  const rows = await sql`
+    SELECT id, data, created_at, updated_at
+    FROM products
+    ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+  `;
   const groups = new Map<string, any[]>();
 
   for (const row of rows as any[]) {
@@ -53,7 +58,7 @@ async function removeDuplicateProducts() {
   for (const [, duplicates] of groups) {
     if (duplicates.length < 2) continue;
 
-    // Keep the newest row, but merge fields/images from every older copy first.
+    // The first row is now the most recently updated copy.
     const keeper = duplicates[0];
     const merged = normalizeProduct(keeper.data);
     const allImages = new Set<string>(merged.images || []);
@@ -67,7 +72,11 @@ async function removeDuplicateProducts() {
     merged.gallery = [...allImages];
     if (merged.images[0]) merged.imageUrl = merged.images[0];
 
-    await sql`UPDATE products SET data=${JSON.stringify(merged)}::jsonb,updated_at=NOW() WHERE id=${keeper.id}`;
+    await sql`
+      UPDATE products
+      SET data=${JSON.stringify(merged)}::jsonb, updated_at=NOW()
+      WHERE id=${keeper.id}
+    `;
     const idsToDelete = duplicates.slice(1).map((row: any) => row.id);
     for (const id of idsToDelete) {
       await sql`DELETE FROM products WHERE id=${id}`;
@@ -80,7 +89,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
-    await sql`CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS products (
+        id TEXT PRIMARY KEY,
+        data JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `;
     await removeDuplicateProducts();
 
     if (req.method === 'GET') {
@@ -89,7 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const rows = await sql`SELECT data FROM products WHERE id=${id} LIMIT 1`;
         return rows.length ? res.status(200).json(normalizeProduct(rows[0].data)) : res.status(404).json({ error: 'Produkt nenalezen.' });
       }
-      const rows = await sql`SELECT data FROM products ORDER BY created_at DESC`;
+      const rows = await sql`SELECT data FROM products ORDER BY updated_at DESC NULLS LAST, created_at DESC`;
       return res.status(200).json(rows.map((r: any) => normalizeProduct(r.data)));
     }
 
@@ -111,7 +127,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (product.images[0]) product.imageUrl = product.images[0];
       }
 
-      await sql`INSERT INTO products (id,data) VALUES (${product.id},${JSON.stringify(product)}::jsonb) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`;
+      await sql`
+        INSERT INTO products (id,data)
+        VALUES (${product.id},${JSON.stringify(product)}::jsonb)
+        ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()
+      `;
       await removeDuplicateProducts();
       return res.status(201).json(product);
     }
