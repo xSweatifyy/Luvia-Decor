@@ -11,15 +11,18 @@ interface ProductCardProps {
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { addToCart, setQuickViewProduct, categories } = useApp();
 
-  // Older products can have their image stored in gallery instead of imageUrl.
-  // Always pick the first usable saved URL so existing images do not need to be re-entered.
+  // Products created by older versions can store the image as image, imageUrl,
+  // images or gallery. Prefer any existing URL and never require re-uploading it.
   const productImage = useMemo(() => {
+    const legacy = product as Product & { image?: string; images?: string[] };
     const candidates = [
       product.imageUrl,
+      legacy.image,
+      ...(Array.isArray(legacy.images) ? legacy.images : []),
       ...(Array.isArray(product.gallery) ? product.gallery : []),
     ];
     return candidates.find((url) => typeof url === 'string' && url.trim()) || '';
-  }, [product.imageUrl, product.gallery]);
+  }, [product.imageUrl, product.gallery, (product as any).image, (product as any).images]);
 
   return (
     <div
