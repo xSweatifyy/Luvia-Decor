@@ -48,8 +48,6 @@ export const ProductImageLibraryBridge: React.FC = () => {
         return;
       }
 
-      // The URL field is an internal bridge only. It is never shown to the administrator
-      // and is never presented as a manual image-entry option.
       found.required = false;
       found.removeAttribute('required');
       hideElement(found);
@@ -66,6 +64,11 @@ export const ProductImageLibraryBridge: React.FC = () => {
       }
 
       const editorRoot = found.closest('form') || found.closest('[role="dialog"]');
+      editorRoot?.querySelectorAll('label').forEach(el => {
+        const text = (el.textContent || '').trim().toLowerCase();
+        if (text.includes('url hlavního obrázku')) hideElement(el as HTMLElement);
+      });
+
       editorRoot?.querySelectorAll('button, p, span').forEach(el => {
         const text = (el.textContent || '').trim().toLowerCase();
         if (text === 'nahrát do firebase' || text === 'ukládají pouze jako veřejné https url.') {
@@ -77,9 +80,6 @@ export const ProductImageLibraryBridge: React.FC = () => {
     };
 
     update();
-
-    // Only watch DOM additions/removals. Attribute changes are deliberately excluded
-    // to prevent a feedback loop with the hiding logic above.
     const observer = new MutationObserver(() => update());
     observer.observe(document.body, { childList: true, subtree: true });
     const interval = window.setInterval(update, 1000);
@@ -113,7 +113,6 @@ export const ProductImageLibraryBridge: React.FC = () => {
   const apply = () => {
     if (!selected || !input) return;
 
-    // Keep the controlled React input in sync with the library selection.
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     setter?.call(input, selected);
     input.required = false;
@@ -122,8 +121,6 @@ export const ProductImageLibraryBridge: React.FC = () => {
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
 
-    // Explicit event for the product editor. This makes saving reliable even when
-    // React's delegated input handling is delayed by the legacy admin form.
     window.dispatchEvent(new CustomEvent('luvia-product-image-selected', {
       detail: { url: selected }
     }));
