@@ -29,22 +29,23 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   const directUrl = useMemo(() => toAbsoluteUrl(imageUrl), [imageUrl]);
   const proxyUrl = useMemo(() => getProxyUrl(imageUrl), [imageUrl]);
 
-  // The saved public URL is always the first choice. Proxy is only a fallback.
-  // This keeps existing product URLs unchanged and does not use Firebase Storage.
-  const [currentSrc, setCurrentSrc] = useState(directUrl);
-  const [triedProxy, setTriedProxy] = useState(false);
+  // Always load saved external product URLs through the public image proxy first.
+  // This makes the same image available to guests, logged-in users and crawlers,
+  // even when the original image host blocks browser hotlinking/referrers.
+  const [currentSrc, setCurrentSrc] = useState(proxyUrl);
+  const [triedDirect, setTriedDirect] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    setCurrentSrc(directUrl);
-    setTriedProxy(false);
+    setCurrentSrc(proxyUrl);
+    setTriedDirect(false);
     setFailed(false);
-  }, [directUrl]);
+  }, [proxyUrl]);
 
   const handleError = () => {
-    if (!triedProxy && proxyUrl !== directUrl && !directUrl.startsWith('blob:')) {
-      setTriedProxy(true);
-      setCurrentSrc(proxyUrl);
+    if (!triedDirect && proxyUrl !== directUrl && !directUrl.startsWith('blob:')) {
+      setTriedDirect(true);
+      setCurrentSrc(directUrl);
       return;
     }
     if (currentSrc !== fallbackSrc) {
