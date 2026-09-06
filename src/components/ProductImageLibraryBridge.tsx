@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Search, X } from 'lucide-react';
 import { SafeImage } from './SafeImage';
 
-// Product images are selected only from real image files bundled in the GitHub repo.
+// Central image library: only real image files bundled with the repository.
 const bundledImages = import.meta.glob('/*.{jpg,jpeg,png,webp,JPG,JPEG,PNG,WEBP}', {
   eager: true,
   query: '?url',
@@ -28,37 +28,61 @@ export const ProductImageLibraryBridge: React.FC = () => {
   }, [library, query]);
 
   useEffect(() => {
+    const hideElement = (element: HTMLElement | null) => {
+      if (!element) return;
+      element.style.display = 'none';
+      element.setAttribute('aria-hidden', 'true');
+    };
+
+    const hideManualUrlField = (found: HTMLInputElement) => {
+      found.required = false;
+      found.removeAttribute('required');
+
+      // Hide the complete manual URL field, including its explanatory text.
+      let container: HTMLElement | null = found.parentElement;
+      for (let i = 0; i < 5 && container?.parentElement; i++) {
+        const text = (container.textContent || '').toLowerCase();
+        if (text.includes('url obrázku') || text.includes('obrázek') || text.includes('images.unsplash.com')) {
+          const buttons = container.querySelectorAll('button');
+          const hasLibraryButton = Array.from(buttons).some(btn => btn.hasAttribute('data-luvia-image-library-button'));
+          if (!hasLibraryButton) hideElement(container);
+        }
+        container = container.parentElement;
+      }
+
+      hideElement(found);
+      const parent = found.parentElement;
+      if (parent) {
+        Array.from(parent.querySelectorAll('label')).forEach(label => hideElement(label));
+      }
+      let previous = found.previousElementSibling;
+      while (previous) {
+        if (previous.tagName === 'LABEL') hideElement(previous as HTMLElement);
+        previous = previous.previousElementSibling;
+      }
+
+      // Remove/hide old sample URL choices and Firebase upload controls so the
+      // product editor offers only the central repository image library.
+      const root = found.parentElement?.parentElement?.parentElement?.parentElement;
+      if (root) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+        const candidates: HTMLElement[] = [];
+        let node: Node | null;
+        while ((node = walker.nextNode())) candidates.push(node as HTMLElement);
+        candidates.forEach(el => {
+          const text = (el.textContent || '').trim().toLowerCase();
+          if (text === 'nahrát do firebase' || text.includes('ukládají pouze jako veřejné https url')) {
+            hideElement(el.closest('div') as HTMLElement || el);
+          }
+        });
+      }
+    };
+
     const findImageInput = () => {
       const inputs = Array.from(document.querySelectorAll('input')) as HTMLInputElement[];
       return inputs.find(el =>
         el.placeholder?.includes('images.unsplash.com') && el.offsetParent !== null
-      ) || null;
-    };
-
-    const hideManualUrlField = (found: HTMLInputElement) => {
-      // The legacy editor still owns the React state, so keep the input in the DOM,
-      // but completely hide the manual URL control from the administrator.
-      found.style.display = 'none';
-      found.required = false;
-      found.removeAttribute('required');
-
-      const parent = found.parentElement;
-      if (parent) {
-        Array.from(parent.querySelectorAll('label')).forEach(label => {
-          label.style.display = 'none';
-        });
-      }
-
-      // Also hide a label immediately preceding the input when the legacy markup
-      // places it outside the input wrapper.
-      let previous = found.previousElementSibling;
-      while (previous) {
-        if (previous.tagName === 'LABEL') {
-          (previous as HTMLElement).style.display = 'none';
-          break;
-        }
-        previous = previous.previousElementSibling;
-      }
+      ) || inputs.find(el => el.placeholder?.toLowerCase().includes('url obrázku') && el.offsetParent !== null) || null;
     };
 
     const update = () => {
@@ -103,7 +127,6 @@ export const ProductImageLibraryBridge: React.FC = () => {
 
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     setter?.call(input, selected);
-
     input.required = false;
     input.removeAttribute('required');
     input.setCustomValidity('');
@@ -121,7 +144,7 @@ export const ProductImageLibraryBridge: React.FC = () => {
           <div>
             <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[#8C7355]">Luvia Decor</div>
             <h3 className="text-xl font-bold text-[#2D2723]">Knihovna produktových obrázků</h3>
-            <p className="text-xs text-[#75685d] mt-1">Vyberte pouze obrázek z knihovny skutečných souborů uložených v GitHubu.</p>
+            <p className="text-xs text-[#75685d] mt-1">Vyberte obrázek z centrální knihovny Luvia Decor.</p>
           </div>
           <button type="button" onClick={() => setOpen(false)} className="p-2 rounded-xl bg-white hover:bg-[#efe7dc]">
             <X className="w-5 h-5" />
@@ -134,7 +157,7 @@ export const ProductImageLibraryBridge: React.FC = () => {
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Hledat soubor v knihovně…"
+              placeholder="Hledat obrázek v knihovně…"
               className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#ded3c7] bg-[#fbf8f4] text-sm outline-none focus:border-[#8C7355]"
             />
           </div>
