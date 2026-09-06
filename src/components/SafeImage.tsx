@@ -29,23 +29,25 @@ export const SafeImage: React.FC<SafeImageProps> = memo(function SafeImage({
   const directUrl = useMemo(() => toAbsoluteUrl(imageUrl), [imageUrl]);
   const proxyUrl = useMemo(() => getProxyUrl(imageUrl), [imageUrl]);
 
-  // Always load saved external product URLs through the public image proxy first.
-  // This makes the same image available to guests, logged-in users and crawlers,
-  // even when the original image host blocks browser hotlinking/referrers.
-  const [currentSrc, setCurrentSrc] = useState(proxyUrl);
-  const [triedDirect, setTriedDirect] = useState(false);
+  // IMPORTANT: try the exact URL saved by the admin first. Some public image
+  // hosts (notably Google-hosted images) reject server-side proxy requests but
+  // allow normal browser requests. This keeps the admin URL usable publicly.
+  const [currentSrc, setCurrentSrc] = useState(directUrl);
+  const [triedProxy, setTriedProxy] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    setCurrentSrc(proxyUrl);
-    setTriedDirect(false);
+    setCurrentSrc(directUrl);
+    setTriedProxy(false);
     setFailed(false);
-  }, [proxyUrl]);
+  }, [directUrl]);
 
   const handleError = () => {
-    if (!triedDirect && proxyUrl !== directUrl && !directUrl.startsWith('blob:')) {
-      setTriedDirect(true);
-      setCurrentSrc(directUrl);
+    // If the original URL cannot be rendered by the browser, use the public
+    // proxy which can resolve image-host pages such as imgbb/ibb.co.
+    if (!triedProxy && proxyUrl !== directUrl && !directUrl.startsWith('blob:') && !directUrl.startsWith('data:')) {
+      setTriedProxy(true);
+      setCurrentSrc(proxyUrl);
       return;
     }
     if (currentSrc !== fallbackSrc) {
