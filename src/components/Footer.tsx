@@ -5,7 +5,7 @@ import { PageRoute } from '../types';
 import { MapEmbed } from './MapEmbed';
 import { SafeImage } from './SafeImage';
 
-const PPL_LOGO = 'https://cdn.brandfetch.io/idQnnZVeYO/theme/dark/logo.svg?c=1bxid64Mup7aczewSAYMX&t=1781718821561';
+const PPL_LOGO = '/ppl-logo.jpg';
 
 export const Footer: React.FC = () => {
   const { config, setPage, adminUser } = useApp();
