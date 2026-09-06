@@ -52,18 +52,32 @@ export function subscribeProducts(callback: (products: Product[]) => void): () =
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (!cancelled && Array.isArray(data)) {
-        const products = data.map((item: any) => ({
-          ...item,
-          id: String(item?.id || ''),
-          price: Number(item?.price) || 0,
-          compareAtPrice: item?.compareAtPrice ? Number(item.compareAtPrice) : undefined,
-          inStock: item?.inStock !== false,
-          featured: Boolean(item?.featured),
-          isPriceFrom: Boolean(item?.isPriceFrom),
-          pricePrefix: item?.isPriceFrom ? (item?.pricePrefix || 'Od') : undefined,
-          imageUrl: typeof item?.imageUrl === 'string' ? item.imageUrl.trim() : '',
-          gallery: Array.isArray(item?.gallery) ? item.gallery.filter((url: unknown): url is string => typeof url === 'string' && url.trim().length > 0).map((url: string) => url.trim()) : [],
-        })).filter((item: Product) => item.id);
+        const products = data.map((item: any) => {
+          const imageCandidates = [
+            item?.imageUrl,
+            item?.image,
+            ...(Array.isArray(item?.images) ? item.images : []),
+            ...(Array.isArray(item?.gallery) ? item.gallery : []),
+          ];
+          const images = [...new Set(
+            imageCandidates
+              .filter((url: unknown): url is string => typeof url === 'string' && url.trim().length > 0)
+              .map((url: string) => url.trim())
+          )];
+          return {
+            ...item,
+            id: String(item?.id || ''),
+            price: Number(item?.price) || 0,
+            compareAtPrice: item?.compareAtPrice ? Number(item.compareAtPrice) : undefined,
+            inStock: item?.inStock !== false,
+            featured: Boolean(item?.featured),
+            isPriceFrom: Boolean(item?.isPriceFrom),
+            pricePrefix: item?.isPriceFrom ? (item?.pricePrefix || 'Od') : undefined,
+            imageUrl: images[0] || '',
+            images,
+            gallery: images,
+          };
+        }).filter((item: Product) => item.id);
         products.sort((a: Product, b: Product) => String(a.title || '').localeCompare(String(b.title || ''), 'cs'));
         callback(products);
       }
@@ -109,8 +123,8 @@ export async function saveGalleryItemToFirestore(item:GalleryItem):Promise<Galle
 export async function deleteGalleryItemFromFirestore(id:string):Promise<boolean>{await deleteDoc(doc(db,GALLERY_COL,id));return true;}
 export function subscribeReviews(callback:(reviews:Review[])=>void):()=>void{return onSnapshot(collection(db,REVIEWS_COL),snapshot=>{const reviews:Review[]=[];snapshot.forEach(d=>reviews.push({...d.data() as Review,id:d.id}));callback(reviews);},err=>console.error('Firestore reviews subscription error:',err));}
 export async function saveReviewToFirestore(review:Review):Promise<Review>{const id=review.id||`rev-${Date.now()}`;const data=removeUndefined({...review,id});await setDoc(doc(db,REVIEWS_COL,id),data,{merge:true});return data;}
-export async function deleteReviewFromFirestore(id:string):Promise<boolean>{await deleteDoc(doc(db,REVIEWS_COL,id));return true;}
-export function subscribeAdminUsers(callback:(users:AdminUser[])=>void):()=>void{return onSnapshot(collection(db,ADMIN_USERS_COL),snapshot=>{const users:AdminUser[]=[];snapshot.forEach(d=>users.push({...d.data() as AdminUser,id:d.id}));callback(users.length?users:initialAdminUsers);},err=>{console.error('Firestore admin users subscription error:',err);callback(initialAdminUsers);});}
+export async function deleteReviewFromFirestore(id:string):Promise<boolean>{await deleteDoc(doc(db,GALLERY_COL,id));return true;}
+export function subscribeAdminUsers(callback:(users:AdminUser[])=>void):()=>void{return onSnapshot(collection(db,ADMIN_USERS_COL),snapshot=>{const users:AdminUser[]=[];snapshot.forEach(d=>users.push({...d.data() as AdminUser,id:d.id}));callback(users.length?users:initialAdminUsers);},err=>console.error('Firestore admin users subscription error:',err));}
 export async function verifyAdminCredentials(email:string,pass:string):Promise<AdminUser|null>{const cleanEmail=email.toLowerCase().trim();const cleanPass=pass.trim();const validGlobalPass=['Luvia2025!','admin123','Admin123!','luvia123'];try{const userDoc=doc(db,ADMIN_USERS_COL,cleanEmail);const snap=await getDoc(userDoc);if(snap.exists()){const data=snap.data();if(data.password===cleanPass||validGlobalPass.includes(cleanPass)){await updateDoc(userDoc,{lastLogin:new Date().toISOString()});return{id:data.id||`usr-${cleanEmail}`,email:data.email||cleanEmail,name:data.name||cleanEmail.split('@')[0],role:data.role||'admin',createdAt:data.createdAt||new Date().toISOString(),lastLogin:new Date().toISOString()};}}}catch(err){console.warn('Firestore admin lookup notice:',err);}if((cleanEmail==='ondrej.andel@email.cz'||cleanEmail==='admin@luvia-decor.cz'||cleanEmail==='admin')&&(validGlobalPass.includes(cleanPass)||cleanPass.length>=4)){const adminUser:AdminUser={id:'usr-admin-1',email:cleanEmail.includes('@')?cleanEmail:'ondrej.andel@email.cz',name:cleanEmail==='ondrej.andel@email.cz'?'Ondřej Anděl':'Administrátor',role:'admin',createdAt:new Date().toISOString(),lastLogin:new Date().toISOString()};try{await setDoc(doc(db,ADMIN_USERS_COL,cleanEmail),removeUndefined({...adminUser,password:cleanPass}),{merge:true});}catch{}return adminUser;}return null;}
 export async function saveAdminUserToFirestore(user:AdminUser & {password?:string}):Promise<AdminUser>{const email=user.email.toLowerCase().trim();const data={id:user.id||`usr-${email}`,email,name:user.name||email.split('@')[0],role:user.role||'admin',password:user.password||'Luvia2025!',createdAt:user.createdAt||new Date().toISOString(),lastLogin:user.lastLogin||new Date().toISOString()};await setDoc(doc(db,ADMIN_USERS_COL,email),removeUndefined(data),{merge:true});return{id:data.id,email:data.email,name:data.name,role:data.role as 'admin'|'editor',createdAt:data.createdAt,lastLogin:data.lastLogin};}
 export async function deleteAdminUserFromFirestore(emailOrId:string):Promise<boolean>{try{await deleteDoc(doc(db,ADMIN_USERS_COL,emailOrId.toLowerCase().trim()));return true;}catch(err){console.error('Failed to delete admin user in firestore:',err);return false;}}
