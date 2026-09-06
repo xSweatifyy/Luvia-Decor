@@ -36,10 +36,12 @@ export const CartPromoCode: React.FC = () => {
     setLoading(true);
     try {
       const items = cart.map(i => ({ category: i.product.category || '', quantity: Number(i.quantity) || 0, price: Number(i.product.price) || 0 }));
-      const r = await fetch('/api/coupons/validate', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ code: clean, items }) });
+      const r = await fetch('/api/coupons?action=validate', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ code: clean, items }) });
       const d = await r.json().catch(()=>null);
       if (!r.ok || !d?.valid) throw new Error(d?.error || 'Kód je neplatný nebo neaktivní.');
       const item: AppliedPromo = { code: d.code || clean, type: d.type || 'fixed', value: Number(d.value)||0, categoryIds: Array.isArray(d.categoryIds) ? d.categoryIds.map(String) : [], giftVoucher: Boolean(d.giftVoucher) };
+      const allowed = new Set(item.categoryIds.map(normalizeCategory).filter(Boolean));
+      if (allowed.size && !items.some(i => allowed.has(normalizeCategory(i.category)))) throw new Error('Tento slevový kód nelze použít na žádný produkt v košíku.');
       setApplied(item); setCode(item.code); localStorage.setItem('luvia_cart_promo', item.code); savePromo(item);
       if (notify) addToast('success', 'Kód uplatněn', item.type === 'percent' ? `Sleva ${item.value} % byla přidána.` : `Sleva ${item.value.toLocaleString('cs-CZ')} Kč byla přidána.`);
     } catch (e:any) { setApplied(null); localStorage.removeItem('luvia_cart_promo'); savePromo(null); if (notify) addToast('error', 'Neplatný kód', e?.message || 'Kód se nepodařilo ověřit.'); }
