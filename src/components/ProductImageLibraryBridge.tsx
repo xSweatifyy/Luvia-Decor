@@ -2,9 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Search, X } from 'lucide-react';
 import { SafeImage } from './SafeImage';
 
-// The picker used directly inside „Produkty & sklad“ must use the exact same
-// repository image files as the standalone image library. No initialData,
-// remote URLs or Firebase Storage are used here.
+// Product images are selected only from real image files bundled in the GitHub repo.
 const bundledImages = import.meta.glob('/*.{jpg,jpeg,png,webp,JPG,JPEG,PNG,WEBP}', {
   eager: true,
   query: '?url',
@@ -20,21 +18,14 @@ export const ProductImageLibraryBridge: React.FC = () => {
   const [selected, setSelected] = useState<string | null>(null);
 
   const library = useMemo<ImageItem[]>(() => Object.entries(bundledImages)
-    .map(([path, url]) => ({
-      url,
-      label: path.replace(/^\//, '')
-    }))
+    .map(([path, url]) => ({ url, label: path.replace(/^\//, '') }))
     .filter(item => /\.(jpe?g|png|webp)$/i.test(item.label))
     .sort((a, b) => a.label.localeCompare(b.label)), []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q
-      ? library.filter(item => item.label.toLowerCase().includes(q))
-      : library;
+    return q ? library.filter(item => item.label.toLowerCase().includes(q)) : library;
   }, [library, query]);
-
-  const isLibraryImage = (value: string) => library.some(item => item.url === value);
 
   useEffect(() => {
     const findImageInput = () => {
@@ -44,20 +35,39 @@ export const ProductImageLibraryBridge: React.FC = () => {
       ) || null;
     };
 
-    const update = () => {
-      const found = findImageInput();
-      setInput(found);
+    const hideManualUrlField = (found: HTMLInputElement) => {
+      // The legacy editor still owns the React state, so keep the input in the DOM,
+      // but completely hide the manual URL control from the administrator.
+      found.style.display = 'none';
+      found.required = false;
+      found.removeAttribute('required');
 
-      // Once a repository image is selected, the URL field is no longer
-      // required. This also handles reopening an existing product.
-      if (found && isLibraryImage(found.value)) {
-        found.required = false;
-        found.removeAttribute('required');
+      const parent = found.parentElement;
+      if (parent) {
+        Array.from(parent.querySelectorAll('label')).forEach(label => {
+          label.style.display = 'none';
+        });
+      }
+
+      // Also hide a label immediately preceding the input when the legacy markup
+      // places it outside the input wrapper.
+      let previous = found.previousElementSibling;
+      while (previous) {
+        if (previous.tagName === 'LABEL') {
+          (previous as HTMLElement).style.display = 'none';
+          break;
+        }
+        previous = previous.previousElementSibling;
       }
     };
 
-    update();
+    const update = () => {
+      const found = findImageInput();
+      setInput(found);
+      if (found) hideManualUrlField(found);
+    };
 
+    update();
     const observer = new MutationObserver(update);
     observer.observe(document.body, { childList: true, subtree: true, attributes: true });
     const interval = window.setInterval(update, 500);
@@ -66,7 +76,7 @@ export const ProductImageLibraryBridge: React.FC = () => {
       observer.disconnect();
       window.clearInterval(interval);
     };
-  }, [library]);
+  }, []);
 
   useEffect(() => {
     if (!input) return;
@@ -79,7 +89,7 @@ export const ProductImageLibraryBridge: React.FC = () => {
     button.className = 'w-full mt-2 px-3 py-2.5 rounded-xl bg-[#2D2723] hover:bg-[#8C7355] text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2';
     button.innerHTML = '<span>▣</span> Vybrat z knihovny produktových obrázků';
     button.onclick = () => {
-      setSelected(input.value || null);
+      setSelected(null);
       setQuery('');
       setOpen(true);
     };
@@ -91,19 +101,12 @@ export const ProductImageLibraryBridge: React.FC = () => {
   const apply = () => {
     if (!selected || !input) return;
 
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      'value'
-    )?.set;
-
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     setter?.call(input, selected);
 
-    // A repository image is now the product's main image, so the old
-    // mandatory URL requirement must not block saving the product.
     input.required = false;
     input.removeAttribute('required');
     input.setCustomValidity('');
-
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     setOpen(false);
@@ -118,9 +121,7 @@ export const ProductImageLibraryBridge: React.FC = () => {
           <div>
             <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[#8C7355]">Luvia Decor</div>
             <h3 className="text-xl font-bold text-[#2D2723]">Knihovna produktových obrázků</h3>
-            <p className="text-xs text-[#75685d] mt-1">
-              Stejná knihovna jako v „Knihovna obrázků“ – pouze skutečné JPG, JPEG, PNG a WEBP soubory z GitHubu.
-            </p>
+            <p className="text-xs text-[#75685d] mt-1">Vyberte pouze obrázek z knihovny skutečných souborů uložených v GitHubu.</p>
           </div>
           <button type="button" onClick={() => setOpen(false)} className="p-2 rounded-xl bg-white hover:bg-[#efe7dc]">
             <X className="w-5 h-5" />
@@ -133,7 +134,7 @@ export const ProductImageLibraryBridge: React.FC = () => {
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Hledat soubor v GitHubu…"
+              placeholder="Hledat soubor v knihovně…"
               className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#ded3c7] bg-[#fbf8f4] text-sm outline-none focus:border-[#8C7355]"
             />
           </div>
@@ -144,12 +145,10 @@ export const ProductImageLibraryBridge: React.FC = () => {
                 <SafeImage src={selected} alt="Vybraný obrázek" className="w-full h-full object-contain" loading="eager" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[10px] uppercase tracking-wider text-[#d9c4a8] font-bold">Náhled před použitím</div>
+                <div className="text-[10px] uppercase tracking-wider text-[#d9c4a8] font-bold">Vybraný obrázek</div>
                 <div className="text-xs break-all mt-1 text-white/70">{library.find(i => i.url === selected)?.label || selected}</div>
               </div>
-              <button type="button" onClick={apply} className="shrink-0 px-4 py-2.5 rounded-xl bg-[#d8c0a0] text-[#2D2723] text-xs font-black">
-                Použít obrázek
-              </button>
+              <button type="button" onClick={apply} className="shrink-0 px-4 py-2.5 rounded-xl bg-[#d8c0a0] text-[#2D2723] text-xs font-black">Použít obrázek</button>
             </div>
           )}
 
@@ -175,7 +174,7 @@ export const ProductImageLibraryBridge: React.FC = () => {
           </div>
 
           {!filtered.length && (
-            <div className="py-12 text-center text-sm text-stone-500">V GitHubu nebyl nalezen žádný obrázkový soubor.</div>
+            <div className="py-12 text-center text-sm text-stone-500">V knihovně nebyl nalezen žádný obrázkový soubor.</div>
           )}
         </div>
       </div>
