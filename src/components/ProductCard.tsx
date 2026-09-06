@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Product } from '../types';
 import { useApp } from '../context/AppContext';
 import { ShoppingBag, Eye, Sparkles } from 'lucide-react';
@@ -11,21 +11,29 @@ interface ProductCardProps {
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { addToCart, setQuickViewProduct, categories } = useApp();
 
+  // Older products can have their image stored in gallery instead of imageUrl.
+  // Always pick the first usable saved URL so existing images do not need to be re-entered.
+  const productImage = useMemo(() => {
+    const candidates = [
+      product.imageUrl,
+      ...(Array.isArray(product.gallery) ? product.gallery : []),
+    ];
+    return candidates.find((url) => typeof url === 'string' && url.trim()) || '';
+  }, [product.imageUrl, product.gallery]);
+
   return (
     <div
       id={`product-card-${product.id}`}
       className="group relative bg-white rounded-2xl overflow-hidden border border-[#EBE3D8] hover:border-[#D1C2B0] transition-all duration-300 hover:shadow-xl flex flex-col"
     >
-      {/* Image container */}
       <div className="relative aspect-square w-full overflow-hidden bg-[#FAF6F0]">
         <SafeImage
-          src={product.imageUrl}
+          src={productImage}
           alt={product.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
 
-        {/* Badge */}
         {product.badge && (
           <div className="absolute top-3 left-3 z-10">
             <span className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm ${
@@ -43,7 +51,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </div>
         )}
 
-        {/* Quick View overlay button */}
         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center p-4">
           <button
             onClick={() => setQuickViewProduct(product)}
@@ -55,7 +62,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </div>
       </div>
 
-      {/* Product Content */}
       <div className="p-5 flex-1 flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between text-xs text-[#8C7355] font-medium uppercase tracking-wider mb-1.5">
@@ -84,7 +90,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </p>
         </div>
 
-        {/* Price & Add to Cart button */}
         <div className="mt-5 pt-4 border-t border-[#F2ECE4] flex items-center justify-between gap-2">
           <div>
             <div className="flex items-baseline gap-2">
