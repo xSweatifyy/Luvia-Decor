@@ -38,51 +38,42 @@ export const ProductImageLibraryBridge: React.FC = () => {
       found.required = false;
       found.removeAttribute('required');
 
-      // Hide the complete manual URL field, including its explanatory text.
-      let container: HTMLElement | null = found.parentElement;
-      for (let i = 0; i < 5 && container?.parentElement; i++) {
-        const text = (container.textContent || '').toLowerCase();
-        if (text.includes('url obrázku') || text.includes('obrázek') || text.includes('images.unsplash.com')) {
-          const buttons = container.querySelectorAll('button');
-          const hasLibraryButton = Array.from(buttons).some(btn => btn.hasAttribute('data-luvia-image-library-button'));
-          if (!hasLibraryButton) hideElement(container);
-        }
-        container = container.parentElement;
+      // IMPORTANT: only hide the actual URL input and its label.
+      // Do not walk up several ancestors — that can hide the whole product
+      // editor/modal and makes existing products impossible to edit.
+      hideElement(found);
+
+      const directParent = found.parentElement;
+      if (directParent) {
+        directParent.querySelectorAll('label').forEach(label => hideElement(label as HTMLElement));
       }
 
-      hideElement(found);
-      const parent = found.parentElement;
-      if (parent) {
-        Array.from(parent.querySelectorAll('label')).forEach(label => hideElement(label));
-      }
       let previous = found.previousElementSibling;
       while (previous) {
         if (previous.tagName === 'LABEL') hideElement(previous as HTMLElement);
         previous = previous.previousElementSibling;
       }
 
-      // Remove/hide old sample URL choices and Firebase upload controls so the
-      // product editor offers only the central repository image library.
-      const root = found.parentElement?.parentElement?.parentElement?.parentElement;
-      if (root) {
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-        const candidates: HTMLElement[] = [];
-        let node: Node | null;
-        while ((node = walker.nextNode())) candidates.push(node as HTMLElement);
-        candidates.forEach(el => {
-          const text = (el.textContent || '').trim().toLowerCase();
-          if (text === 'nahrát do firebase' || text.includes('ukládají pouze jako veřejné https url')) {
-            hideElement(el.closest('div') as HTMLElement || el);
-          }
-        });
-      }
+      // Hide only the old Firebase upload button and its nearby explanatory
+      // text. Never hide the surrounding product editor.
+      const editorRoot = found.closest('form') || found.closest('[role="dialog"]') || document.body;
+      editorRoot.querySelectorAll('button, p, span, div').forEach(el => {
+        const text = (el.textContent || '').trim().toLowerCase();
+        if (text === 'nahrát do firebase' || text === 'ukládají pouze jako veřejné https url.') {
+          const target = el.closest('button') || el;
+          hideElement(target as HTMLElement);
+        }
+      });
     };
 
     const findImageInput = () => {
       const inputs = Array.from(document.querySelectorAll('input')) as HTMLInputElement[];
-      return inputs.find(el =>
-        el.placeholder?.includes('images.unsplash.com') && el.offsetParent !== null
-      ) || inputs.find(el => el.placeholder?.toLowerCase().includes('url obrázku') && el.offsetParent !== null) || null;
+      // Do not require offsetParent: the input is intentionally hidden after
+      // the library bridge takes over, but React still needs the same input
+      // element so its state can be updated and the product can be saved.
+      return inputs.find(el => el.placeholder?.includes('images.unsplash.com'))
+        || inputs.find(el => el.placeholder?.toLowerCase().includes('url obrázku'))
+        || null;
     };
 
     const update = () => {
