@@ -17,13 +17,24 @@ export async function sendOrderEmails(order: Order, config: SiteConfig): Promise
     return { success: false, error: "Chybí Resend API klíč." };
   }
 
-  const IMG_FALLBACK = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=800&q=80';
+  // Product images are stored in the repository/image library. E-mail clients
+  // need an absolute public URL to render them, so convert local paths to the
+  // production Luvia Decor domain while preserving already-absolute URLs.
+  const PUBLIC_SITE_URL = 'https://www.luvia-decor.cz';
+  const IMG_FALLBACK = `${PUBLIC_SITE_URL}/Luvia-Decor.jpeg`;
+  const resolveProductImage = (imageUrl?: string) => {
+    const value = String(imageUrl || '').trim();
+    if (!value) return IMG_FALLBACK;
+    if (/^https?:\/\//i.test(value)) return value;
+    return `${PUBLIC_SITE_URL}/${value.replace(/^\/+/, '')}`;
+  };
+
   const itemsListHtml = order.items.map(item => `
     <tr style="border-bottom: 1px solid #EFEAE3;">
       <td style="padding: 12px 8px; font-size: 14px; color: #2D2723;">
-        <img src="${(item.imageUrl && /^https?:\/\//i.test(item.imageUrl)) ? item.imageUrl : IMG_FALLBACK}" alt="${item.title}" style="display:block;width:64px;height:auto;border-radius:6px;margin-bottom:6px;" />
+        <img src="${resolveProductImage(item.imageUrl)}" alt="${item.title}" style="display:block;width:64px;height:64px;object-fit:cover;border-radius:6px;margin-bottom:6px;" />
         <strong>${item.title}</strong>
-        <span style="display:block;font-size:11px;color:#9C8E7E;margin-top:2px;">ID: ${item.productId}</span>
+        <span style="display:block;font-size:11px;color:#9C8E7E;margin-top:2px;">ID produktu: ${item.productId}</span>
         ${item.customNote ? `<br><span style="font-size: 12px; color: #73675E;">Poznámka: ${item.customNote}</span>` : ''}
       </td>
       <td style="padding: 12px 8px; font-size: 14px; text-align: center; color: #2D2723;">${item.quantity}×</td>
