@@ -30,17 +30,29 @@ export const ProductImageLibraryBridge: React.FC = () => {
   useEffect(() => {
     const hideElement = (element: HTMLElement | null) => {
       if (!element) return;
-      element.style.display = 'none';
+      if (element.style.display !== 'none') element.style.display = 'none';
       element.setAttribute('aria-hidden', 'true');
     };
 
-    const hideManualUrlField = (found: HTMLInputElement) => {
+    const findImageInput = () => {
+      const inputs = Array.from(document.querySelectorAll('input')) as HTMLInputElement[];
+      return inputs.find(el => el.placeholder?.includes('images.unsplash.com'))
+        || inputs.find(el => el.placeholder?.toLowerCase().includes('url obrázku'))
+        || null;
+    };
+
+    const update = () => {
+      const found = findImageInput();
+      if (!found) {
+        setInput(null);
+        return;
+      }
+
+      // Do not observe attributes here. Hiding elements changes attributes and
+      // would otherwise trigger an endless MutationObserver loop that freezes
+      // the entire admin page.
       found.required = false;
       found.removeAttribute('required');
-
-      // IMPORTANT: only hide the actual URL input and its label.
-      // Do not walk up several ancestors — that can hide the whole product
-      // editor/modal and makes existing products impossible to edit.
       hideElement(found);
 
       const directParent = found.parentElement;
@@ -54,38 +66,24 @@ export const ProductImageLibraryBridge: React.FC = () => {
         previous = previous.previousElementSibling;
       }
 
-      // Hide only the old Firebase upload button and its nearby explanatory
-      // text. Never hide the surrounding product editor.
-      const editorRoot = found.closest('form') || found.closest('[role="dialog"]') || document.body;
-      editorRoot.querySelectorAll('button, p, span, div').forEach(el => {
+      const editorRoot = found.closest('form') || found.closest('[role="dialog"]');
+      editorRoot?.querySelectorAll('button, p, span').forEach(el => {
         const text = (el.textContent || '').trim().toLowerCase();
         if (text === 'nahrát do firebase' || text === 'ukládají pouze jako veřejné https url.') {
-          const target = el.closest('button') || el;
-          hideElement(target as HTMLElement);
+          hideElement((el.closest('button') || el) as HTMLElement);
         }
       });
-    };
 
-    const findImageInput = () => {
-      const inputs = Array.from(document.querySelectorAll('input')) as HTMLInputElement[];
-      // Do not require offsetParent: the input is intentionally hidden after
-      // the library bridge takes over, but React still needs the same input
-      // element so its state can be updated and the product can be saved.
-      return inputs.find(el => el.placeholder?.includes('images.unsplash.com'))
-        || inputs.find(el => el.placeholder?.toLowerCase().includes('url obrázku'))
-        || null;
-    };
-
-    const update = () => {
-      const found = findImageInput();
-      setInput(found);
-      if (found) hideManualUrlField(found);
+      setInput(current => current === found ? current : found);
     };
 
     update();
-    const observer = new MutationObserver(update);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-    const interval = window.setInterval(update, 500);
+
+    // Only watch DOM additions/removals. Attribute changes are deliberately
+    // excluded to prevent a feedback loop with the hiding logic above.
+    const observer = new MutationObserver(() => update());
+    observer.observe(document.body, { childList: true, subtree: true });
+    const interval = window.setInterval(update, 1000);
 
     return () => {
       observer.disconnect();
