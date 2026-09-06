@@ -48,9 +48,8 @@ export const ProductImageLibraryBridge: React.FC = () => {
         return;
       }
 
-      // Do not observe attributes here. Hiding elements changes attributes and
-      // would otherwise trigger an endless MutationObserver loop that freezes
-      // the entire admin page.
+      // The URL field is an internal bridge only. It is never shown to the administrator
+      // and is never presented as a manual image-entry option.
       found.required = false;
       found.removeAttribute('required');
       hideElement(found);
@@ -79,8 +78,8 @@ export const ProductImageLibraryBridge: React.FC = () => {
 
     update();
 
-    // Only watch DOM additions/removals. Attribute changes are deliberately
-    // excluded to prevent a feedback loop with the hiding logic above.
+    // Only watch DOM additions/removals. Attribute changes are deliberately excluded
+    // to prevent a feedback loop with the hiding logic above.
     const observer = new MutationObserver(() => update());
     observer.observe(document.body, { childList: true, subtree: true });
     const interval = window.setInterval(update, 1000);
@@ -114,6 +113,7 @@ export const ProductImageLibraryBridge: React.FC = () => {
   const apply = () => {
     if (!selected || !input) return;
 
+    // Keep the controlled React input in sync with the library selection.
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     setter?.call(input, selected);
     input.required = false;
@@ -121,6 +121,13 @@ export const ProductImageLibraryBridge: React.FC = () => {
     input.setCustomValidity('');
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    // Explicit event for the product editor. This makes saving reliable even when
+    // React's delegated input handling is delayed by the legacy admin form.
+    window.dispatchEvent(new CustomEvent('luvia-product-image-selected', {
+      detail: { url: selected }
+    }));
+
     setOpen(false);
   };
 
@@ -133,7 +140,7 @@ export const ProductImageLibraryBridge: React.FC = () => {
           <div>
             <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[#8C7355]">Luvia Decor</div>
             <h3 className="text-xl font-bold text-[#2D2723]">Knihovna produktových obrázků</h3>
-            <p className="text-xs text-[#75685d] mt-1">Vyberte obrázek z centrální knihovny Luvia Decor.</p>
+            <p className="text-xs text-[#75685d] mt-1">Vyberte obrázek pouze z centrální knihovny Luvia Decor.</p>
           </div>
           <button type="button" onClick={() => setOpen(false)} className="p-2 rounded-xl bg-white hover:bg-[#efe7dc]">
             <X className="w-5 h-5" />
