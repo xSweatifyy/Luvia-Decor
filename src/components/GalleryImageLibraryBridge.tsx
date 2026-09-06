@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Search, X } from 'lucide-react';
 import { SafeImage } from './SafeImage';
 
-const bundledImages = import.meta.glob('/*.{jpg,jpeg,png,webp,JPG,JPEG,PNG,WEBP}', {
+// Images are stored in the repository root. Use a relative Vite glob from this
+// component instead of an absolute /... glob, which only resolves public assets.
+const bundledImages = import.meta.glob('../../*.{jpg,jpeg,png,webp,JPG,JPEG,PNG,WEBP}', {
   eager: true,
   query: '?url',
   import: 'default'
@@ -17,7 +19,7 @@ export const GalleryImageLibraryBridge: React.FC = () => {
   const [selected, setSelected] = useState<string | null>(null);
 
   const library = useMemo<ImageItem[]>(() => Object.entries(bundledImages)
-    .map(([path, url]) => ({ url, label: path.replace(/^\//, '') }))
+    .map(([path, url]) => ({ url, label: path.split('/').pop() || path }))
     .filter(item => /\.(jpe?g|png|webp)$/i.test(item.label))
     .sort((a, b) => a.label.localeCompare(b.label)), []);
 
@@ -50,7 +52,6 @@ export const GalleryImageLibraryBridge: React.FC = () => {
       const form = found.closest('form') as HTMLFormElement | null;
       if (form) form.noValidate = true;
 
-      // Remove the complete legacy URL/upload section; the library is the only image source.
       const urlContainer = found.parentElement?.parentElement as HTMLElement | null;
       if (urlContainer) hide(urlContainer);
       const uploadBlock = urlContainer?.parentElement?.querySelector('div.mt-2') as HTMLElement | null;
