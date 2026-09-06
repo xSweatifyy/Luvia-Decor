@@ -35,10 +35,14 @@ export const ProductImageLibraryBridge: React.FC = () => {
 
     const update = () => {
       const allInputs = Array.from(document.querySelectorAll('input')) as HTMLInputElement[];
-      const found = allInputs.find(el =>
-        el.placeholder?.toLowerCase().includes('url obrázku') ||
-        el.placeholder?.includes('images.unsplash.com')
-      );
+      const found = allInputs.find(el => {
+        const formText = el.closest('form')?.textContent?.toLowerCase() || '';
+        return (
+          (el.placeholder?.toLowerCase().includes('url obrázku') || el.placeholder?.includes('images.unsplash.com')) &&
+          formText.includes('název produktu') &&
+          !formText.includes('vložit novou realizaci')
+        );
+      });
       if (!found) {
         setInput(null);
         return;
@@ -47,18 +51,10 @@ export const ProductImageLibraryBridge: React.FC = () => {
       found.required = false;
       found.removeAttribute('required');
       found.setCustomValidity('');
-
       const editorForm = found.closest('form') as HTMLFormElement | null;
       const editorRoot = editorForm || found.closest('[role="dialog"]') || document.body;
-
-      // The legacy image URL/upload/preset area is removed as one complete UI section.
-      // The hidden input remains only as an internal React state bridge.
       const section = found.closest('div.space-y-2') as HTMLElement | null;
       if (section) hide(section);
-
-      // React can restore the old required attribute during a rerender. The image is
-      // now selected from the repository library, so native browser validation must
-      // not block the product form submission because of that removed field.
       if (editorForm) editorForm.noValidate = true;
 
       editorRoot.querySelectorAll('label, p, span, button').forEach(el => {
@@ -67,14 +63,11 @@ export const ProductImageLibraryBridge: React.FC = () => {
           text.includes('url obrázku') ||
           text.includes('url hlavního obrázku') ||
           text.includes('obrázky se ukládají pouze jako veřejné https url') ||
-          text.includes('luv ia decor nepoužívá firebase storage') ||
           text.includes('luvia decor nepoužívá firebase storage') ||
           text === 'nahrát do firebase' ||
           text.includes('nahrajte soubor z počítače') ||
           text.includes('zvolte z ukázkových fotografií')
-        ) {
-          hide((el.closest('button') || el) as HTMLElement);
-        }
+        ) hide((el.closest('button') || el) as HTMLElement);
       });
 
       setInput(current => current === found ? current : found);
@@ -99,14 +92,9 @@ export const ProductImageLibraryBridge: React.FC = () => {
     button.innerHTML = '<span>▣</span> Vybrat z knihovny produktových obrázků';
     button.onclick = () => { setSelected(null); setQuery(''); setOpen(true); };
 
-    // Insert the only visible image option directly into the product editor,
-    // outside the completely removed legacy URL/upload section.
     const submitButton = editorRoot.querySelector('button[type="submit"]');
-    if (submitButton?.parentElement) {
-      submitButton.parentElement.parentElement?.insertBefore(button, submitButton.parentElement);
-    } else {
-      editorRoot.appendChild(button);
-    }
+    if (submitButton?.parentElement) submitButton.parentElement.parentElement?.insertBefore(button, submitButton.parentElement);
+    else editorRoot.appendChild(button);
 
     return () => button.remove();
   }, [input]);
