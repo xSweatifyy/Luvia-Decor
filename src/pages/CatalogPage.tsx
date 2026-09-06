@@ -31,10 +31,11 @@ export const CatalogPage: React.FC = () => {
         // Search query
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase().trim();
+          const matchId = product.id?.toLowerCase().includes(q);
           const matchTitle = product.title.toLowerCase().includes(q);
           const matchDesc = product.description.toLowerCase().includes(q);
           const matchMat = product.materials?.toLowerCase().includes(q);
-          if (!matchTitle && !matchDesc && !matchMat) return false;
+          if (!matchId && !matchTitle && !matchDesc && !matchMat) return false;
         }
         return true;
       })
@@ -56,8 +57,6 @@ export const CatalogPage: React.FC = () => {
 
   return (
     <div id="catalog-page" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">
-
-      {/* Header Banner */}
       <div className="text-center max-w-3xl mx-auto space-y-3">
         <span className="text-xs font-bold uppercase tracking-[0.25em] text-[#8C7355]">
           Kolekce & E-shop
@@ -70,10 +69,7 @@ export const CatalogPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Filter and Control Bar */}
       <div className="space-y-4 bg-white p-6 rounded-2xl border border-[#E8DFC8] shadow-sm">
-
-        {/* Top: Category Pills — wrapped so every category is always visible */}
         <div className="flex flex-wrap items-center gap-2">
           {categories.map(cat => {
             const isSelected = selectedCategory === cat.id;
@@ -93,23 +89,19 @@ export const CatalogPage: React.FC = () => {
           })}
         </div>
 
-        {/* Bottom row: Search + In Stock toggle + Sorting */}
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 pt-4 border-t border-[#F2ECE4]">
-
-          {/* Search Box */}
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Hledat věnec, aranžmá, svíčku, materiál..."
+              placeholder="Hledat věnec, aranžmá, svíčku, materiál nebo ID produktu..."
               className="w-full pl-10 pr-4 py-2.5 bg-[#FAF8F5] border border-[#E3DACF] rounded-xl text-xs text-[#2D2723] focus:outline-none focus:ring-2 focus:ring-[#8C7355]/30 focus:border-[#8C7355]"
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-xs">
-            {/* In-Stock Checkbox */}
             <label className="flex items-center gap-2 text-[#5C5046] font-medium cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -120,7 +112,6 @@ export const CatalogPage: React.FC = () => {
               <span>Pouze skladem</span>
             </label>
 
-            {/* Sorting Dropdown */}
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="w-3.5 h-3.5 text-[#8C7355]" />
               <select
@@ -136,12 +127,9 @@ export const CatalogPage: React.FC = () => {
               </select>
             </div>
           </div>
-
         </div>
-
       </div>
 
-      {/* Results Header */}
       <div className="flex items-center justify-between text-xs text-[#7B6E63] px-1">
         <span>
           Nalezeno <strong>{filteredProducts.length}</strong> z celkem {products.length} produktů
@@ -157,7 +145,6 @@ export const CatalogPage: React.FC = () => {
         )}
       </div>
 
-      {/* Products Grid */}
       {filteredProducts.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredProducts.map(product => (
@@ -165,7 +152,6 @@ export const CatalogPage: React.FC = () => {
           ))}
         </div>
       ) : (
-        /* Empty State */
         <div className="bg-white rounded-3xl p-12 text-center border border-[#E8DFC8] space-y-4 max-w-lg mx-auto">
           <div className="w-12 h-12 rounded-full bg-[#FAF5EE] text-[#8C7355] flex items-center justify-center mx-auto">
             <Filter className="w-6 h-6" />
@@ -184,7 +170,6 @@ export const CatalogPage: React.FC = () => {
           </button>
         </div>
       )}
-
     </div>
   );
 };
