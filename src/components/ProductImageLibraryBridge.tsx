@@ -34,6 +34,8 @@ export const ProductImageLibraryBridge: React.FC = () => {
       : library;
   }, [library, query]);
 
+  const isLibraryImage = (value: string) => library.some(item => item.url === value);
+
   useEffect(() => {
     const findImageInput = () => {
       const inputs = Array.from(document.querySelectorAll('input')) as HTMLInputElement[];
@@ -42,7 +44,18 @@ export const ProductImageLibraryBridge: React.FC = () => {
       ) || null;
     };
 
-    const update = () => setInput(findImageInput());
+    const update = () => {
+      const found = findImageInput();
+      setInput(found);
+
+      // Once a repository image is selected, the URL field is no longer
+      // required. This also handles reopening an existing product.
+      if (found && isLibraryImage(found.value)) {
+        found.required = false;
+        found.removeAttribute('required');
+      }
+    };
+
     update();
 
     const observer = new MutationObserver(update);
@@ -53,7 +66,7 @@ export const ProductImageLibraryBridge: React.FC = () => {
       observer.disconnect();
       window.clearInterval(interval);
     };
-  }, []);
+  }, [library]);
 
   useEffect(() => {
     if (!input) return;
@@ -84,6 +97,13 @@ export const ProductImageLibraryBridge: React.FC = () => {
     )?.set;
 
     setter?.call(input, selected);
+
+    // A repository image is now the product's main image, so the old
+    // mandatory URL requirement must not block saving the product.
+    input.required = false;
+    input.removeAttribute('required');
+    input.setCustomValidity('');
+
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     setOpen(false);
