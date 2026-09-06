@@ -46,16 +46,21 @@ export const ProductImageLibraryBridge: React.FC = () => {
 
       found.required = false;
       found.removeAttribute('required');
+      found.setCustomValidity('');
 
-      const editorRoot = found.closest('form') || found.closest('[role="dialog"]') || document.body;
+      const editorForm = found.closest('form') as HTMLFormElement | null;
+      const editorRoot = editorForm || found.closest('[role="dialog"]') || document.body;
 
-      // The old image URL/upload/preset area is removed as one complete UI section.
-      // The hidden input is kept only as an internal React state bridge so saving the
-      // selected repository image continues to work; the customer/admin never sees it.
+      // The legacy image URL/upload/preset area is removed as one complete UI section.
+      // The hidden input remains only as an internal React state bridge.
       const section = found.closest('div.space-y-2') as HTMLElement | null;
       if (section) hide(section);
 
-      // Remove any remaining legacy image controls/text elsewhere in the editor.
+      // React can restore the old required attribute during a rerender. The image is
+      // now selected from the repository library, so native browser validation must
+      // not block the product form submission because of that removed field.
+      if (editorForm) editorForm.noValidate = true;
+
       editorRoot.querySelectorAll('label, p, span, button').forEach(el => {
         const text = (el.textContent || '').trim().toLowerCase();
         if (
