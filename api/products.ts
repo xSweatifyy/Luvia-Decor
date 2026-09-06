@@ -17,25 +17,62 @@ function normalizeProduct(input: any) {
     if (!product.name) product.name = title;
   }
   if (!product.id) product.id = `prod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  if (product.imageUrl == null && typeof product.image === 'string') product.imageUrl = product.image;
-  if (!Array.isArray(product.images) && Array.isArray(product.gallery)) product.images = product.gallery;
-  if (!Array.isArray(product.images)) product.images = product.imageUrl ? [product.imageUrl] : [];
-  product.images = product.images.filter((v: any) => typeof v === 'string' && v.trim()).map((v: string) => v.trim());
-  if (!product.imageUrl && product.images[0]) product.imageUrl = product.images[0];
+
+  // Accept every image format used by older and newer product records.
+  const imageCandidates = [
+    product.imageUrl,
+    product.image,
+    ...(Array.isArray(product.images) ? product.images : []),
+    ...(Array.isArray(product.gallery) ? product.gallery : []),
+  ];
+  const images = [...new Set(
+    imageCandidates
+      .filter((v: any) => typeof v === 'string' && v.trim())
+      .map((v: string) => v.trim())
+  )];
+
+  product.images = images;
+  product.gallery = images;
+  if (images[0]) product.imageUrl = images[0];
   return product;
 }
 
-// Remove legacy duplicate rows created with different IDs but the same product name.
-// Keep the newest row so existing product data/images are preserved.
+// Remove duplicate rows while preserving/merging ALL image URLs from every copy.
 async function removeDuplicateProducts() {
-  await sql`
-    DELETE FROM products p
-    USING products newer
-    WHERE p.id <> newer.id
-      AND NULLIF(LOWER(TRIM(COALESCE(p.data->>'title', p.data->>'name', ''))), '') IS NOT NULL
-      AND LOWER(TRIM(COALESCE(p.data->>'title', p.data->>'name', ''))) = LOWER(TRIM(COALESCE(newer.data->>'title', newer.data->>'name', '')))
-      AND p.created_at < newer.created_at
-  `;
+  const rows = await sql`SELECT id, data, created_at FROM products ORDER BY created_at DESC`;
+  const groups = new Map<string, any[]>();
+
+  for (const row of rows as any[]) {
+    const title = String(row.data?.title ?? row.data?.name ?? '').trim().toLowerCase();
+    if (!title) continue;
+    const list = groups.get(title) || [];
+    list.push(row);
+    groups.set(title, list);
+  }
+
+  for (const [, duplicates] of groups) {
+    if (duplicates.length < 2) continue;
+
+    // Keep the newest row, but merge fields/images from every older copy first.
+    const keeper = duplicates[0];
+    const merged = normalizeProduct(keeper.data);
+    const allImages = new Set<string>(merged.images || []);
+
+    for (const duplicate of duplicates.slice(1)) {
+      const normalized = normalizeProduct(duplicate.data);
+      for (const image of normalized.images || []) allImages.add(image);
+    }
+
+    merged.images = [...allImages];
+    merged.gallery = [...allImages];
+    if (merged.images[0]) merged.imageUrl = merged.images[0];
+
+    await sql`UPDATE products SET data=${JSON.stringify(merged)}::jsonb,updated_at=NOW() WHERE id=${keeper.id}`;
+    const idsToDelete = duplicates.slice(1).map((row: any) => row.id);
+    for (const id of idsToDelete) {
+      await sql`DELETE FROM products WHERE id=${id}`;
+    }
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -50,25 +87,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const id = typeof req.query.id === 'string' ? req.query.id : '';
       if (id) {
         const rows = await sql`SELECT data FROM products WHERE id=${id} LIMIT 1`;
-        return rows.length ? res.status(200).json(rows[0].data) : res.status(404).json({ error: 'Produkt nenalezen.' });
+        return rows.length ? res.status(200).json(normalizeProduct(rows[0].data)) : res.status(404).json({ error: 'Produkt nenalezen.' });
       }
       const rows = await sql`SELECT data FROM products ORDER BY created_at DESC`;
-      return res.status(200).json(rows.map((r: any) => r.data));
+      return res.status(200).json(rows.map((r: any) => normalizeProduct(r.data)));
     }
 
     if (req.method === 'POST') {
       const product = normalizeProduct(req.body);
       if (!String(product.title || '').trim()) return res.status(400).json({ error: 'Název produktu je povinný.' });
 
-      // If the client creates a product without an ID but a product with the same
-      // name already exists, update that product instead of creating a second copy.
       const existing = await sql`
         SELECT id, data FROM products
         WHERE LOWER(TRIM(COALESCE(data->>'title', data->>'name', ''))) = LOWER(TRIM(${product.title}))
         ORDER BY updated_at DESC
         LIMIT 1
       `;
-      if (existing.length && !req.body?.id) product.id = existing[0].id;
+      if (existing.length && !req.body?.id) {
+        const existingProduct = normalizeProduct(existing[0].data);
+        product.id = existing[0].id;
+        product.images = [...new Set([...(existingProduct.images || []), ...(product.images || [])])];
+        product.gallery = product.images;
+        if (product.images[0]) product.imageUrl = product.images[0];
+      }
 
       await sql`INSERT INTO products (id,data) VALUES (${product.id},${JSON.stringify(product)}::jsonb) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`;
       await removeDuplicateProducts();
