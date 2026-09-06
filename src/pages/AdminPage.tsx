@@ -10,6 +10,7 @@ import { OrderStatusCategory } from '../components/OrderStatusCategory';
 import { ShippingSettingsManager } from '../components/ShippingSettingsManager';
 import { ProductImageLibrary } from '../components/ProductImageLibrary';
 import { ProductImageLibraryBridge } from '../components/ProductImageLibraryBridge';
+import { GalleryImageLibraryBridge } from '../components/GalleryImageLibraryBridge';
 import { useApp } from '../context/AppContext';
 
 export const AdminPage: React.FC = () => {
@@ -85,7 +86,7 @@ export const AdminPage: React.FC = () => {
           : active === 'shipping' && adminUser ? <ShippingSettingsManager />
           : <div className="space-y-5"><LegacyAdminPage /><CouponManager /><GiftVoucherManager /><ShippingCouponManager /><AllCouponsList /></div>}
       </div>
-      {adminUser && active === 'main' && <ProductImageLibraryBridge />}
+      {adminUser && active === 'main' && <><ProductImageLibraryBridge /><GalleryImageLibraryBridge /></>}
     </div>
   );
 };
