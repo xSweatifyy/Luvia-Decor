@@ -62,12 +62,7 @@ export const AdminPage: React.FC = () => {
                 {tabs.map(({ id, label, icon: Icon }) => {
                   const selected = active === id;
                   return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setActive(id)}
-                      className={`shrink-0 flex items-center gap-2 rounded-xl px-3.5 sm:px-4 py-2.5 text-xs font-bold transition-all ${selected ? 'bg-[#2D2723] text-white shadow-md translate-y-[-1px]' : 'text-[#67594e] hover:bg-[#f5efe8]'}`}
-                    >
+                    <button key={id} type="button" onClick={() => setActive(id)} className={`shrink-0 flex items-center gap-2 rounded-xl px-3.5 sm:px-4 py-2.5 text-xs font-bold transition-all ${selected ? 'bg-[#2D2723] text-white shadow-md translate-y-[-1px]' : 'text-[#67594e] hover:bg-[#f5efe8]'}`}>
                       <Icon className="w-4 h-4" />
                       {label}
                     </button>
@@ -86,7 +81,7 @@ export const AdminPage: React.FC = () => {
           : active === 'shipping' && adminUser ? <ShippingSettingsManager />
           : <div className="space-y-5"><LegacyAdminPage /><CouponManager /><GiftVoucherManager /><ShippingCouponManager /><AllCouponsList /></div>}
       </div>
-      {adminUser && active === 'main' && <><ProductImageLibraryBridge /><GalleryImageLibraryBridge /></>}
+      {adminUser && <><ProductImageLibraryBridge /><GalleryImageLibraryBridge /></>}
     </div>
   );
 };
