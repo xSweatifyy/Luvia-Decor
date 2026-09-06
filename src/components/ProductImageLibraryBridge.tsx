@@ -46,23 +46,31 @@ export const ProductImageLibraryBridge: React.FC = () => {
 
       found.required = false;
       found.removeAttribute('required');
-      hide(found);
 
       const editorRoot = found.closest('form') || found.closest('[role="dialog"]') || document.body;
+      const fieldWrapper = found.parentElement?.parentElement || found.parentElement;
+
+      // Remove the complete manual URL option from the product editor.
+      // Keep only the central repository image-library picker below it.
+      const inputRow = found.parentElement;
+      hide(found);
+      hide(inputRow as HTMLElement);
+
       editorRoot.querySelectorAll('label, p, span, button').forEach(el => {
         const text = (el.textContent || '').trim().toLowerCase();
         if (
           text.includes('url obrázku') ||
           text.includes('url hlavního obrázku') ||
           text === 'nahrát do firebase' ||
-          text === 'ukládají pouze jako veřejné https url.'
+          text === 'ukládají pouze jako veřejné https url.' ||
+          text.includes('nahrajte soubor z počítače') ||
+          text.includes('zvolte z ukázkových fotografií')
         ) {
           hide((el.closest('button') || el) as HTMLElement);
         }
       });
 
-      const field = found.closest('div');
-      field?.querySelectorAll('label').forEach(label => hide(label as HTMLElement));
+      fieldWrapper?.querySelectorAll('label').forEach(label => hide(label as HTMLElement));
       setInput(current => current === found ? current : found);
     };
 
@@ -75,8 +83,8 @@ export const ProductImageLibraryBridge: React.FC = () => {
 
   useEffect(() => {
     if (!input) return;
-    const parent = input.parentElement;
-    if (!parent || parent.querySelector('[data-luvia-image-library-button]')) return;
+    const host = input.parentElement?.parentElement || input.parentElement;
+    if (!host || host.querySelector('[data-luvia-image-library-button]')) return;
 
     const button = document.createElement('button');
     button.type = 'button';
@@ -84,7 +92,7 @@ export const ProductImageLibraryBridge: React.FC = () => {
     button.className = 'w-full mt-2 px-3 py-2.5 rounded-xl bg-[#2D2723] hover:bg-[#8C7355] text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2';
     button.innerHTML = '<span>▣</span> Vybrat z knihovny produktových obrázků';
     button.onclick = () => { setSelected(null); setQuery(''); setOpen(true); };
-    parent.appendChild(button);
+    host.appendChild(button);
     return () => button.remove();
   }, [input]);
 
