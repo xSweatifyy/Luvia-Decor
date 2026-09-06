@@ -25,12 +25,26 @@ function normalizeProduct(input: any) {
   return product;
 }
 
+// Remove legacy duplicate rows created with different IDs but the same product name.
+// Keep the newest row so existing product data/images are preserved.
+async function removeDuplicateProducts() {
+  await sql`
+    DELETE FROM products p
+    USING products newer
+    WHERE p.id <> newer.id
+      AND NULLIF(LOWER(TRIM(COALESCE(p.data->>'title', p.data->>'name', ''))), '') IS NOT NULL
+      AND LOWER(TRIM(COALESCE(p.data->>'title', p.data->>'name', ''))) = LOWER(TRIM(COALESCE(newer.data->>'title', newer.data->>'name', '')))
+      AND p.created_at < newer.created_at
+  `;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
     await sql`CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
+    await removeDuplicateProducts();
 
     if (req.method === 'GET') {
       const id = typeof req.query.id === 'string' ? req.query.id : '';
@@ -45,7 +59,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST') {
       const product = normalizeProduct(req.body);
       if (!String(product.title || '').trim()) return res.status(400).json({ error: 'Název produktu je povinný.' });
+
+      // If the client creates a product without an ID but a product with the same
+      // name already exists, update that product instead of creating a second copy.
+      const existing = await sql`
+        SELECT id, data FROM products
+        WHERE LOWER(TRIM(COALESCE(data->>'title', data->>'name', ''))) = LOWER(TRIM(${product.title}))
+        ORDER BY updated_at DESC
+        LIMIT 1
+      `;
+      if (existing.length && !req.body?.id) product.id = existing[0].id;
+
       await sql`INSERT INTO products (id,data) VALUES (${product.id},${JSON.stringify(product)}::jsonb) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`;
+      await removeDuplicateProducts();
       return res.status(201).json(product);
     }
 
@@ -57,6 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!rows.length) return res.status(404).json({ error: 'Produkt nenalezen.' });
       const merged = normalizeProduct({ ...rows[0].data, ...(req.body || {}), id });
       await sql`UPDATE products SET data=${JSON.stringify(merged)}::jsonb,updated_at=NOW() WHERE id=${id}`;
+      await removeDuplicateProducts();
       return res.status(200).json(merged);
     }
 
