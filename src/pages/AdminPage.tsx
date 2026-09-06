@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PackageSearch, ShoppingBag, Truck, Sparkles, LayoutDashboard } from 'lucide-react';
+import { PackageSearch, ShoppingBag, Truck, Sparkles, LayoutDashboard, Images } from 'lucide-react';
 import { AdminPage as LegacyAdminPage } from './AdminPageLegacy';
 import { GiftVoucherManager } from '../components/GiftVoucherManager';
 import { ShippingCouponManager } from '../components/ShippingCouponManager';
@@ -8,14 +8,16 @@ import { CouponManager } from '../components/CouponManager';
 import { OrderTrackingManager } from '../components/OrderTrackingManager';
 import { OrderStatusCategory } from '../components/OrderStatusCategory';
 import { ShippingSettingsManager } from '../components/ShippingSettingsManager';
+import { ProductImageLibrary } from '../components/ProductImageLibrary';
 import { useApp } from '../context/AppContext';
 
 export const AdminPage: React.FC = () => {
   const { adminUser } = useApp();
-  const [active, setActive] = useState<'main' | 'statuses' | 'tracking' | 'shipping'>('main');
+  const [active, setActive] = useState<'main' | 'images' | 'statuses' | 'tracking' | 'shipping'>('main');
 
   const tabs = [
     { id: 'main' as const, label: 'Přehled administrace', icon: LayoutDashboard },
+    { id: 'images' as const, label: 'Knihovna obrázků', icon: Images },
     { id: 'statuses' as const, label: 'Stavy objednávek', icon: ShoppingBag },
     { id: 'tracking' as const, label: 'Sledování zásilek', icon: PackageSearch },
     { id: 'shipping' as const, label: 'Doprava a přepravci', icon: Truck },
@@ -76,7 +78,8 @@ export const AdminPage: React.FC = () => {
       )}
 
       <div className="max-w-[1500px] mx-auto px-2 sm:px-4 lg:px-6 pt-5 pb-14">
-        {active === 'statuses' && adminUser ? <OrderStatusCategory />
+        {active === 'images' && adminUser ? <ProductImageLibrary />
+          : active === 'statuses' && adminUser ? <OrderStatusCategory />
           : active === 'tracking' && adminUser ? <OrderTrackingManager />
           : active === 'shipping' && adminUser ? <ShippingSettingsManager />
           : <div className="space-y-5"><LegacyAdminPage /><CouponManager /><GiftVoucherManager /><ShippingCouponManager /><AllCouponsList /></div>}
