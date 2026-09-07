@@ -16,8 +16,10 @@ function copyCarrierLogos(): Plugin {
       // Keep root logo files available in the production output.
       copyFileSync(resolve(root, 'zasilkovna-logo.png'), resolve(dist, 'zasilkovna-logo.png'));
       copyFileSync(resolve(root, 'dpd-logo.png'), resolve(dist, 'dpd-logo.png'));
+      copyFileSync(resolve(root, 'penguin-box.jpeg'), resolve(dist, 'penguin-box.jpeg'));
       copyFileSync(resolve(root, 'zasilkovna-logo.png'), resolve(legacyDir, 'zasilkovna.png'));
       copyFileSync(resolve(root, 'dpd-logo.png'), resolve(legacyDir, 'dpd.png'));
+      copyFileSync(resolve(root, 'penguin-box.jpeg'), resolve(legacyDir, 'penguin-box.jpeg'));
     },
   };
 }
