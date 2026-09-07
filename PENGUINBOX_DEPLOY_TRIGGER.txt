@@ -1,1 +1,2 @@
 PenguinBox shipping integration deployment marker.
+Implemented: footer logo, 59 Kč box-only shipping, official Penguin Box map selector, and order delivery data.
