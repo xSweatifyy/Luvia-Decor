@@ -33,5 +33,20 @@
     <link id="favicon-link" rel="icon" type="image/jpeg" href="/Luvia-Decor.jpeg" />
     <script>(function(w,d,s,r,n){w.TrustpilotObject=n;w[n]=w[n]||function(){(w[n].q=w[n].q||[]).push(arguments)};a=d.createElement(s);a.async=1;a.src=r;a.type='text/java'+s;f=d.getElementsByTagName(s)[0];f.parentNode.insertBefore(a,f)})(window,document,'script','https://invitejs.trustpilot.com/tp.min.js','tp');tp('register','MqmjmhXTMuhVwlYZ');</script>
   </head>
-  <body class="bg-[#FAF8F5] text-[#2C2723] font-sans antialiased selection:bg-[#E2D5C3] selection:text-[#1F1B18]"><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>
+  <body class="bg-[#FAF8F5] text-[#2C2723] font-sans antialiased selection:bg-[#E2D5C3] selection:text-[#1F1B18]"><div id="root"></div><script type="module" src="/src/main.tsx"></script><script>
+    (function(){
+      function addPenguinLogo(){
+        var footer=document.getElementById('main-footer');
+        if(!footer || footer.querySelector('[data-penguin-box-footer]')) return;
+        var textNodes=footer.querySelectorAll('span'); var label=null;
+        for(var i=0;i<textNodes.length;i++){ if((textNodes[i].textContent||'').trim()==='Přepravci'){ label=textNodes[i]; break; } }
+        if(!label) return;
+        var row=label.parentElement; if(!row) return;
+        var box=document.createElement('div'); box.setAttribute('data-penguin-box-footer','true'); box.className='h-14 w-40 flex items-center justify-center rounded-xl bg-transparent';
+        var img=document.createElement('img'); img.src='/penguin-box.jpeg'; img.alt='PenguinBox'; img.loading='lazy'; img.className='max-h-10 max-w-full object-contain bg-transparent'; box.appendChild(img); row.appendChild(box);
+      }
+      var observer=new MutationObserver(addPenguinLogo); observer.observe(document.documentElement,{childList:true,subtree:true});
+      document.addEventListener('DOMContentLoaded',addPenguinLogo); setTimeout(addPenguinLogo,500); setTimeout(addPenguinLogo,1500);
+    })();
+  </script></body>
 </html>
