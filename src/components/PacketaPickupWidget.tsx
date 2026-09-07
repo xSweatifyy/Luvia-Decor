@@ -11,7 +11,7 @@ export type PacketaPoint = {
   carrierPickupPointId?: string;
 };
 
-type Props = { onSelect: (point: PacketaPoint) => void };
+type Props = { onSelect: (point: PacketaPoint) => void; country?: 'cz' | 'sk' };
 
 const PACKETA_API_KEY = '3a3de6256b8299aa';
 const SCRIPT_SRC = 'https://widget.packeta.com/v6/www/js/library.js';
@@ -61,7 +61,7 @@ function removeOldManualPickupUi() {
   if (container) container.remove();
 }
 
-export const PacketaPickupWidget: React.FC<Props> = ({ onSelect }) => {
+export const PacketaPickupWidget: React.FC<Props> = ({ onSelect, country = 'cz' }) => {
   const [error, setError] = useState('');
   const openedRef = useRef(false);
 
@@ -78,7 +78,7 @@ export const PacketaPickupWidget: React.FC<Props> = ({ onSelect }) => {
         },
         {
           language: 'cs',
-          vendors: [{ country: 'cz' }],
+          vendors: [{ country }],
           webUrl: window.location.origin,
           appIdentity: 'luvia-decor'
         }
