@@ -1,27 +1,29 @@
-import React, { useEffect, useState } from 'react';
-import { ExternalLink, MapPin, CheckCircle2, RefreshCw } from 'lucide-react';
+import React, { useState } from 'react';
+import { ExternalLink, MapPin, CheckCircle2 } from 'lucide-react';
 
 export type PenguinBoxPoint = { name: string; address?: string; id?: string };
 
 type Props = { onSelect: (point: PenguinBoxPoint) => void };
 
-// Penguin Box's public customer flow contains the live box map and destination selector.
-// The official site also documents that e-shops can integrate their system via API.
-const PENGUIN_MAP_URL = 'https://www.penguinbox.cz/poslat-balik';
+// Temporary picker until PenguinBox provides the official e-shop API/widget.
+// Google Maps is filtered to the Penguin Box search so other POIs are not intentionally requested.
+const GOOGLE_MAPS_SEARCH_URL =
+  'https://www.google.com/maps/search/?api=1&query=Penguin+Box+Czech+Republic';
+const GOOGLE_MAPS_EMBED_URL =
+  'https://www.google.com/maps?q=Penguin%20Box%20Czech%20Republic&output=embed';
 
 export const PenguinBoxPickupWidget: React.FC<Props> = ({ onSelect }) => {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    setLoaded(false);
-  }, []);
 
   const confirm = () => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    onSelect({ name: trimmed, address: address.trim() || undefined });
+    const trimmedName = name.trim();
+    const trimmedAddress = address.trim();
+    if (!trimmedName && !trimmedAddress) return;
+    onSelect({
+      name: trimmedName || trimmedAddress,
+      address: trimmedAddress || undefined,
+    });
   };
 
   return (
@@ -31,72 +33,66 @@ export const PenguinBoxPickupWidget: React.FC<Props> = ({ onSelect }) => {
           <div>
             <p className="font-semibold text-[#302923]">Vyberte Penguin Box</p>
             <p className="text-xs text-[#7B7067] mt-1">
-              Po zvolení přepravce se mapa otevře přímo v košíku. Na mapě vyberte cílový Penguin Box a jeho název potvrďte dole.
+              Mapa je vyhledaná pouze pro Penguin Boxy. Klikněte na vybraný Penguin Box a opište jeho název a adresu do polí níže.
             </p>
           </div>
           <a
-            href={PENGUIN_MAP_URL}
+            href={GOOGLE_MAPS_SEARCH_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-[#302923] px-3 py-2 text-xs font-semibold text-white"
           >
-            Otevřít mapu <ExternalLink className="w-3.5 h-3.5" />
+            Otevřít větší mapu <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>
       </div>
 
       <div className="relative bg-[#f5f2ee]">
-        {!loaded && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#FCFAF7]/90 pointer-events-none">
-            <div className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm text-[#6F6258] shadow-sm border border-[#E5DCD2]">
-              <RefreshCw className="w-4 h-4 animate-spin" /> Načítám mapu Penguin Box…
-            </div>
-          </div>
-        )}
         <iframe
-          title="Oficiální mapa Penguin Box"
-          src={PENGUIN_MAP_URL}
-          onLoad={() => setLoaded(true)}
-          className="w-full h-[650px] border-0 bg-[#f5f2ee]"
-          loading="eager"
-          allow="geolocation"
+          title="Google Maps – Penguin Boxy"
+          src={GOOGLE_MAPS_EMBED_URL}
+          className="w-full h-[560px] border-0 bg-[#f5f2ee]"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          allowFullScreen
         />
       </div>
 
       <div className="p-4 border-t border-[#E5DCD2] space-y-3">
         <div className="rounded-xl bg-[#FBF6EF] border border-[#E7DACA] px-3 py-2.5 text-xs text-[#6F6258]">
           <b>PenguinBox – doručení pouze do Boxu · 59 Kč</b><br />
-          Vyberte cílový box na oficiální mapě Penguin Box výše.
+          Mapa výše používá vyhledávání „Penguin Box“ v Google Maps. Prozatím vybírejte pouze místo označené jako Penguin Box.
         </div>
 
         <label className="block text-xs font-semibold text-[#302923]">Vybraný Penguin Box *</label>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9A7B58]" />
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Název vybraného Penguin Boxu"
-              className="w-full rounded-xl border border-[#E5DCD2] bg-[#FCFAF7] pl-9 pr-3 py-3 text-sm outline-none focus:border-[#9A7B58]"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={confirm}
-            disabled={!name.trim()}
-            className="rounded-xl bg-[#806746] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
-          >
-            <CheckCircle2 className="w-4 h-4" /> Potvrdit box
-          </button>
+        <div className="relative">
+          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9A7B58]" />
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Název Penguin Boxu z mapy"
+            className="w-full rounded-xl border border-[#E5DCD2] bg-[#FCFAF7] pl-9 pr-3 py-3 text-sm outline-none focus:border-[#9A7B58]"
+          />
         </div>
+
         <input
           value={address}
           onChange={e => setAddress(e.target.value)}
-          placeholder="Adresa boxu (nepovinné)"
+          placeholder="Adresa vybraného Penguin Boxu z mapy"
           className="w-full rounded-xl border border-[#E5DCD2] bg-white px-3 py-3 text-sm outline-none focus:border-[#9A7B58]"
         />
+
+        <button
+          type="button"
+          onClick={confirm}
+          disabled={!name.trim() && !address.trim()}
+          className="w-full rounded-xl bg-[#806746] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
+        >
+          <CheckCircle2 className="w-4 h-4" /> Potvrdit Penguin Box
+        </button>
+
         <p className="text-[11px] leading-5 text-[#81766D]">
-          Penguin Box na svém webu uvádí živou mapu boxů a možnost integrace pro e-shopy přes API. Tato verze používá jejich oficiální mapu přímo v košíku; vybraný box se uloží k objednávce.
+          Toto je dočasné řešení. Penguin Box oficiálně uvádí, že pro e-shopy nabízí přímou API integraci; jakmile bude k dispozici API/widget, lze výběr napojit bez ručního přepisování názvu a adresy.
         </p>
       </div>
     </div>
