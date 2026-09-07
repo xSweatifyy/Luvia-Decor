@@ -27,9 +27,7 @@ export const CheckoutCartPage: React.FC = () => {
   const [destination, setDestination] = useState<Destination>('cz');
   const baseEntries = (Object.entries(shippingConfig.carriers || {}) as [string, Shipping][]).filter(([n, c]) => n !== 'PPL' && c?.enabled !== false);
   const pplEligible = destination === 'cz' && cart.length > 0 && cart.every(item => isPplEligibleCategory(item.product.category));
-  const entries: [string, Shipping][] = destination === 'sk'
-    ? [['Zásilkovna', SLOVAK_PACKETA]]
-    : [...baseEntries, ...(pplEligible ? [['PPL', shippingConfig.carriers.PPL] as [string, Shipping]] : [])];
+  const entries: [string, Shipping][] = destination === 'sk' ? [['Zásilkovna', SLOVAK_PACKETA]] : [...baseEntries, ...(pplEligible ? [['PPL', shippingConfig.carriers.PPL] as [string, Shipping]] : [])];
   const [carrier, setCarrier] = useState('DPD'); const [method, setMethod] = useState<Method>('address'); const [point, setPoint] = useState<any>(null); const [picker, setPicker] = useState(false);
   const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [phone, setPhone] = useState(''); const [street, setStreet] = useState(''); const [city, setCity] = useState(''); const [zip, setZip] = useState(''); const [note, setNote] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false); const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false); const [sending, setSending] = useState(false); const [done, setDone] = useState<any>(null);
@@ -42,44 +40,23 @@ export const CheckoutCartPage: React.FC = () => {
 
   useEffect(() => {
     if (destination === 'sk') {
-      setCarrier('Zásilkovna');
-      setMethod('pickup_point');
-      setPoint(null);
-      setPicker(true);
-      return;
+      setCarrier('Zásilkovna'); setMethod('pickup_point'); setPoint(null); setPicker(true); return;
     }
-    if (!entries.some(([n]) => n === carrier)) {
-      setCarrier(entries[0]?.[0] || 'DPD'); setMethod('address'); setPoint(null); setPicker(false);
-    }
+    if (!entries.some(([n]) => n === carrier)) { setCarrier(entries[0]?.[0] || 'DPD'); setMethod('address'); setPoint(null); setPicker(false); }
   }, [destination, pplEligible, entries.length, carrier]);
 
   useEffect(() => { if (destination === 'cz' && carrier === 'PPL' && !pplEligible) { setCarrier(entries[0]?.[0] || 'DPD'); setMethod('address'); setPoint(null); setPicker(false); } }, [pplEligible, carrier, destination]);
 
-  const chooseDestination = (d: Destination) => {
-    setDestination(d);
-    setPoint(null);
-    if (d === 'sk') { setCarrier('Zásilkovna'); setMethod('pickup_point'); setPicker(true); }
-    else { setCarrier('DPD'); setMethod('address'); setPicker(false); }
-  };
-
-  const chooseCarrier = (c: string) => {
-    setCarrier(c); setPoint(null); setPicker(false);
-    setMethod(c === 'PPL' ? 'address' : c === 'PenguinBox' ? 'box' : 'address');
-    if (c === 'PenguinBox') setPicker(true);
-  };
-  const chooseMethod = (m: Method) => {
-    if (destination === 'sk' && m === 'personal_pickup') return;
-    if (carrier === 'PPL' && (m === 'pickup_point' || m === 'box')) { setMethod('address'); setPoint(null); setPicker(false); return; }
-    setMethod(m); setPoint(null); setPicker(m === 'pickup_point' || m === 'box');
-  };
+  const chooseDestination = (d: Destination) => { setDestination(d); setPoint(null); if (d === 'sk') { setCarrier('Zásilkovna'); setMethod('pickup_point'); setPicker(true); } else { setCarrier('DPD'); setMethod('address'); setPicker(false); } };
+  const chooseCarrier = (c: string) => { setCarrier(c); setPoint(null); setPicker(false); setMethod(c === 'PPL' ? 'address' : c === 'PenguinBox' ? 'box' : 'address'); if (c === 'PenguinBox') setPicker(true); };
+  const chooseMethod = (m: Method) => { if (destination === 'sk' && m === 'personal_pickup') return; if (carrier === 'PPL' && (m === 'pickup_point' || m === 'box')) { setMethod('address'); setPoint(null); setPicker(false); return; } setMethod(m); setPoint(null); setPicker(m === 'pickup_point' || m === 'box'); };
 
   const applyCoupon = async () => {
     const code = couponInput.trim().toUpperCase(); if (!code) return addToast('error','Zadejte slevový kód','Napište kód a klikněte na Použít.');
     setCouponChecking(true);
     try {
       const r = await fetch('/api/coupons/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,items:cart.map(i=>({productId:i.product.id,category:i.product.category,price:i.product.price,quantity:i.quantity}))})});
-      const d = await r.json().catch(()=>null);
-      if (!r.ok || !d?.valid) throw new Error(d?.error || 'Slevový kód je neplatný nebo deaktivovaný.');
+      const d = await r.json().catch(()=>null); if (!r.ok || !d?.valid) throw new Error(d?.error || 'Slevový kód je neplatný nebo deaktivovaný.');
       setAppliedCoupon({code:d.code,type:d.type === 'fixed' ? 'fixed' : 'percent',value:Number(d.value)||0,categoryIds:Array.isArray(d.categoryIds)?d.categoryIds:[],giftVoucher:Boolean(d.giftVoucher)});
       addToast('success','Slevový kód použit',`Sleva ${d.type === 'percent' ? `${Number(d.value)||0} %` : `${(Number(d.value)||0).toLocaleString('cs-CZ')} Kč`} byla započtena.`);
     } catch(e:any) { setAppliedCoupon(null); addToast('error','Kód se nepodařilo použít',e?.message || 'Zkuste to znovu.'); } finally { setCouponChecking(false); }
@@ -112,8 +89,8 @@ export const CheckoutCartPage: React.FC = () => {
   <section className="bg-white rounded-[1.75rem] border border-[#E6DDD3] shadow-sm p-5 sm:p-7 space-y-6 lg:sticky lg:top-6"><h2 className="font-editorial text-2xl font-bold">Dokončení objednávky</h2><div><div className="flex items-center gap-2 mb-3"><User className="w-4 h-4 text-[#9A7B58]"/><b>Kontaktní údaje</b></div><div className="space-y-3"><input required value={name} onChange={e=>setName(e.target.value)} placeholder="Jméno a příjmení *" className={input}/><input required type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="E-mail *" className={input}/><input required type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="Telefon včetně předvolby, např. +420 123 456 789 *" className={input}/></div></div>
   <div><div className="flex items-center gap-2 mb-3"><Truck className="w-4 h-4 text-[#9A7B58]"/><b>Země doručení *</b></div><div className="grid grid-cols-2 gap-2"><button type="button" onClick={()=>chooseDestination('cz')} className={option(destination==='cz')}><b>🇨🇿 Česká republika</b><span className="block text-[11px] text-[#8B8178] mt-1">Standardní doprava</span></button><button type="button" onClick={()=>chooseDestination('sk')} className={option(destination==='sk')}><b>🇸🇰 Slovensko</b><span className="block text-[11px] text-[#8B8178] mt-1">Zásilkovna</span></button></div></div>
   <div><div className="flex items-center gap-2 mb-3"><Truck className="w-4 h-4 text-[#9A7B58]"/><b>Přepravce *</b></div><div className="grid grid-cols-2 gap-2">{entries.map(([n])=><button type="button" key={n} onClick={()=>chooseCarrier(n)} className={option(carrier===n)}>{n==='Zásilkovna'?<img src="/zasilkovna-logo.png" alt="Zásilkovna" className="h-8 max-w-[130px] object-contain"/>:n==='DPD'?<img src="/dpd-logo.png" alt="DPD" className="h-8 max-w-[110px] object-contain"/>:n==='PenguinBox'?<img src="/penguin-box.jpeg" alt="PenguinBox" className="h-8 max-w-[145px] object-contain"/>:<img src="https://cdn.brandfetch.io/idQnnZVeYO/theme/dark/logo.svg?c=1bxid64Mup7aczewSAYMX&t=1781718821561" alt="PPL" className="h-8 max-w-[145px] object-contain"/>}<span className="block text-[11px] text-[#8B8178] mt-2">{destination==='sk'?'Doručení po Slovensku':n==='PPL'?'Doručení na adresu · jen pro Doplňky & ostatní':n==='PenguinBox'?'Doručení pouze do Penguin Boxu':'Doručení na adresu / výdejní místo'}</span></button>)}</div></div>
-  <div><div className="flex items-center gap-2 mb-3"><MapPinned className="w-4 h-4 text-[#9A7B58]"/><b>Způsob doručení *</b></div><div className="grid grid-cols-2 gap-2"><button type="button" onClick={()=>chooseMethod('address')} disabled={carrier==='PenguinBox'} className={`${option(method==='address')} ${carrier==='PenguinBox'?'opacity-50 cursor-not-allowed':''}`}><b>Na adresu</b><span className="block text-[11px] mt-1">{Number(cfg?.address||0).toLocaleString('cs-CZ')} Kč</span></button>{carrier==='PenguinBox'?<button type="button" onClick={()=>chooseMethod('box')} className={option(method==='box')}><b>Penguin Box</b><span className="block text-[11px] mt-1">59 Kč · pouze do boxu</span></button>:carrier==='PPL'?null:<><button type="button" onClick={()=>chooseMethod('pickup_point')} className={option(method==='pickup_point')}><b>Výdejní místo</b><span className="block text-[11px] mt-1">{destination==='sk'?'Zásilkovna SK mapa': 'Mapa se otevře automaticky'} · {Number(cfg?.pickup_point||cfg?.box||0).toLocaleString('cs-CZ')} Kč</span></button>{destination==='sk'&&<button type="button" onClick={()=>chooseMethod('box')} className={option(method==='box')}><b>Box</b><span className="block text-[11px] mt-1">Zásilkovna SK · {Number(cfg?.box||75).toLocaleString('cs-CZ')} Kč</span></button>}</>}{destination==='cz'&&shippingConfig.personalPickup?.enabled!==false&&<button type="button" onClick={()=>chooseMethod('personal_pickup')} className={option(method==='personal_pickup')}><b>{shippingConfig.personalPickup?.label||'Osobní odběr – Kroměříž'}</b><span className="block text-[11px] mt-1">{Number(shippingConfig.personalPickup?.price||0).toLocaleString('cs-CZ')} Kč</span></button>}</div></div>
-  {method==='address'&&carrier!=='PenguinBox'&&<div className="space-y-3"><input required value={street} onChange={e=>setStreet(e.target.value)} placeholder={destination==='sk'?'Ulice a číslo popisné (Slovensko) *':'Ulice a číslo popisné *'} className={input}/><div className="grid grid-cols-2 gap-2"><input required value={city} onChange={e=>setCity(e.target.value)} placeholder="Město *" className={input}/><input required value={zip} onChange={e=>setZip(e.target.value)} placeholder={destination==='sk'?'PSČ *':'PSČ *'} className={input}/></div></div>}
+  <div><div className="flex items-center gap-2 mb-3"><MapPinned className="w-4 h-4 text-[#9A7B58]"/><b>Způsob doručení *</b></div><div className="grid grid-cols-2 gap-2"><button type="button" onClick={()=>chooseMethod('address')} disabled={carrier==='PenguinBox'} className={`${option(method==='address')} ${carrier==='PenguinBox'?'opacity-50 cursor-not-allowed':''}`}><b>Na adresu</b><span className="block text-[11px] mt-1">{Number(cfg?.address||0).toLocaleString('cs-CZ')} Kč</span></button>{carrier==='PenguinBox'?<button type="button" onClick={()=>chooseMethod('box')} className={option(method==='box')}><b>Penguin Box</b><span className="block text-[11px] mt-1">59 Kč · pouze do boxu</span></button>:carrier==='PPL'?null:<><button type="button" onClick={()=>chooseMethod('pickup_point')} className={option(method==='pickup_point')}><b>Výdejní místo</b><span className="block text-[11px] mt-1">{destination==='sk'?'Zásilkovna SK mapa':'Mapa se otevře automaticky'} · {Number(cfg?.pickup_point||cfg?.box||0).toLocaleString('cs-CZ')} Kč</span></button>{destination==='sk'&&<button type="button" onClick={()=>chooseMethod('box')} className={option(method==='box')}><b>Box</b><span className="block text-[11px] mt-1">Zásilkovna SK · {Number(cfg?.box||75).toLocaleString('cs-CZ')} Kč</span></button>}</>}{destination==='cz'&&shippingConfig.personalPickup?.enabled!==false&&<button type="button" onClick={()=>chooseMethod('personal_pickup')} className={option(method==='personal_pickup')}><b>{shippingConfig.personalPickup?.label||'Osobní odběr – Kroměříž'}</b><span className="block text-[11px] mt-1">{Number(shippingConfig.personalPickup?.price||0).toLocaleString('cs-CZ')} Kč</span></button>}</div></div>
+  {method==='address'&&carrier!=='PenguinBox'&&<div className="space-y-3"><input required value={street} onChange={e=>setStreet(e.target.value)} placeholder={destination==='sk'?'Ulice a číslo popisné (Slovensko) *':'Ulice a číslo popisné *'} className={input}/><div className="grid grid-cols-2 gap-2"><input required value={city} onChange={e=>setCity(e.target.value)} placeholder="Město *" className={input}/><input required value={zip} onChange={e=>setZip(e.target.value)} placeholder="PSČ *" className={input}/></div></div>}
   {(method==='pickup_point'||method==='box')&&<div className="rounded-2xl bg-[#FAF7F2] border border-[#E5DCD2] p-4 text-xs"><MapPin className="w-4 h-4 inline text-[#9A7B58] mr-2"/>{point?<><b>Vybráno:</b> {String(point.name||point.address||point.id||'Místo')}</>:<>Mapa {destination==='sk'?'Zásilkovny Slovensko':carrier} se otevře automaticky.</>}</div>}
   {picker&&method==='pickup_point'&&(carrier==='Zásilkovna'?<PacketaPickupWidget country={destination==='sk'?'sk':'cz'} onSelect={p=>{setPoint(p);setPicker(false);}}/>:carrier==='DPD'?<DpdPickupWidget initialCarrier="DPD" onSelect={p=>{setPoint(p);setPicker(false);}}/>:null)}
   {picker&&method==='box'&&carrier==='PenguinBox'&&<PenguinBoxPickupWidget onSelect={p=>{setPoint(p);setPicker(false);}}/>}
