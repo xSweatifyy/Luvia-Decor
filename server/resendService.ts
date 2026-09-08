@@ -17,9 +17,6 @@ export async function sendOrderEmails(order: Order, config: SiteConfig): Promise
     return { success: false, error: "Chybí Resend API klíč." };
   }
 
-  // Product images are stored in the repository/image library. E-mail clients
-  // need an absolute public URL to render them, so convert local paths to the
-  // production Luvia Decor domain while preserving already-absolute URLs.
   const PUBLIC_SITE_URL = 'https://www.luvia-decor.cz';
   const IMG_FALLBACK = `${PUBLIC_SITE_URL}/Luvia-Decor.jpeg`;
   const resolveProductImage = (imageUrl?: string) => {
@@ -79,7 +76,9 @@ export async function sendOrderEmails(order: Order, config: SiteConfig): Promise
           <div style="background: #FAF8F5; border-radius: 8px; padding: 14px 18px; margin: 20px 0; font-size: 13px; color: #5C5046;">
             <strong>Číslo objednávky:</strong> ${order.orderNumber}<br>
             <strong>Datum vytvoření:</strong> ${new Date(order.createdAt).toLocaleString('cs-CZ')}<br>
-            <strong>Způsob platby:</strong> Dle domluvy / bez online platby
+            <strong>Způsob platby:</strong> Bankovní převod<br>
+            <strong>IBAN:</strong> CZ96 5500 0000 0009 6362 5003<br>
+            <strong>SWIFT/BIC:</strong> RZBCCZPP
           </div>
 
           <h3 style="font-size: 16px; font-family: Georgia, serif; margin: 24px 0 12px 0; border-bottom: 2px solid #F0EAE1; padding-bottom: 8px; color: #2D2723;">Položky v objednávce</h3>
