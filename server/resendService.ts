@@ -26,7 +26,6 @@ export async function sendOrderEmails(order: Order, config: SiteConfig): Promise
     return `${PUBLIC_SITE_URL}/${value.replace(/^\/+/, '')}`;
   };
 
-  // All monetary values displayed in e-mails must have exactly 2 decimal places.
   const formatMoney = (value: number | string | null | undefined) => {
     const amount = Number(value ?? 0);
     return amount.toLocaleString('cs-CZ', {
@@ -34,6 +33,17 @@ export async function sendOrderEmails(order: Order, config: SiteConfig): Promise
       maximumFractionDigits: 2,
     });
   };
+
+  const carrierName = String(order.delivery?.carrier || '').trim() || 'Doprava';
+  const shippingRowHtml = `
+    <tr style="border-bottom: 1px solid #EFEAE3;">
+      <td style="padding: 12px 8px; font-size: 14px; color: #2D2723;">
+        <strong>Doprava (${carrierName})</strong>
+      </td>
+      <td style="padding: 12px 8px; font-size: 14px; text-align: center; color: #2D2723;">1×</td>
+      <td style="padding: 12px 8px; font-size: 14px; text-align: right; color: #2D2723; font-weight: 600;">${formatMoney(order.shipping)} Kč</td>
+    </tr>
+  `;
 
   const itemsListHtml = order.items.map(item => `
     <tr style="border-bottom: 1px solid #EFEAE3;">
@@ -90,7 +100,7 @@ export async function sendOrderEmails(order: Order, config: SiteConfig): Promise
                 <th style="padding: 8px; text-align: right;">Cena</th>
               </tr>
             </thead>
-            <tbody>${itemsListHtml}</tbody>
+            <tbody>${itemsListHtml}${shippingRowHtml}</tbody>
             <tfoot>
               <tr>
                 <td colspan="2" style="padding: 16px 8px 8px 8px; font-weight: 700; font-size: 16px; text-align: right; color: #2D2723;">Celková cena k úhradě:</td>
