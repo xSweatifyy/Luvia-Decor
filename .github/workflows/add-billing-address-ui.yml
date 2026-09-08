@@ -1,0 +1,79 @@
+name: Add billing address UI to checkout
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Add required billing address section
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text(encoding='utf-8')
+          marker = 'Fakturační adresa'
+          if marker in s and 'value={billingStreet}' in s:
+              print('Billing address UI already present.')
+              raise SystemExit(0)
+
+          block = r'''
+            <section className="mt-6 rounded-3xl border border-[#E8E0D8] bg-white p-5 sm:p-6">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-[#302923]">Fakturační adresa</h3>
+                <p className="mt-1 text-sm text-[#7B6F64]">Adresa uvedená na faktuře. Všechna pole jsou povinná.</p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block sm:col-span-2">
+                  <span className="mb-2 block text-sm font-medium text-[#302923]">Adresa <span className="text-red-600">*</span></span>
+                  <input className={input} value={billingStreet} onChange={e=>setBillingStreet(e.target.value)} placeholder="Ulice a číslo domu" required autoComplete="billing street-address" />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-[#302923]">PSČ <span className="text-red-600">*</span></span>
+                  <input className={input} value={billingZip} onChange={e=>setBillingZip(e.target.value)} placeholder="PSČ" required autoComplete="billing postal-code" inputMode="numeric" />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-[#302923]">Město <span className="text-red-600">*</span></span>
+                  <input className={input} value={billingCity} onChange={e=>setBillingCity(e.target.value)} placeholder="Město" required autoComplete="billing address-level2" />
+                </label>
+              </div>
+            </section>
+'''
+
+          pos = s.rfind('</form>')
+          if pos == -1:
+              raise SystemExit('Closing </form> not found; refusing unsafe edit.')
+          s = s[:pos] + block + s[pos:]
+          p.write_text(s, encoding='utf-8')
+          print('Billing address UI inserted.')
+
+      - name: Validate checkout source
+        shell: bash
+        run: |
+          grep -q 'Fakturační adresa' src/pages/CheckoutCartPage.tsx
+          grep -q 'value={billingStreet}' src/pages/CheckoutCartPage.tsx
+          grep -q 'value={billingZip}' src/pages/CheckoutCartPage.tsx
+          grep -q 'value={billingCity}' src/pages/CheckoutCartPage.tsx
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          if git diff --quiet -- src/pages/CheckoutCartPage.tsx; then
+            echo 'No checkout UI changes needed.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/CheckoutCartPage.tsx
+          git commit -m 'Add required billing address fields to checkout'
+          git push origin HEAD:main
