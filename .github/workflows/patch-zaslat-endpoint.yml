@@ -1,0 +1,36 @@
+name: Patch Zaslat checkout endpoint
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: !contains(github.event.head_commit.message, 'Use dedicated Zaslat endpoint')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch checkout
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text()
+          s = s.replace("fetch('/api/orders?action=rates'", "fetch('/api/zaslat-rates'")
+          s = s.replace("price:Number(rate?.price_vat?.value ?? rate?.price?.value ?? 0)", "price:Number(rate?.price_final?.value ?? rate?.price_vat?.value ?? rate?.price?.value ?? 0), fuelSurcharge:Number(rate?.fuel_surcharge?.value || 0)")
+          s = s.replace("<strong className=\"whitespace-nowrap\">{isPenguin?'59 Kč':rate?`${Number(rate.price).toLocaleString('cs-CZ')} Kč`:'—'}</strong>", "<strong className=\"whitespace-nowrap\">{isPenguin?'59 Kč':rate?`${Number(rate.price).toLocaleString('cs-CZ')} Kč`:'—'}</strong>")
+          p.write_text(s)
+          PY
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add src/pages/CheckoutCartPage.tsx
+          git diff --cached --quiet || git commit -m 'Use dedicated Zaslat endpoint'
+          git push
+      - name: Remove patch workflow
+        run: |
+          rm -f .github/workflows/patch-zaslat-endpoint.yml
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .github/workflows/patch-zaslat-endpoint.yml
+          git diff --cached --quiet || git commit -m 'Remove temporary Zaslat patch workflow'
+          git push
