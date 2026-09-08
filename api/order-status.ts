@@ -63,7 +63,7 @@ async function createZaslatShipment(order: any) {
   const customer = order.customer || {};
   const { firstname, surname } = splitName(customer.fullName);
   const country = String(customer.country || '').toUpperCase() === 'SLOVENSKO' ? 'SK' : 'CZ';
-  const packages = Array.isArray(order?.zaslatPackage) && order.zaslatPackage.length ? order.zaslatPackage : [{ weight: 1, width: 30, height: 20, length: 10 }];
+  const packages = Array.isArray(order?.zaslatPackage) && order.zaslatPackage.length ? order.zaslatPackage : [{ weight: 5, width: 30, height: 20, length: 10 }];
   const shipment: any = {
     carrier,
     type: 'OCCASIONAL',
