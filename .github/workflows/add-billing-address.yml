@@ -3,6 +3,7 @@ name: Add billing address to checkout
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -12,75 +13,60 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Add billing address fields
+        shell: python
         run: |
-          python3 - <<'PY'
           from pathlib import Path
           p = Path('src/pages/CheckoutCartPage.tsx')
-          s = p.read_text()
+          s = p.read_text(encoding='utf-8')
           original = s
 
-          # Separate billing address state from the existing delivery address state.
-          old_state = "const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [phone, setPhone] = useState(''); const [street, setStreet] = useState(''); const [city, setCity] = useState(''); const [zip, setZip] = useState(''); const [note, setNote] = useState('');"
-          new_state = "const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [phone, setPhone] = useState(''); const [street, setStreet] = useState(''); const [city, setCity] = useState(''); const [zip, setZip] = useState(''); const [billingStreet, setBillingStreet] = useState(''); const [billingCity, setBillingCity] = useState(''); const [billingZip, setBillingZip] = useState(''); const [note, setNote] = useState('');"
-          if old_state in s:
-              s = s.replace(old_state, new_state, 1)
-          elif 'billingStreet' not in s:
-              raise SystemExit('Customer state declaration not found')
-
-          # Billing address is always required, independently of delivery method.
-          old_validation = "if(!name.trim()||!email.trim()||!phone.trim()) return addToast('error','Chybí údaje','Jméno a příjmení, e-mail a telefon jsou povinné.');"
-          new_validation = old_validation + "\n    if(!billingStreet.trim()||!billingCity.trim()||!billingZip.trim()) return addToast('error','Chybí fakturační adresa','Fakturační adresa – adresa, PSČ a město – je povinná.');"
-          if old_validation in s and 'Chybí fakturační adresa' not in s:
-              s = s.replace(old_validation, new_validation, 1)
-
-          # Store delivery and billing addresses separately in the order payload.
-          old_customer = "customer:{fullName:name.trim(),email:email.trim(),phone:normalizePhone(phone),street:method==='personal_pickup'?'':street.trim(),city:method==='personal_pickup'?'':city.trim(),zip:method==='personal_pickup'?'':zip.trim(),country:destination==='sk'?'Slovensko':'Česká republika',note:note.trim()}"
-          new_customer = "customer:{fullName:name.trim(),email:email.trim(),phone:normalizePhone(phone),street:method==='personal_pickup'?'':street.trim(),city:method==='personal_pickup'?'':city.trim(),zip:method==='personal_pickup'?'':zip.trim(),country:destination==='sk'?'Slovensko':'Česká republika',note:note.trim(),billingAddress:{street:billingStreet.trim(),city:billingCity.trim(),zip:billingZip.trim(),country:destination==='sk'?'Slovensko':'Česká republika'},deliveryAddress:{street:method==='personal_pickup'?'':street.trim(),city:method==='personal_pickup'?'':city.trim(),zip:method==='personal_pickup'?'':zip.trim(),country:destination==='sk'?'Slovensko':'Česká republika'}}"
-          if old_customer in s:
-              s = s.replace(old_customer, new_customer, 1)
-          elif 'billingAddress:{street:billingStreet.trim()' not in s:
-              raise SystemExit('Order customer payload not found')
-
-          # Add a clear, required billing-address section to the checkout form.
-          marker = '</form>'
-          jsx = '''
-          <section className="mt-6 rounded-3xl border border-[#E6DDD3] bg-white p-5 sm:p-6">
-            <div className="mb-4">
-              <h2 className="font-editorial text-xl font-bold text-[#302923]">Fakturační adresa</h2>
-              <p className="mt-1 text-xs text-[#7B7067]">Všechny údaje jsou povinné.</p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block sm:col-span-2">
-                <span className="mb-1.5 block text-sm font-medium text-[#302923]">Adresa *</span>
-                <input className={input} value={billingStreet} onChange={e=>setBillingStreet(e.target.value)} placeholder="Ulice a číslo domu" required />
-              </label>
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-[#302923]">PSČ *</span>
-                <input className={input} value={billingZip} onChange={e=>setBillingZip(e.target.value)} placeholder="PSČ" required />
-              </label>
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-[#302923]">Město *</span>
-                <input className={input} value={billingCity} onChange={e=>setBillingCity(e.target.value)} placeholder="Město" required />
-              </label>
-            </div>
-          </section>
-          '''
+          # State and submit payload are already present in the current checkout.
+          # Add the billing section immediately before the existing note section.
+          marker = '  <div><label className="text-xs font-semibold">Poznámka <span className="font-normal text-[#9A8F85]">(nepovinná)</span></label>'
           if 'Fakturační adresa' not in s:
-              pos = s.rfind(marker)
-              if pos < 0:
-                  raise SystemExit('Checkout form closing tag not found')
-              s = s[:pos] + jsx + s[pos:]
+              if marker not in s:
+                  raise SystemExit('Checkout note section marker not found')
+              billing = '''  <div><div className="flex items-center gap-2 mb-3"><MapPin className="w-4 h-4 text-[#9A7B58]"/><b>Fakturační adresa *</b></div><p className="text-[11px] text-[#81766D] mb-3">Adresa, která bude uvedena na faktuře. Všechna pole jsou povinná.</p><div className="space-y-3"><input required value={billingStreet} onChange={e=>setBillingStreet(e.target.value)} placeholder="Adresa *" autoComplete="billing street-address" className={input}/><div className="grid grid-cols-2 gap-2"><input required value={billingZip} onChange={e=>setBillingZip(e.target.value)} placeholder="PSČ *" autoComplete="billing postal-code" className={input}/><input required value={billingCity} onChange={e=>setBillingCity(e.target.value)} placeholder="Město *" autoComplete="billing address-level2" className={input}/></div></div></div>\n'''
+              s = s.replace(marker, billing + marker, 1)
 
+          # Clearly label the existing address as the delivery address.
+          delivery_marker = "  {method==='address'&&carrier!=='PenguinBox'&&<div className=\"space-y-3\"><input required value={street}"
+          if 'Doručovací adresa' not in s and delivery_marker in s:
+              s = s.replace(delivery_marker, "  {method==='address'&&carrier!=='PenguinBox'&&<div><div className=\"flex items-center gap-2 mb-3\"><MapPin className=\"w-4 h-4 text-[#9A7B58]\"/><b>Doručovací adresa</b></div><div className=\"space-y-3\"><input required value={street}", 1)
+              # Close the added wrapper after the existing address fields.
+              address_end = '<input required value={zip} onChange={e=>setZip(e.target.value)} placeholder="PSČ *" className={input}/></div></div>}'
+              if address_end in s:
+                  s = s.replace(address_end, address_end[:-2] + '</div>}', 1)
+
+          if 'billingAddress:{street:billingStreet.trim()' not in s:
+              raise SystemExit('Billing address is missing from order payload')
+          if 'if(!billingStreet.trim()||!billingCity.trim()||!billingZip.trim())' not in s:
+              raise SystemExit('Billing address validation is missing')
           if s == original:
-              raise SystemExit('No changes were made')
-          p.write_text(s)
-          PY
+              print('Billing UI already present; nothing to commit.')
+          else:
+              p.write_text(s, encoding='utf-8')
+
+      - name: Verify build
+        shell: bash
+        run: |
+          grep -q 'Fakturační adresa' src/pages/CheckoutCartPage.tsx
+          grep -q 'billingStreet' src/pages/CheckoutCartPage.tsx
+          grep -q 'billingCity' src/pages/CheckoutCartPage.tsx
+          grep -q 'billingZip' src/pages/CheckoutCartPage.tsx
+          npm ci
+          npm run build
+
       - name: Commit changes
+        shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/pages/CheckoutCartPage.tsx
           git diff --cached --quiet && exit 0
           git commit -m 'Add required billing address to checkout'
-          git push
+          git push origin HEAD:main
