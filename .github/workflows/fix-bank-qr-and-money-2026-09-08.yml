@@ -1,0 +1,85 @@
+name: Fix bank details QR payment and money formatting
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-bank-qr-and-money-2026-09-08.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, 'Apply bank QR and money fixes') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch payment details and formatting
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          checkout = Path('src/pages/CheckoutCartPage.tsx')
+          s = checkout.read_text(encoding='utf-8')
+
+          s = s.replace("const DOMESTIC_ACCOUNT = '963625003/5500';", "const DOMESTIC_ACCOUNT = '963625003/5500';")
+          s = s.replace("const INTERNATIONAL_IBAN = 'CZ96 5500 0000 0009 6362 5003';", "const INTERNATIONAL_IBAN = 'CZ96 5500 0000 0009 6362 5003';")
+          s = s.replace("const PAYMENT_SWIFT = 'RZBCCZPP';", "const PAYMENT_SWIFT = 'RZBCCZPP';")
+
+          # Use a Czech bank-compatible QR image generator for the domestic QR.
+          old_qr = re.compile(r"const qrOf = \(o: any\) => \{.*?\};", re.S)
+          new_qr = """const qrOf = (o: any) => {\n  const orderNumber = String(o?.orderNumber || o?.id || '').trim();\n  const amount = Number(o?.totalPrice || 0).toFixed(2);\n  const vs = vsOf(o);\n  const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', amount, currency: 'CZK', vs, message: orderNumber });\n  return `https://api.paylibo.com/paylibo/generator/czech/image?${params.toString()}`;\n};"""
+          s, n = old_qr.subn(new_qr, s, count=1)
+          if n != 1:
+              raise SystemExit('qrOf function not found')
+
+          # Keep international QR as valid SPD, with exact IBAN, amount, VS and order-number message.
+          old_int = re.compile(r"const qrInternationalOf = \(o: any\) => \{.*?\};", re.S)
+          new_int = """const qrInternationalOf = (o: any) => {\n  const orderNumber = String(o?.orderNumber || o?.id || '').trim();\n  const payload = `SPD*1.0*ACC:${INTERNATIONAL_IBAN.replace(/\\s/g, '')}*AM:${Number(o?.totalPrice || 0).toFixed(2)}*CC:CZK*X-VS:${vsOf(o)}*X-MSG:${orderNumber}`;\n  return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=8&data=${encodeURIComponent(payload)}`;\n};"""
+          s, n = old_int.subn(new_int, s, count=1)
+          if n != 1:
+              raise SystemExit('qrInternationalOf function not found')
+
+          # Central money formatter for every displayed checkout price.
+          if 'const formatMoney = (value: number | string | null | undefined)' not in s:
+              marker = "const displayShipping = (amount: number) => Number(amount || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 });"
+              helper = marker + "\nconst formatMoney = (value: number | string | null | undefined) => Number(value ?? 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 });"
+              s = s.replace(marker, helper, 1)
+
+          # Convert common checkout money displays to the central formatter.
+          s = re.sub(r"Number\(([^\n]{1,180}?)\)\.toLocaleString\('cs-CZ', \{ minimumFractionDigits: 2, maximumFractionDigits: 2 \}\)", r"formatMoney(\1)", s)
+          s = re.sub(r"\(([^\n]{1,180}?)\)\.toLocaleString\('cs-CZ', \{ minimumFractionDigits: 2, maximumFractionDigits: 2 \}\)", r"formatMoney(\1)", s)
+          checkout.write_text(s, encoding='utf-8')
+
+          # Ensure all order emails contain the current account, IBAN, SWIFT and exact 2-decimal money formatter.
+          for name in ['server/resendService.ts', 'api/order-status-email.ts']:
+              p = Path(name)
+              if not p.exists():
+                  continue
+              s = p.read_text(encoding='utf-8')
+              s = re.sub(r'CZ(?:45|96)[0-9 ]{20,30}', 'CZ96 5500 0000 0009 6362 5003', s)
+              s = re.sub(r'RZ[A-Z0-9]{6,}', 'RZBCCZPP', s)
+              if '963625003/5500' not in s:
+                  # Add the domestic account immediately before the IBAN label when possible.
+                  s = s.replace('<strong>IBAN:</strong>', '<strong>Číslo účtu (ČR):</strong> 963625003/5500<br>\n            <strong>IBAN:</strong>', 1)
+              else:
+                  s = s.replace('<strong>IBAN:</strong>', '<strong>Číslo účtu (ČR):</strong> 963625003/5500<br>\n            <strong>IBAN:</strong>', 1) if '<strong>Číslo účtu (ČR):</strong>' not in s else s
+              if '<strong>SWIFT/BIC:</strong>' not in s and '<strong>SWIFT:</strong>' not in s:
+                  s = s.replace('</strong> CZ96 5500 0000 0009 6362 5003<br>', '</strong> CZ96 5500 0000 0009 6362 5003<br>\n            <strong>SWIFT/BIC:</strong> RZBCCZPP<br>', 1)
+              # Ensure the money formatter is exactly two decimals.
+              s = re.sub(r'minimumFractionDigits:\s*\d+', 'minimumFractionDigits: 2', s)
+              s = re.sub(r'maximumFractionDigits:\s*\d+', 'maximumFractionDigits: 2', s)
+              p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit fixes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/CheckoutCartPage.tsx server/resendService.ts api/order-status-email.ts
+          git diff --cached --quiet && exit 0
+          git commit -m 'Apply bank QR and money fixes'
+          git push
