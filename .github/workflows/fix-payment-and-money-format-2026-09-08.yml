@@ -1,0 +1,59 @@
+name: Fix payment details and money formatting
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, 'Fix payment details and money formatting') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix payment details and money formatting
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Checkout: correct domestic/international payment details.
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text()
+          s = s.replace("const IBAN = 'CZ45550000000000963625011';", "const DOMESTIC_ACCOUNT = '963625003/5500';\nconst INTERNATIONAL_IBAN = 'CZ96 5500 0000 0009 6362 5003';\nconst PAYMENT_SWIFT = 'RZBCCZPP';")
+          s = s.replace("const qrOf = (o: any) => { const n = String(o?.orderNumber || o?.id || ''); const p = `SPD*1.0*ACC:${IBAN}*AM:${Number(o?.totalPrice || 0).toFixed(2)}*CC:CZK*X-VS:${vsOf(o)}*X-MSG:${n}`; return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=8&data=${encodeURIComponent(p)}`; };", "const qrOf = (o: any) => { const n = String(o?.orderNumber || o?.id || ''); const p = `SPD*1.0*ACC:${DOMESTIC_ACCOUNT}*AM:${Number(o?.totalPrice || 0).toFixed(2)}*CC:CZK*X-VS:${vsOf(o)}*X-MSG:${n}`; return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=8&data=${encodeURIComponent(p)}`; };\nconst qrInternationalOf = (o: any) => { const n = String(o?.orderNumber || o?.id || ''); const p = `SPD*1.0*ACC:${INTERNATIONAL_IBAN}*AM:${Number(o?.totalPrice || 0).toFixed(2)}*CC:CZK*X-VS:${vsOf(o)}*X-MSG:${n}`; return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=8&data=${encodeURIComponent(p)}`; };")
+          s = s.replace("<p><b>Číslo účtu:</b> 963625011/5500</p><p><b>IBAN:</b> CZ45 5500 0000 0096 3625 011</p>", "<p><b>Číslo účtu (ČR):</b> {DOMESTIC_ACCOUNT}</p><p><b>IBAN (zahraniční platby):</b> {INTERNATIONAL_IBAN}</p><p><b>SWIFT/BIC:</b> {PAYMENT_SWIFT}</p>")
+          s = s.replace("{Number(done.totalPrice||0).toLocaleString('cs-CZ')} Kč", "{Number(done.totalPrice||0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč")
+          s = s.replace("{Number(done.discount).toLocaleString('cs-CZ')} Kč", "{Number(done.discount).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč")
+          s = s.replace("{Number(i.product.price).toLocaleString('cs-CZ')} Kč / ks", "{Number(i.product.price).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč / ks")
+          s = s.replace("{(Number(i.product.price)*i.quantity).toLocaleString('cs-CZ')} Kč", "{(Number(i.product.price)*i.quantity).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč")
+          s = s.replace("{appliedCoupon.type==='percent'?`${appliedCoupon.value} %`:`${appliedCoupon.value.toLocaleString('cs-CZ')} Kč`}", "{appliedCoupon.type==='percent'?`${appliedCoupon.value} %`:`${appliedCoupon.value.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`}")
+          s = s.replace("{cartTotal.toLocaleString('cs-CZ')} Kč", "{cartTotal.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč")
+          s = s.replace("{discount.toLocaleString('cs-CZ')} Kč", "{discount.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč")
+          s = s.replace("{total.toLocaleString('cs-CZ')} Kč", "{total.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč")
+          # Every bare Czech numeric locale formatter in TS/TSX should show exactly 2 decimals.
+          s = s.replace("toLocaleString('cs-CZ')", "toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })")
+          s = s.replace('toLocaleString("cs-CZ")', 'toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })')
+          p.write_text(s)
+
+          # Apply the same bare formatter rule across application source files.
+          for p in Path('src').rglob('*'):
+              if p.suffix not in {'.ts', '.tsx', '.js', '.jsx'} or p == Path('src/pages/CheckoutCartPage.tsx'):
+                  continue
+              s = p.read_text()
+              ns = s.replace("toLocaleString('cs-CZ')", "toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })")
+              ns = ns.replace('toLocaleString("cs-CZ")', 'toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })')
+              if ns != s:
+                  p.write_text(ns)
+          PY
+
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src
+          git diff --cached --quiet && exit 0
+          git commit -m 'Fix payment details and money formatting'
+          git push
