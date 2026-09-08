@@ -1,0 +1,51 @@
+name: Fix checkout duplicate declarations
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove consecutive duplicate addressLabel declarations
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text(encoding='utf-8')
+          line = "const addressLabel=destination==='sk'?'Po dohodě':addressFinal!=null?`${displayShipping(addressFinal)} Kč`:null;"
+          lines = s.splitlines(keepends=True)
+          out = []
+          seen_in_run = False
+          changed = False
+          for raw in lines:
+              if raw.strip() == line:
+                  if seen_in_run:
+                      changed = True
+                      continue
+                  seen_in_run = True
+              else:
+                  seen_in_run = False
+              out.append(raw)
+          s2 = ''.join(out)
+          if not changed:
+              raise SystemExit('No duplicate addressLabel declaration found')
+          p.write_text(s2, encoding='utf-8')
+          print('Removed duplicate addressLabel declarations.')
+          PY
+
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/CheckoutCartPage.tsx
+          git commit -m 'Fix checkout duplicate addressLabel declarations'
+          git push
