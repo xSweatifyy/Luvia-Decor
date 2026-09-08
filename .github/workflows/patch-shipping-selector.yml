@@ -1,0 +1,36 @@
+name: Integrate Zaslat shipping selector
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'Integrate Zaslat carriers into shipping method selector') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch checkout shipping UI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text()
+          pattern = r'''\n  <div><div className="flex items-center gap-2 mb-3"><Truck className="w-4 h-4 text-\[#9A7B58\]"/><b>Přepravce \*</b></div>.*?\n  \{method==='address'&&carrier!=='PenguinBox'&&'''
+          replacement = r'''\n  <div><div className="flex items-center gap-2 mb-3"><MapPinned className="w-4 h-4 text-[#9A7B58]"/><b>Způsob doručení *</b></div>{ratesLoading?<div className="rounded-2xl bg-[#FAF7F2] p-4 text-sm text-[#7B7067] flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin"/> Načítám aktuální nabídky dopravy…</div>:<><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{entries.map(([n])=>{const rate=zaslatRates[n]; const isPenguin=n==='PenguinBox'; const pickup=Boolean(rate?.pickup_branch_required||rate?.delivery_branch_required); return <button type="button" key={n} onClick={()=>chooseCarrier(n)} className={option(carrier===n)}><div className="flex items-start justify-between gap-3"><div><b>{isPenguin?'PenguinBox':ZASLAT_LABELS[n]||n}</b><span className="block text-[11px] text-[#8B8178] mt-1">{isPenguin?'Výdejní box · pouze ČR':`${rate?.service||'Zaslat'}${pickup?' · Výdejní místo / box':' · Na adresu'}`}</span></div><strong className="whitespace-nowrap">{isPenguin?'59 Kč':rate?`${Number(rate.price).toLocaleString('cs-CZ')} Kč`:'—'}</strong></div>{rate?.delivery_date&&<span className="block text-[11px] text-[#8B8178] mt-2">Doručení: {String(rate.delivery_date)}</span>}</button>})}{destination==='cz'&&shippingConfig.personalPickup?.enabled!==false&&<button type="button" onClick={()=>chooseMethod('personal_pickup')} className={option(method==='personal_pickup')}><b>{shippingConfig.personalPickup?.label||'Osobní odběr – Kroměříž'}</b><span className="block text-[11px] mt-1">Osobní odběr · {Number(shippingConfig.personalPickup?.price||0).toLocaleString('cs-CZ')} Kč</span></button>}</div>{ratesError&&<p className="mt-2 text-[11px] text-amber-700">Aktuální nabídku dopravy se nepodařilo načíst.</p>}</>}</div>\n  {method==='address'&&carrier!=='PenguinBox'&&'''
+          ns, count = re.subn(pattern, replacement, s, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit('shipping selector block not found')
+          p.write_text(ns)
+          PY
+      - name: Commit patched selector
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/CheckoutCartPage.tsx
+          git diff --cached --quiet || git commit -m "Integrate Zaslat carriers into shipping method selector"
+          git push
