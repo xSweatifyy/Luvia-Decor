@@ -17,13 +17,13 @@ jobs:
           fetch-depth: 0
 
       - name: Add required billing address section
-        shell: python
+        shell: bash
         run: |
+          python3 <<'PY'
           from pathlib import Path
           p = Path('src/pages/CheckoutCartPage.tsx')
           s = p.read_text(encoding='utf-8')
-          marker = 'Fakturační adresa'
-          if marker in s and 'value={billingStreet}' in s:
+          if 'value={billingStreet}' in s and 'value={billingZip}' in s and 'value={billingCity}' in s:
               print('Billing address UI already present.')
               raise SystemExit(0)
 
@@ -48,14 +48,15 @@ jobs:
                 </label>
               </div>
             </section>
-'''
+          '''
 
           pos = s.rfind('</form>')
-          if pos == -1:
+          if pos < 0:
               raise SystemExit('Closing </form> not found; refusing unsafe edit.')
           s = s[:pos] + block + s[pos:]
           p.write_text(s, encoding='utf-8')
           print('Billing address UI inserted.')
+          PY
 
       - name: Validate checkout source
         shell: bash
