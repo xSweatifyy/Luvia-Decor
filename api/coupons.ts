@@ -27,6 +27,7 @@ function row(r:any){
     active:r.active,
     createdAt:r.created_at,
     note:r.note||'',
+    giftVoucher:r.note==='gift-voucher',
     categoryIds:parseCategoryIds(r.category_ids),
     remainingValue:r.remaining_value==null?Number(r.value):Number(r.remaining_value)
   };
@@ -43,9 +44,12 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   }
   if(req.method==='POST'&&action==='validate'){
     const code=String(req.body?.code||'').trim().toUpperCase();
-    const rows=await sql`SELECT id,code,type,value,active,created_at,note,category_ids,remaining_value FROM coupons WHERE code=${code} AND active=TRUE LIMIT 1`;
-    if(!rows.length)return send(res,404,{valid:false,error:'Slevový kód je neplatný nebo vypršel.'});
-    return send(res,200,{valid:true,...row(rows[0])});
+    if(!code)return send(res,400,{valid:false,error:'Zadejte slevový kód nebo kód dárkového poukazu.'});
+    const rows=await sql`SELECT id,code,type,value,active,created_at,note,category_ids,remaining_value FROM coupons WHERE UPPER(TRIM(code))=${code} AND active=TRUE LIMIT 1`;
+    if(!rows.length)return send(res,404,{valid:false,error:'Slevový kód nebo dárkový poukaz nebyl nalezen, je neaktivní nebo vypršel.'});
+    const result=row(rows[0]);
+    if(result.value<=0 || (result.giftVoucher && result.remainingValue<=0))return send(res,400,{valid:false,error:'Tento kód již nemá žádnou využitelnou hodnotu.'});
+    return send(res,200,{valid:true,...result});
   }
   if(req.method==='POST'){
     const code=String(req.body?.code||'').trim().toUpperCase();
