@@ -1,0 +1,33 @@
+name: Fix Zasilkovna SK address and map labels
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch checkout
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/pages/CheckoutCartPage.tsx')
+          s=p.read_text()
+          s=s.replace("const pickupLabel=destination==='sk'?'Po dohodě':`${displayShipping(pickupFinal)} Kč`;", "const pickupLabel=destination==='sk'?'Po dohodě':`${displayShipping(pickupFinal)} Kč`;\n          const addressLabel=destination==='sk'?'Po dohodě':addressFinal!=null?`${displayShipping(addressFinal)} Kč`:null;")
+          s=s.replace("{!isPenguin&&addressFinal!=null&&<span className=\"block text-[11px] text-[#8B8178] mt-2\">Adresa: {displayShipping(addressFinal)} Kč</span>}", "{!isPenguin&&addressFinal!=null&&<span className=\"block text-[11px] text-[#8B8178] mt-2\">Adresa: {addressLabel}</span>}")
+          s=s.replace("{displayShipping(carrier==='ZASILKOVNA' ? FIXED_SHIPPING[carrier].address : withCharges(FIXED_SHIPPING[carrier].address))} Kč", "{carrier==='ZASILKOVNA'&&destination==='sk'?'Po dohodě':`${displayShipping(carrier==='ZASILKOVNA' ? FIXED_SHIPPING[carrier].address : withCharges(FIXED_SHIPPING[carrier].address))} Kč`}")
+          old="{point?<><b>Vybráno:</b> {String(point.name||point.address||point.id||'Místo')}</>:<>Výběr výdejního místa / boxu bude napojen na Zaslat mapu.</>}"
+          new="{point?<><b>Vybráno:</b> {String(point.name||point.address||point.id||'Místo')}</>:<>Kliknout pro otevření mapy</>}"
+          s=s.replace(old,new)
+          p.write_text(s)
+          PY
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/CheckoutCartPage.tsx
+          git diff --cached --quiet || git commit -m 'Update Zasilkovna SK address and map label'
+          git push
