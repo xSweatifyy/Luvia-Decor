@@ -1,0 +1,37 @@
+name: Fix cart shipping numeric totals
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-cart-shipping-number-2026-09-08.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, 'Fix cart shipping numeric totals') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Keep shipping as a number
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text()
+          old = "const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'ZASILKOVNA' ? Number(basePrice || 0).toFixed(2) : carrier === 'PenguinBox' ? '59.00' : withCharges(Number(basePrice || 0)).toFixed(2);"
+          new = "const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'ZASILKOVNA' ? Number(Number(basePrice || 0).toFixed(2)) : carrier === 'PenguinBox' ? 59 : Number(withCharges(Number(basePrice || 0)).toFixed(2));"
+          if old not in s: raise SystemExit('shipping numeric line not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/CheckoutCartPage.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m 'Fix cart shipping numeric totals'
+          git push
