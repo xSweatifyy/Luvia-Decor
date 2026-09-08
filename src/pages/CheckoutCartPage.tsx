@@ -6,7 +6,7 @@ type Method = 'address' | 'pickup_point' | 'box' | 'personal_pickup';
 type Destination = 'cz' | 'sk';
 type Shipping = { enabled?: boolean; address?: number; pickup_point?: number; box?: number; zaslatCarrier?: string; rate?: number };
 const ZASLAT_LABELS: Record<string,string> = { PPL:'PPL', DPD:'DPD', GLS:'GLS', WEDO:'One by Allegro', BALIKOVNA:'Balíkovna ČR', ZASILKOVNA:'Zásilkovna' };
-const FIXED_SHIPPING: Record<string,{pickup:number;address?:number}> = { BALIKOVNA:{pickup:52,address:88}, DPD:{pickup:85,address:98}, GLS:{pickup:52}, WEDO:{pickup:57,address:92}, PPL:{pickup:68}, ZASILKOVNA:{pickup:62,address:89} };
+const FIXED_SHIPPING: Record<string,{pickup:number;address?:number}> = { BALIKOVNA:{pickup:52,address:88}, DPD:{pickup:85,address:98}, GLS:{pickup:52}, WEDO:{pickup:57,address:92}, PPL:{pickup:68}, ZASILKOVNA:{pickup:72,address:99} };
 const PPL_ALLOWED = new Set(['doplňky & ostatní','vánoce','svíčky','umělé květiny & ostatní umělé','věnce','vázy & keramika & květináče'].map(v=>String(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')));
 const DEFAULT = { carriers: {} as Record<string,Shipping>, personalPickup: { enabled: true, price: 0, label: 'Osobní odběr – Kroměříž' } };
 const IBAN = 'CZ45550000000000963625011';
