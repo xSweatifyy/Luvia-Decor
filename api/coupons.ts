@@ -11,26 +11,21 @@ function send(res:VercelResponse,status:number,body:unknown){res.setHeader('Acce
 function parseCategoryIds(value:unknown): string[] {
   if (Array.isArray(value)) return value.map(String).map(v=>v.trim()).filter(Boolean);
   if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed.map(String).map(v=>v.trim()).filter(Boolean);
-    } catch {}
+    try { const parsed = JSON.parse(value); if (Array.isArray(parsed)) return parsed.map(String).map(v=>v.trim()).filter(Boolean); } catch {}
   }
   return [];
 }
 function row(r:any){
-  return {
-    id:r.id,
-    code:r.code,
-    type:r.type,
-    value:Number(r.value),
-    active:r.active,
-    createdAt:r.created_at,
-    note:r.note||'',
-    giftVoucher:r.note==='gift-voucher',
-    categoryIds:parseCategoryIds(r.category_ids),
-    remainingValue:r.remaining_value==null?Number(r.value):Number(r.remaining_value)
-  };
+  return { id:r.id, code:r.code, type:r.type, value:Number(r.value), active:r.active, createdAt:r.created_at, note:r.note||'', giftVoucher:r.note==='gift-voucher', categoryIds:parseCategoryIds(r.category_ids), remainingValue:r.remaining_value==null?Number(r.value):Number(r.remaining_value) };
+}
+async function validateCode(raw:unknown){
+  const code=String(raw||'').trim().toUpperCase();
+  if(!code) return { status:400, body:{valid:false,error:'Zadejte slevový kód nebo kód dárkového poukazu.'} };
+  const rows=await sql`SELECT id,code,type,value,active,created_at,note,category_ids,remaining_value FROM coupons WHERE UPPER(TRIM(code))=${code} AND active=TRUE LIMIT 1`;
+  if(!rows.length) return { status:404, body:{valid:false,error:'Slevový kód nebo dárkový poukaz nebyl nalezen, je neaktivní nebo vypršel.'} };
+  const result=row(rows[0]);
+  if(result.value<=0 || (result.giftVoucher && result.remainingValue<=0)) return { status:400, body:{valid:false,error:'Tento kód již nemá žádnou využitelnou hodnotu.'} };
+  return { status:200, body:{valid:true,...result} };
 }
 export default async function handler(req:VercelRequest,res:VercelResponse){
  if(req.method==='OPTIONS')return send(res,204,{});
@@ -38,18 +33,14 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   await ensureTable();
   const id=typeof req.query.id==='string'?req.query.id:undefined;
   const action=typeof req.query.action==='string'?req.query.action:undefined;
+  if(action==='validate' && (req.method==='GET' || req.method==='POST')){
+    const raw=req.method==='GET' ? req.query.code : req.body?.code;
+    const result=await validateCode(raw);
+    return send(res,result.status,result.body);
+  }
   if(req.method==='GET'){
     const rows=await sql`SELECT id,code,type,value,active,created_at,note,category_ids,remaining_value FROM coupons ORDER BY created_at DESC`;
     return send(res,200,rows.map(row));
-  }
-  if(req.method==='POST'&&action==='validate'){
-    const code=String(req.body?.code||'').trim().toUpperCase();
-    if(!code)return send(res,400,{valid:false,error:'Zadejte slevový kód nebo kód dárkového poukazu.'});
-    const rows=await sql`SELECT id,code,type,value,active,created_at,note,category_ids,remaining_value FROM coupons WHERE UPPER(TRIM(code))=${code} AND active=TRUE LIMIT 1`;
-    if(!rows.length)return send(res,404,{valid:false,error:'Slevový kód nebo dárkový poukaz nebyl nalezen, je neaktivní nebo vypršel.'});
-    const result=row(rows[0]);
-    if(result.value<=0 || (result.giftVoucher && result.remainingValue<=0))return send(res,400,{valid:false,error:'Tento kód již nemá žádnou využitelnou hodnotu.'});
-    return send(res,200,{valid:true,...result});
   }
   if(req.method==='POST'){
     const code=String(req.body?.code||'').trim().toUpperCase();
