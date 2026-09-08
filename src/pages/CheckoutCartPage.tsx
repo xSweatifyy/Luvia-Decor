@@ -44,7 +44,7 @@ export const CheckoutCartPage: React.FC = () => {
   if (destination === 'cz') entries.push(['PenguinBox',{enabled:true}]);
   const cfg: Shipping = shippingConfig.carriers?.[carrier] || {};
   const basePrice = carrier === 'PenguinBox' ? 59 : carrier === 'ZASILKOVNA' && destination === 'sk' ? 0 : (method === 'address' ? FIXED_SHIPPING[carrier]?.address : FIXED_SHIPPING[carrier]?.pickup) || Number(method === 'personal_pickup' ? shippingConfig.personalPickup?.price || 0 : cfg?.address || cfg?.pickup_point || cfg?.box || 0);
-  const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'ZASILKOVNA' ? Number(basePrice || 0).toFixed(2) : carrier === 'PenguinBox' ? '59.00' : withCharges(Number(basePrice || 0)).toFixed(2);
+  const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'ZASILKOVNA' ? Number(Number(basePrice || 0).toFixed(2)) : carrier === 'PenguinBox' ? 59 : Number(withCharges(Number(basePrice || 0)).toFixed(2));
   const selectedRate = zaslatRates[carrier];
   const eligibleCouponSubtotal = useMemo(() => appliedCoupon?.categoryIds?.length ? cart.reduce((s,i) => appliedCoupon.categoryIds.some(c => normalizeCategory(c) === normalizeCategory(i.product.category)) ? s + Number(i.product.price || 0) * i.quantity : s, 0) : cartTotal, [cart, cartTotal, appliedCoupon]);
   const discount = appliedCoupon ? appliedCoupon.type === 'percent' ? Math.min(eligibleCouponSubtotal, Math.round(eligibleCouponSubtotal * appliedCoupon.value / 100)) : Math.min(eligibleCouponSubtotal, appliedCoupon.value) : 0;
