@@ -1,4 +1,5 @@
 name: Apply Zaslat VAT and fuel surcharge calculation
+# Trigger patch after workflow installation.
 on:
   workflow_dispatch:
   push:
@@ -20,37 +21,38 @@ jobs:
           from pathlib import Path
           p=Path('src/pages/CheckoutCartPage.tsx')
           s=p.read_text()
-
-          old="""  const selectedRate = zaslatRates[carrier];\n  const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'PenguinBox' ? 59 : Number(selectedRate?.price ?? cfg?.address ?? cfg?.pickup_point ?? cfg?.box ?? 0);"""
-          new="""  const selectedRate = zaslatRates[carrier];\n  // Zaslat API: price = bez DPH, price_vat = s DPH. Palivový příplatek pro září 2026: 10,5 %.\n  // Příplatek se počítá z ceny dopravy bez DPH a následně se zdaní stejnou sazbou jako základní doprava.\n  const ZASLAT_FUEL_SURCHARGE = 0.105;\n  const rateExVat = Number(selectedRate?.priceExVat ?? selectedRate?.price?.value ?? 0);\n  const rateVat = Number(selectedRate?.priceVat ?? selectedRate?.price_vat?.value ?? 0);\n  const derivedVatRate = rateExVat > 0 && rateVat >= rateExVat ? rateVat / rateExVat - 1 : 0.21;\n  const fuelExVat = rateExVat * ZASLAT_FUEL_SURCHARGE;\n  const fuelVat = fuelExVat * derivedVatRate;\n  const zaslatTotalWithVat = rateVat + fuelExVat + fuelVat;\n  const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'PenguinBox' ? 59 : Number(zaslatTotalWithVat || selectedRate?.totalPrice || 0);"""
-          if old not in s:
-              raise SystemExit('shipping calculation anchor not found')
+          old="""  const selectedRate = zaslatRates[carrier];
+  const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'PenguinBox' ? 59 : Number(selectedRate?.price ?? cfg?.address ?? cfg?.pickup_point ?? cfg?.box ?? 0);"""
+          new="""  const selectedRate = zaslatRates[carrier];
+  // Zaslat API: price = bez DPH, price_vat = s DPH. Palivový příplatek pro září 2026: 10,5 %.
+  const ZASLAT_FUEL_SURCHARGE = 0.105;
+  const rateExVat = Number(selectedRate?.priceExVat ?? selectedRate?.price?.value ?? 0);
+  const rateVat = Number(selectedRate?.priceVat ?? selectedRate?.price_vat?.value ?? 0);
+  const derivedVatRate = rateExVat > 0 && rateVat >= rateExVat ? rateVat / rateExVat - 1 : 0.21;
+  const fuelExVat = rateExVat * ZASLAT_FUEL_SURCHARGE;
+  const fuelVat = fuelExVat * derivedVatRate;
+  const zaslatTotalWithVat = rateVat + fuelExVat + fuelVat;
+  const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'PenguinBox' ? 59 : Number(zaslatTotalWithVat || selectedRate?.totalPrice || 0);"""
+          if old not in s: raise SystemExit('shipping calculation anchor not found')
           s=s.replace(old,new,1)
-
           old="""        map[key] = { ...rate, price:Number(rate?.price_vat?.value ?? rate?.price?.value ?? 0) };"""
-          new="""        const priceExVat = Number(rate?.price?.value ?? 0);\n        const priceVat = Number(rate?.price_vat?.value ?? 0);\n        map[key] = { ...rate, priceExVat, priceVat, price: priceVat, totalPrice: priceVat };"""
-          if old not in s:
-              raise SystemExit('rate mapping anchor not found')
+          new="""        const priceExVat = Number(rate?.price?.value ?? 0);
+        const priceVat = Number(rate?.price_vat?.value ?? 0);
+        map[key] = { ...rate, priceExVat, priceVat, price: priceVat, totalPrice: priceVat };"""
+          if old not in s: raise SystemExit('rate mapping anchor not found')
           s=s.replace(old,new,1)
-
           old="""<span className=\"block text-[11px] text-[#8B8178] mt-2\">{isPenguin?'Vlastní box · 59 Kč':rate?`${Number(rate.price).toLocaleString('cs-CZ')} Kč · ${rate.service||'Zaslat'}`:'Dostupnost se ověřuje'}</span>"""
           new="""<span className=\"block text-[11px] text-[#8B8178] mt-2\">{isPenguin?'Vlastní box · 59 Kč':rate?`${(Number(rate.priceVat||0)+Number(rate.priceExVat||0)*ZASLAT_FUEL_SURCHARGE*(Number(rate.priceExVat||0)>0?Number(rate.priceVat||0)/Number(rate.priceExVat||0)-1:0.21)).toLocaleString('cs-CZ',{maximumFractionDigits:2})} Kč vč. DPH · palivový příplatek 10,5 % · ${rate.service||'Zaslat'}`:'Dostupnost se ověřuje'}</span>"""
-          if old not in s:
-              raise SystemExit('carrier price display anchor not found')
+          if old not in s: raise SystemExit('carrier price display anchor not found')
           s=s.replace(old,new,1)
-
           old="""<span className=\"block text-[11px] mt-1\">{carrier==='PenguinBox'?'—':`${Number(selectedRate?.price??cfg?.address??0).toLocaleString('cs-CZ')} Kč`}</span>"""
           new="""<span className=\"block text-[11px] mt-1\">{carrier==='PenguinBox'?'—':`${Number(zaslatTotalWithVat).toLocaleString('cs-CZ',{maximumFractionDigits:2})} Kč vč. DPH`}</span>"""
-          if old not in s:
-              raise SystemExit('delivery price display anchor not found')
+          if old not in s: raise SystemExit('delivery price display anchor not found')
           s=s.replace(old,new,1)
-
           old="""<div className=\"flex justify-between\"><span>Doprava</span><b>{shipping.toLocaleString('cs-CZ')} Kč</b></div>"""
           new="""<div className=\"flex justify-between\"><span>Doprava <span className=\"text-xs text-[#8B8178]\">(vč. DPH a palivového příplatku)</span></span><b>{shipping.toLocaleString('cs-CZ',{maximumFractionDigits:2})} Kč</b></div>"""
-          if old not in s:
-              raise SystemExit('summary shipping anchor not found')
+          if old not in s: raise SystemExit('summary shipping anchor not found')
           s=s.replace(old,new,1)
-
           p.write_text(s)
           PY
       - name: Commit
