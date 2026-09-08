@@ -8,9 +8,8 @@
   "rewrites": [
     { "source": "/api/coupons/validate", "destination": "/api/coupons?action=validate" },
     {
-      "source": "/api/orders",
-      "has": [{ "type": "query", "key": "action", "value": "rates" }],
-      "destination": "/api/zaslat-rates"
+      "source": "/api/zaslat-rates",
+      "destination": "/api/orders?action=rates"
     }
   ]
 }
