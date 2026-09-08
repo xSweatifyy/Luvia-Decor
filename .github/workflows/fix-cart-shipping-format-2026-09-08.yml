@@ -1,0 +1,60 @@
+name: Fix cart shipping price formatting
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-cart-shipping-format-2026-09-08.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, 'Fix cart shipping prices') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update cart shipping prices
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text()
+
+          marker = "const withCharges = (baseExVat: number) => baseExVat * 1.105 * 1.21;"
+          helper = marker + "\nconst displayShipping = (amount: number) => Number(amount || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 });"
+          if "const displayShipping =" not in s:
+              if marker not in s: raise SystemExit('withCharges marker not found')
+              s = s.replace(marker, helper, 1)
+
+          old = "const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'ZASILKOVNA' && destination === 'sk' ? 0 : carrier === 'PenguinBox' ? 59 : withCharges(Number(basePrice || 0));"
+          new = "const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'ZASILKOVNA' ? Number(basePrice || 0).toFixed(2) : carrier === 'PenguinBox' ? '59.00' : withCharges(Number(basePrice || 0)).toFixed(2);"
+          if old in s:
+              s = s.replace(old, new, 1)
+          else:
+              raise SystemExit('shipping calculation not found')
+
+          old = "const pickupFinal=rate?withCharges(rate.pickup):59; const addressFinal=rate?.address!=null?withCharges(rate.address):null; const pickupLabel=destination==='sk'?'Po dohodě':`${pickupFinal.toLocaleString('cs-CZ')} Kč`;"
+          new = "const pickupFinal=rate?(n==='ZASILKOVNA'?rate.pickup:withCharges(rate.pickup)):59; const addressFinal=rate?.address!=null?(n==='ZASILKOVNA'?rate.address:withCharges(rate.address)):null; const pickupLabel=destination==='sk'?'Po dohodě':`${displayShipping(pickupFinal)} Kč`;"
+          if old not in s: raise SystemExit('carrier card price block not found')
+          s = s.replace(old, new, 1)
+
+          s = s.replace("{isPenguin?'59 Kč':pickupLabel}", "{isPenguin?displayShipping(59):pickupLabel}", 1)
+          s = s.replace("{addressFinal.toLocaleString('cs-CZ')} Kč", "{displayShipping(addressFinal)} Kč", 1)
+          s = s.replace("`${withCharges(FIXED_SHIPPING[carrier].pickup).toLocaleString('cs-CZ')} Kč`", "`${displayShipping(carrier==='ZASILKOVNA' ? FIXED_SHIPPING[carrier].pickup : withCharges(FIXED_SHIPPING[carrier].pickup))} Kč`", 1)
+          s = s.replace("{withCharges(FIXED_SHIPPING[carrier].address).toLocaleString('cs-CZ')} Kč", "{displayShipping(carrier==='ZASILKOVNA' ? FIXED_SHIPPING[carrier].address : withCharges(FIXED_SHIPPING[carrier].address))} Kč", 1)
+          s = s.replace("{Number(shippingConfig.personalPickup?.price||0).toLocaleString('cs-CZ')} Kč", "{displayShipping(Number(shippingConfig.personalPickup?.price||0))} Kč", 1)
+          s = s.replace("`${shipping.toLocaleString('cs-CZ')} Kč`", "`${displayShipping(Number(shipping))} Kč`", 1)
+
+          p.write_text(s)
+          PY
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/CheckoutCartPage.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m 'Fix cart shipping prices'
+          git push
