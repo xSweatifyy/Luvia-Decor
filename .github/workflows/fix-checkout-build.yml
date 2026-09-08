@@ -1,0 +1,42 @@
+name: Fix checkout build
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove duplicate addressLabel declaration
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text()
+          dup = "const addressLabel=destination==='sk'?'Po dohodě':addressFinal!=null?`${displayShipping(addressFinal)} Kč`:null;\n            const addressLabel=destination==='sk'?'Po dohodě':addressFinal!=null?`${displayShipping(addressFinal)} Kč`:null;"
+          single = "const addressLabel=destination==='sk'?'Po dohodě':addressFinal!=null?`${displayShipping(addressFinal)} Kč`:null;"
+          if dup in s:
+              s = s.replace(dup, single, 1)
+          else:
+              marker = "            const addressLabel=destination==='sk'?'Po dohodě':addressFinal!=null?`${displayShipping(addressFinal)} Kč`:null;"
+              if s.count(marker) > 1:
+                  first = s.find(marker)
+                  second = s.find(marker, first + len(marker))
+                  s = s[:second] + s[second + len(marker):]
+              else:
+                  raise SystemExit('Duplicate addressLabel declaration not found')
+          p.write_text(s)
+          PY
+      - name: Commit only the build fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/CheckoutCartPage.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m 'Fix checkout build duplicate declaration'
+          git push
