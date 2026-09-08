@@ -1,5 +1,5 @@
-name: Apply Zaslat VAT and fuel surcharge calculation
-# Trigger patch after workflow installation.
+name: Apply Luvia Decor fixed shipping rules
+
 on:
   workflow_dispatch:
   push:
@@ -7,59 +7,88 @@ on:
     paths:
       - 'src/pages/CheckoutCartPage.tsx'
       - '.github/workflows/update-shipping-total.yml'
+
 permissions:
   contents: write
+
 jobs:
   patch:
-    if: ${{ !contains(github.event.head_commit.message, 'Apply Zaslat VAT and fuel surcharge calculation') }}
+    if: ${{ !contains(github.event.head_commit.message, 'Apply Luvia Decor fixed shipping rules') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch checkout shipping calculation
+      - name: Patch checkout
         run: |
-          python - <<'PY'
+          python3 - <<'PY'
           from pathlib import Path
+          import re
           p=Path('src/pages/CheckoutCartPage.tsx')
           s=p.read_text()
-          old="""  const selectedRate = zaslatRates[carrier];
-  const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'PenguinBox' ? 59 : Number(selectedRate?.price ?? cfg?.address ?? cfg?.pickup_point ?? cfg?.box ?? 0);"""
-          new="""  const selectedRate = zaslatRates[carrier];
-  // Zaslat API: price = bez DPH, price_vat = s DPH. Palivový příplatek pro září 2026: 10,5 %.
-  const ZASLAT_FUEL_SURCHARGE = 0.105;
-  const rateExVat = Number(selectedRate?.priceExVat ?? selectedRate?.price?.value ?? 0);
-  const rateVat = Number(selectedRate?.priceVat ?? selectedRate?.price_vat?.value ?? 0);
-  const derivedVatRate = rateExVat > 0 && rateVat >= rateExVat ? rateVat / rateExVat - 1 : 0.21;
-  const fuelExVat = rateExVat * ZASLAT_FUEL_SURCHARGE;
-  const fuelVat = fuelExVat * derivedVatRate;
-  const zaslatTotalWithVat = rateVat + fuelExVat + fuelVat;
-  const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'PenguinBox' ? 59 : Number(zaslatTotalWithVat || selectedRate?.totalPrice || 0);"""
-          if old not in s: raise SystemExit('shipping calculation anchor not found')
+
+          old="""const entries: [string,Shipping][] = availableCarriers.filter(n => shippingConfig.carriers?.[n]?.enabled !== false).map((n)=>[n, shippingConfig.carriers?.[n] || { enabled: true }] as [string,Shipping]);
+  if (destination === 'cz') entries.push(['PenguinBox', { enabled: true }]);
+  const cfg: Shipping = shippingConfig.carriers?.[carrier] || {};
+  const selectedRate = zaslatRates[carrier];
+  const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'PenguinBox' ? 59 : Number(selectedRate?.price_final?.value ?? selectedRate?.price_vat?.value ?? selectedRate?.price?.value ?? cfg?.address ?? cfg?.pickup_point ?? cfg?.box ?? 0);"""
+          new="""const pplCategories = new Set(['doplnky-ostatni','vanoce','svicky','umele-kvetiny-ostatni-umele','vence','vazy-keramika-kvetinace']);
+  const pplAllowed = cart.length > 0 && cart.every((i:any) => pplCategories.has(normalizeCategory(i.product?.category)));
+  const cartWeight = cart.reduce((sum:number, i:any) => sum + Number(i.product?.weight || 0) * Number(i.quantity || 0), 0);
+  const zasilkovnaAddressAllowed = cartWeight <= 5 || cartWeight === 0;
+  const fixedCarriers = destination === 'cz' ? ['BALIKOVNA','DPD','GLS','WEDO','ZASILKOVNA', ...(pplAllowed ? ['PPL'] : [])] : ['PACKETA_SK'];
+  const entries: [string,Shipping][] = fixedCarriers.map((n)=>[n, shippingConfig.carriers?.[n] || { enabled: true }] as [string,Shipping]).filter(([n]) => shippingConfig.carriers?.[n]?.enabled !== false || !shippingConfig.carriers?.[n]);
+  const cfg: Shipping = shippingConfig.carriers?.[carrier] || {};
+  const selectedRate = zaslatRates[carrier];
+  const shippingBase = (() => {
+    if (method === 'personal_pickup') return Number(shippingConfig.personalPickup?.price || 0);
+    if (carrier === 'PACKETA_SK') return 0;
+    const prices:any = { BALIKOVNA:{pickup_point:52,box:52,address:88}, DPD:{pickup_point:85,box:85,address:98}, GLS:{pickup_point:52,box:52}, WEDO:{pickup_point:57,box:57,address:92}, PPL:{pickup_point:68,box:68}, ZASILKOVNA:{pickup_point:62,box:62,address:89} };
+    return Number(prices[carrier]?.[method] ?? 0);
+  })();
+  const shipping = carrier === 'PACKETA_SK' ? 0 : Number((shippingBase * 1.105 * 1.21).toFixed(2));"""
+          if old not in s: raise SystemExit('shipping block not found')
           s=s.replace(old,new,1)
-          old="""        map[key] = { ...rate, price:Number(rate?.price_vat?.value ?? rate?.price?.value ?? 0) };"""
-          new="""        const priceExVat = Number(rate?.price?.value ?? 0);
-        const priceVat = Number(rate?.price_vat?.value ?? 0);
-        map[key] = { ...rate, priceExVat, priceVat, price: priceVat, totalPrice: priceVat };"""
-          if old not in s: raise SystemExit('rate mapping anchor not found')
+
+          a=s.find("  const loadRates = async () => {")
+          b=s.find("  const chooseDestination =",a)
+          if a<0 or b<0: raise SystemExit('loadRates block not found')
+          s=s[:a]+s[b:]
+
+          old="const chooseCarrier = (c: string) => { setCarrier(c); setPoint(null); setPenguinAddress(''); setPicker(false); setMethod(c === 'PenguinBox' ? 'box' : 'address'); };"
+          new="const chooseCarrier = (c: string) => { const defaultMethod: Method = c === 'PPL' || c === 'GLS' || c === 'PACKETA_SK' ? 'pickup_point' : 'address'; setCarrier(c); setPoint(null); setPenguinAddress(''); setPicker(false); setMethod(defaultMethod); };"
+          if old not in s: raise SystemExit('chooseCarrier not found')
           s=s.replace(old,new,1)
-          old="""<span className=\"block text-[11px] text-[#8B8178] mt-2\">{isPenguin?'Vlastní box · 59 Kč':rate?`${Number(rate.price).toLocaleString('cs-CZ')} Kč · ${rate.service||'Zaslat'}`:'Dostupnost se ověřuje'}</span>"""
-          new="""<span className=\"block text-[11px] text-[#8B8178] mt-2\">{isPenguin?'Vlastní box · 59 Kč':rate?`${(Number(rate.priceVat||0)+Number(rate.priceExVat||0)*ZASLAT_FUEL_SURCHARGE*(Number(rate.priceExVat||0)>0?Number(rate.priceVat||0)/Number(rate.priceExVat||0)-1:0.21)).toLocaleString('cs-CZ',{maximumFractionDigits:2})} Kč vč. DPH · palivový příplatek 10,5 % · ${rate.service||'Zaslat'}`:'Dostupnost se ověřuje'}</span>"""
-          if old not in s: raise SystemExit('carrier price display anchor not found')
+
+          old="const chooseMethod = (m: Method) => { if (m==='personal_pickup') { setMethod(m); setPoint(null); setPicker(false); return; } setMethod(m); setPoint(null); setPicker(m==='pickup_point'||m==='box'); };"
+          new="const chooseMethod = (m: Method) => { if (m==='personal_pickup') { setMethod(m); setPoint(null); setPicker(false); return; } if ((carrier==='GLS'||carrier==='PPL') && m==='address') return addToast('error','Doručení není dostupné','Tento dopravce je pouze na výdejní místo nebo do boxu.'); if (carrier==='ZASILKOVNA' && m==='address' && !zasilkovnaAddressAllowed) return addToast('error','Zásilkovna na adresu','Doručení na adresu je dostupné pouze do 5 kg.'); setMethod(m); setPoint(null); setPicker(m==='pickup_point'||m==='box'); };"
+          if old not in s: raise SystemExit('chooseMethod not found')
           s=s.replace(old,new,1)
-          old="""<span className=\"block text-[11px] mt-1\">{carrier==='PenguinBox'?'—':`${Number(selectedRate?.price??cfg?.address??0).toLocaleString('cs-CZ')} Kč`}</span>"""
-          new="""<span className=\"block text-[11px] mt-1\">{carrier==='PenguinBox'?'—':`${Number(zaslatTotalWithVat).toLocaleString('cs-CZ',{maximumFractionDigits:2})} Kč vč. DPH`}</span>"""
-          if old not in s: raise SystemExit('delivery price display anchor not found')
-          s=s.replace(old,new,1)
-          old="""<div className=\"flex justify-between\"><span>Doprava</span><b>{shipping.toLocaleString('cs-CZ')} Kč</b></div>"""
-          new="""<div className=\"flex justify-between\"><span>Doprava <span className=\"text-xs text-[#8B8178]\">(vč. DPH a palivového příplatku)</span></span><b>{shipping.toLocaleString('cs-CZ',{maximumFractionDigits:2})} Kč</b></div>"""
-          if old not in s: raise SystemExit('summary shipping anchor not found')
-          s=s.replace(old,new,1)
+
+          anchor="\n  const applyCoupon = async () => {"
+          mapcode="""
+  useEffect(() => {
+    if (!picker || method === 'address' || method === 'personal_pickup' || carrier === 'PACKETA_SK') return;
+    const mapCarrier:any = { BALIKOVNA:'balikovna', DPD:'dpd', GLS:'gls', PPL:'ppl', ZASILKOVNA:'zasilkovna', WEDO:'wedo' };
+    const open=()=>{ const z:any=(window as any).zslt; if(!z?.openMap || !mapCarrier[carrier]) return; z.openMap({addressType:'recipient',territory:destination,carriers:[mapCarrier[carrier]],lang:destination==='sk'?'sk':'cz',style:{colorPrimary:'#9A7B58'},value:point?.id||point?.location_id||null}).then((selected:any)=>{if(selected){setPoint(selected);setPicker(false);}}).catch(()=>setPicker(false)); };
+    if((window as any).zslt?.openMap) open(); else { let script=document.getElementById('zaslat-map') as HTMLScriptElement|null; if(!script){script=document.createElement('script');script.id='zaslat-map';script.async=true;script.src='https://app.zaslat.cz/map/zaslat-map.umd.min.js';script.onload=open;document.head.appendChild(script);} else script.addEventListener('load',open,{once:true}); }
+  }, [picker,method,carrier,destination]);
+"""
+          if anchor not in s: raise SystemExit('map anchor not found')
+          s=s.replace(anchor,mapcode+anchor,1)
+
+          pattern=r'''\n  <div><div className="flex items-center gap-2 mb-3"><Truck className="w-4 h-4 text-\[#9A7B58\]"/><b>Přepravce \*</b></div>.*?\n  \{method==='address'&&carrier!=='PenguinBox'&&'''
+          replacement=r'''
+  <div><div className="flex items-center gap-2 mb-3"><MapPinned className="w-4 h-4 text-[#9A7B58]"/><b>Způsob doručení *</b></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{entries.map(([n])=>{const labels:any={BALIKOVNA:'Balíkovna ČR',DPD:'DPD ČR',GLS:'GLS ČR',WEDO:'One by Allegro',PPL:'PPL',ZASILKOVNA:'Zásilkovna',PACKETA_SK:'Packeta (Zásilkovna) SK'}; const pickup:any={BALIKOVNA:69.53,DPD:113.65,GLS:69.53,WEDO:76.21,PPL:90.92,ZASILKOVNA:82.90,PACKETA_SK:0}; const address:any={BALIKOVNA:117.66,DPD:131.03,WEDO:123.01,ZASILKOVNA:119.00}; return <button type="button" key={n} onClick={()=>chooseCarrier(n)} className={option(carrier===n)}><div className="flex items-start justify-between gap-3"><div><b>{labels[n]||n}</b><span className="block text-[11px] text-[#8B8178] mt-1">{n==='PACKETA_SK'?'Po dohodě!':n==='PPL'||n==='GLS'?'Pouze výdejní místo / box':n==='ZASILKOVNA'?'Výdejní místo / box · adresa pouze do 5 kg':'Výdejní místo / box · doručení na adresu'}</span></div><strong className="whitespace-nowrap">{n==='PACKETA_SK'?'Po dohodě!':`${Number(pickup[n]).toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})} Kč`}</strong></div>{address[n]&&<span className="block text-[11px] text-[#8B8178] mt-2">Na adresu: {Number(address[n]).toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})} Kč</span>}</button>})}{destination==='cz'&&shippingConfig.personalPickup?.enabled!==false&&<button type="button" onClick={()=>chooseMethod('personal_pickup')} className={option(method==='personal_pickup')}><b>{shippingConfig.personalPickup?.label||'Osobní odběr – Kroměříž'}</b><span className="block text-[11px] mt-1">Osobní odběr · {Number(shippingConfig.personalPickup?.price||0).toLocaleString('cs-CZ')} Kč</span></button>}</div></div>
+  {method==='address'&&carrier!=='PenguinBox'&&'''
+          s,count=re.subn(pattern,replacement,s,count=1,flags=re.S)
+          if count!=1: raise SystemExit('selector block not found')
+          s=s.replace("if(carrier==='PenguinBox' && destination!=='cz') return addToast('error','PenguinBox je pouze v ČR','Pro Slovensko vyberte přepravce dostupného pro Slovensko.');\n    if(carrier==='PenguinBox' && !penguinAddress.trim()) return addToast('error','Chybí adresa PenguinBoxu','Napište přesnou adresu PenguinBoxu.');", "if(carrier==='PACKETA_SK') return;\n    if(carrier==='PenguinBox' && destination!=='cz') return addToast('error','PenguinBox je pouze v ČR','Pro Slovensko vyberte přepravce dostupného pro Slovensko.');\n    if(carrier==='PenguinBox' && !penguinAddress.trim()) return addToast('error','Chybí adresa PenguinBoxu','Napište přesnou adresu PenguinBoxu.');")
           p.write_text(s)
           PY
-      - name: Commit
+      - name: Commit fixed shipping rules
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/pages/CheckoutCartPage.tsx
           git diff --cached --quiet && exit 0
-          git commit -m 'Apply Zaslat VAT and fuel surcharge calculation'
+          git commit -m 'Apply Luvia Decor fixed shipping rules'
           git push
