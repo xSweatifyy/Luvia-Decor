@@ -1,0 +1,53 @@
+name: Fix checkout addressLabel declarations
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove duplicate addressLabel declarations
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text(encoding='utf-8')
+          pattern = r"\n\s*const addressLabel=destination==='sk'\?'Po dohodě':addressFinal!=null\?`\$\{displayShipping\(addressFinal\)\} Kč`:null;"
+          matches = list(re.finditer(pattern, s))
+          if len(matches) > 1:
+              first = matches[0].end()
+              out = s[:first]
+              last = first
+              for m in matches[1:]:
+                  out += s[last:m.start()]
+                  last = m.end()
+              out += s[last:]
+              s = out
+          p.write_text(s, encoding='utf-8')
+          remaining = len(re.findall(r"const addressLabel=destination==='sk'\?'Po dohodě':addressFinal!=null\?`\$\{displayShipping\(addressFinal\)\} Kč`:null;", s))
+          if remaining != 1:
+              raise SystemExit(f'Expected exactly 1 addressLabel declaration, found {remaining}')
+
+      - name: Commit fix
+        shell: bash
+        run: |
+          if git diff --quiet -- src/pages/CheckoutCartPage.tsx; then
+            echo 'No duplicate declaration remains.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/CheckoutCartPage.tsx
+          git commit -m 'Fix duplicate checkout addressLabel declarations'
+          git push origin HEAD:main
