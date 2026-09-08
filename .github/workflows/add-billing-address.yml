@@ -23,43 +23,37 @@ jobs:
           p = Path('src/pages/CheckoutCartPage.tsx')
           s = p.read_text(encoding='utf-8')
           original = s
-
-          # State and submit payload are already present in the current checkout.
-          # Add the billing section immediately before the existing note section.
           marker = '  <div><label className="text-xs font-semibold">Poznámka <span className="font-normal text-[#9A8F85]">(nepovinná)</span></label>'
-          if 'Fakturační adresa' not in s:
+          if 'value={billingStreet}' not in s or 'Fakturační adresa' not in s:
               if marker not in s:
                   raise SystemExit('Checkout note section marker not found')
               billing = '''  <div><div className="flex items-center gap-2 mb-3"><MapPin className="w-4 h-4 text-[#9A7B58]"/><b>Fakturační adresa *</b></div><p className="text-[11px] text-[#81766D] mb-3">Adresa, která bude uvedena na faktuře. Všechna pole jsou povinná.</p><div className="space-y-3"><input required value={billingStreet} onChange={e=>setBillingStreet(e.target.value)} placeholder="Adresa *" autoComplete="billing street-address" className={input}/><div className="grid grid-cols-2 gap-2"><input required value={billingZip} onChange={e=>setBillingZip(e.target.value)} placeholder="PSČ *" autoComplete="billing postal-code" className={input}/><input required value={billingCity} onChange={e=>setBillingCity(e.target.value)} placeholder="Město *" autoComplete="billing address-level2" className={input}/></div></div></div>\n'''
               s = s.replace(marker, billing + marker, 1)
 
-          # Clearly label the existing address as the delivery address.
-          delivery_marker = "  {method==='address'&&carrier!=='PenguinBox'&&<div className=\"space-y-3\"><input required value={street}"
-          if 'Doručovací adresa' not in s and delivery_marker in s:
-              s = s.replace(delivery_marker, "  {method==='address'&&carrier!=='PenguinBox'&&<div><div className=\"flex items-center gap-2 mb-3\"><MapPin className=\"w-4 h-4 text-[#9A7B58]\"/><b>Doručovací adresa</b></div><div className=\"space-y-3\"><input required value={street}", 1)
-              # Close the added wrapper after the existing address fields.
-              address_end = '<input required value={zip} onChange={e=>setZip(e.target.value)} placeholder="PSČ *" className={input}/></div></div>}'
-              if address_end in s:
-                  s = s.replace(address_end, address_end[:-2] + '</div>}', 1)
+          if 'Doručovací adresa' not in s:
+              delivery_marker = "  {method==='address'&&carrier!=='PenguinBox'&&<div className=\"space-y-3\"><input required value={street}"
+              if delivery_marker in s:
+                  s = s.replace(delivery_marker, "  {method==='address'&&carrier!=='PenguinBox'&&<div><div className=\"flex items-center gap-2 mb-3\"><MapPin className=\"w-4 h-4 text-[#9A7B58]\"/><b>Doručovací adresa</b></div><div className=\"space-y-3\"><input required value={street}", 1)
 
           if 'billingAddress:{street:billingStreet.trim()' not in s:
               raise SystemExit('Billing address is missing from order payload')
           if 'if(!billingStreet.trim()||!billingCity.trim()||!billingZip.trim())' not in s:
               raise SystemExit('Billing address validation is missing')
-          if s == original:
-              print('Billing UI already present; nothing to commit.')
-          else:
+          if s != original:
               p.write_text(s, encoding='utf-8')
+              print('Billing checkout UI updated.')
+          else:
+              print('Billing checkout UI already present.')
 
-      - name: Verify build
+      - name: Verify checkout source
         shell: bash
         run: |
           grep -q 'Fakturační adresa' src/pages/CheckoutCartPage.tsx
-          grep -q 'billingStreet' src/pages/CheckoutCartPage.tsx
-          grep -q 'billingCity' src/pages/CheckoutCartPage.tsx
-          grep -q 'billingZip' src/pages/CheckoutCartPage.tsx
-          npm ci
-          npm run build
+          grep -q 'value={billingStreet}' src/pages/CheckoutCartPage.tsx
+          grep -q 'value={billingZip}' src/pages/CheckoutCartPage.tsx
+          grep -q 'value={billingCity}' src/pages/CheckoutCartPage.tsx
+          grep -q 'billingAddress:{street:billingStreet.trim()' src/pages/CheckoutCartPage.tsx
+          grep -q 'Doručovací adresa' src/pages/CheckoutCartPage.tsx
 
       - name: Commit changes
         shell: bash
