@@ -48,9 +48,9 @@ export const CustomOrderPage: React.FC = () => {
     const from = parseInt(priceFrom, 10);
     const to = parseInt(priceTo, 10);
     const estimate =
-      !isNaN(from) && !isNaN(to) && to >= from ? `${from.toLocaleString('cs-CZ')} – ${to.toLocaleString('cs-CZ')} Kč`
-      : !isNaN(from) ? `od ${from.toLocaleString('cs-CZ')} Kč`
-      : !isNaN(to) ? `do ${to.toLocaleString('cs-CZ')} Kč`
+      !isNaN(from) && !isNaN(to) && to >= from ? `${from.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} – ${to.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`
+      : !isNaN(from) ? `od ${from.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`
+      : !isNaN(to) ? `do ${to.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`
       : 'dle domluvy';
 
     const customProduct = {

@@ -264,7 +264,7 @@ export const Navbar: React.FC = () => {
                 </span>
                 {cartCount > 0 && (
                   <span className="hidden sm:inline text-xs font-medium text-[#D6C1A5] border-l border-[#4E4035] pl-2">
-                    {cartTotal.toLocaleString('cs-CZ')} Kč
+                    {cartTotal.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč
                   </span>
                 )}
               </button>
@@ -357,7 +357,7 @@ export const Navbar: React.FC = () => {
                       {cartCount} ks
                     </span>
                     <span className="text-xs text-[#E6DCD1] font-semibold">
-                      {cartTotal.toLocaleString('cs-CZ')} Kč
+                      {cartTotal.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč
                     </span>
                   </div>
                 </button>

@@ -22,7 +22,7 @@ const RateCard: React.FC<{ rate: Rate }> = ({ rate }) => {
           {rate.delivery_date && <span className="rounded-lg bg-[#FAF7F2] px-2 py-1">Doručení {rate.delivery_date}</span>}
         </div>
       </div>
-      <div className="shrink-0 text-right"><div className="text-lg font-bold text-[#8C7355]">{price.toLocaleString('cs-CZ')} {currency}</div><div className="text-[10px] text-[#817469]">včetně DPH</div></div>
+      <div className="shrink-0 text-right"><div className="text-lg font-bold text-[#8C7355]">{price.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</div><div className="text-[10px] text-[#817469]">včetně DPH</div></div>
     </div>
   </div>;
 };

@@ -59,7 +59,7 @@ export const CartPromoCode: React.FC = () => {
       const allowed = new Set(item.categoryIds.map(normalizeCategory).filter(Boolean));
       if (allowed.size && !items.some(i => allowed.has(normalizeCategory(i.category)))) throw new Error('Tento slevový kód nelze použít na žádný produkt v košíku.');
       setApplied(item); setCode(item.code); localStorage.setItem('luvia_cart_promo', item.code); savePromo(item);
-      if (notify) addToast('success', 'Kód uplatněn', item.type === 'percent' ? `Sleva ${item.value} % byla přidána.` : `Sleva ${item.value.toLocaleString('cs-CZ')} Kč byla přidána.`);
+      if (notify) addToast('success', 'Kód uplatněn', item.type === 'percent' ? `Sleva ${item.value} % byla přidána.` : `Sleva ${item.value.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč byla přidána.`);
     } catch (e: any) {
       setApplied(null); localStorage.removeItem('luvia_cart_promo'); savePromo(null);
       if (notify) addToast('error', 'Kód se nepodařilo použít', e?.message || 'Kód se nepodařilo ověřit.');

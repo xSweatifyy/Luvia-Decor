@@ -251,7 +251,7 @@ export const AdminPage: React.FC = () => {
       });
       
       setCoupons(prev => [createdCoupon, ...prev.filter(c => c.code !== code)]);
-      addToast('success', 'Slevový kód vytvořen', `${code} — ${newCouponType === 'percent' ? `${value} %` : `${value.toLocaleString('cs-CZ')} Kč`}`);
+      addToast('success', 'Slevový kód vytvořen', `${code} — ${newCouponType === 'percent' ? `${value} %` : `${value.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`}`);
       setNewCouponCode('');
       setNewCouponValue('');
       loadCoupons();
@@ -1055,11 +1055,11 @@ export const AdminPage: React.FC = () => {
                       <div className="flex items-baseline gap-2 mt-1">
                         <span className="text-xs font-bold text-[#8C7355]">
                           {prod.isPriceFrom ? `${prod.pricePrefix || 'Od'} ` : ''}
-                          {prod.price.toLocaleString('cs-CZ')} Kč
+                          {prod.price.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč
                         </span>
                         {prod.compareAtPrice && (
                           <span className="text-[10px] text-stone-400 line-through">
-                            {prod.compareAtPrice.toLocaleString('cs-CZ')} Kč
+                            {prod.compareAtPrice.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč
                           </span>
                         )}
                       </div>
@@ -1257,7 +1257,7 @@ export const AdminPage: React.FC = () => {
                             <span>Náhled zobrazení: </span>
                             <strong className="text-[#8C7355] font-bold text-xs">
                               {editingProduct.pricePrefix ? `${editingProduct.pricePrefix} ` : 'Od '}
-                              {editingProduct.price.toLocaleString('cs-CZ')} Kč
+                              {editingProduct.price.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč
                             </strong>
                           </div>
                         </div>
@@ -1453,7 +1453,7 @@ export const AdminPage: React.FC = () => {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#EDE5DA] pb-3">
                     <div>
                       <span className="font-bold text-sm text-[#2D2723]">{order.orderNumber}</span>
-                      <span className="text-stone-500 ml-2">({new Date(order.createdAt).toLocaleString('cs-CZ')})</span>
+                      <span className="text-stone-500 ml-2">({new Date(order.createdAt).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase ${
@@ -1505,12 +1505,12 @@ export const AdminPage: React.FC = () => {
                         {order.items.map((it, idx) => (
                           <div key={idx} className="flex justify-between items-center text-[11px] py-1 border-b border-[#FAF5EE]">
                             <span className="font-medium">{it.quantity}× {it.title}</span>
-                            <span className="font-bold text-[#8C7355]">{(it.price * it.quantity).toLocaleString('cs-CZ')} Kč</span>
+                            <span className="font-bold text-[#8C7355]">{(it.price * it.quantity).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč</span>
                           </div>
                         ))}
                         <div className="pt-2 flex justify-between font-bold text-xs text-[#2D2723]">
                           <span>Celková cena:</span>
-                          <span className="text-[#8C7355] text-sm">{order.totalPrice.toLocaleString('cs-CZ')} Kč</span>
+                          <span className="text-[#8C7355] text-sm">{order.totalPrice.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč</span>
                         </div>
                       </div>
                       <p className="text-[10px] text-stone-400 mt-2">
@@ -1670,7 +1670,7 @@ export const AdminPage: React.FC = () => {
 
             <div className="bg-white p-6 rounded-2xl border border-[#E8DFC8] shadow-sm space-y-1">
               <span className="text-xs text-[#8C7355] font-bold uppercase tracking-wider">Hodnota poptávek</span>
-              <p className="text-3xl font-bold font-editorial text-[#8C7355]">{totalRevenue.toLocaleString('cs-CZ')} Kč</p>
+              <p className="text-3xl font-bold font-editorial text-[#8C7355]">{totalRevenue.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč</p>
               <p className="text-[11px] text-stone-500">Z dokončených i nových nákupů</p>
             </div>
 
@@ -2390,7 +2390,7 @@ export const AdminPage: React.FC = () => {
                     <div className="min-w-0">
                       <p className="font-bold text-[#2D2723] text-sm tracking-wide">{coupon.code}</p>
                       <p className="text-[11px] text-stone-500">
-                        {coupon.type === 'percent' ? `Sleva ${coupon.value} %` : `Sleva ${coupon.value.toLocaleString('cs-CZ')} Kč`}
+                        {coupon.type === 'percent' ? `Sleva ${coupon.value} %` : `Sleva ${coupon.value.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`}
                         {' • '}{coupon.active ? 'Aktivní' : 'Neaktivní'}
                       </p>
                     </div>
