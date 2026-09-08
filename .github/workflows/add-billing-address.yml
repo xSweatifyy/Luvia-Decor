@@ -24,7 +24,8 @@ jobs:
           s = p.read_text(encoding='utf-8')
           original = s
           marker = '  <div><label className="text-xs font-semibold">Poznámka <span className="font-normal text-[#9A8F85]">(nepovinná)</span></label>'
-          if 'value={billingStreet}' not in s or 'Fakturační adresa' not in s:
+          billing_ui_marker = '<b>Fakturační adresa *</b>'
+          if billing_ui_marker not in s:
               if marker not in s:
                   raise SystemExit('Checkout note section marker not found')
               billing = '''  <div><div className="flex items-center gap-2 mb-3"><MapPin className="w-4 h-4 text-[#9A7B58]"/><b>Fakturační adresa *</b></div><p className="text-[11px] text-[#81766D] mb-3">Adresa, která bude uvedena na faktuře. Všechna pole jsou povinná.</p><div className="space-y-3"><input required value={billingStreet} onChange={e=>setBillingStreet(e.target.value)} placeholder="Adresa *" autoComplete="billing street-address" className={input}/><div className="grid grid-cols-2 gap-2"><input required value={billingZip} onChange={e=>setBillingZip(e.target.value)} placeholder="PSČ *" autoComplete="billing postal-code" className={input}/><input required value={billingCity} onChange={e=>setBillingCity(e.target.value)} placeholder="Město *" autoComplete="billing address-level2" className={input}/></div></div></div>\n'''
@@ -48,7 +49,7 @@ jobs:
       - name: Verify checkout source
         shell: bash
         run: |
-          grep -q 'Fakturační adresa' src/pages/CheckoutCartPage.tsx
+          grep -q '<b>Fakturační adresa *</b>' src/pages/CheckoutCartPage.tsx
           grep -q 'value={billingStreet}' src/pages/CheckoutCartPage.tsx
           grep -q 'value={billingZip}' src/pages/CheckoutCartPage.tsx
           grep -q 'value={billingCity}' src/pages/CheckoutCartPage.tsx
@@ -62,5 +63,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/pages/CheckoutCartPage.tsx
           git diff --cached --quiet && exit 0
-          git commit -m 'Add required billing address to checkout'
+          git commit -m 'Show required billing address fields in checkout'
           git push origin HEAD:main
