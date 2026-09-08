@@ -1,0 +1,50 @@
+name: Update Zasilkovna prices
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update Zasilkovna prices and fee text
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text()
+          original = s
+
+          # Zásilkovna CZ: pickup/box 72 Kč, address 99 Kč
+          s = s.replace("ZASILKOVNA: { pickup: 62, address: 89 }", "ZASILKOVNA: { pickup: 72, address: 99 }")
+          s = s.replace("ZASILKOVNA:{pickup:62,address:89}", "ZASILKOVNA:{pickup:72,address:99}")
+          s = s.replace("ZASILKOVNA:{pickup:62, address:89}", "ZASILKOVNA:{pickup:72, address:99}")
+          s = s.replace("ZASILKOVNA: {pickup:62,address:89}", "ZASILKOVNA: {pickup:72,address:99}")
+
+          # Replace fuel-surcharge wording wherever it appears in the cart.
+          replacements = [
+            ('Palivový poplatek', 'Poplatky jsou zahrnuty v ceně.'),
+            ('Palivový příplatek', 'Poplatky jsou zahrnuty v ceně.'),
+            ('palivový poplatek', 'Poplatky jsou zahrnuty v ceně.'),
+            ('palivový příplatek', 'Poplatky jsou zahrnuty v ceně.'),
+          ]
+          for old, new in replacements:
+            s = s.replace(old, new)
+
+          if s == original:
+            raise SystemExit('No matching Zasilkovna price or fuel-fee text found')
+          p.write_text(s)
+          PY
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/CheckoutCartPage.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m 'Update Zasilkovna prices and fee label'
+          git push
