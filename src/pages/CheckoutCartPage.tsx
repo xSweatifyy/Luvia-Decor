@@ -65,7 +65,7 @@ export const CheckoutCartPage: React.FC = () => {
     } finally { setRatesLoading(false); }
   };
   useEffect(()=>{ loadRates(); },[destination,cart.length,cart.map(i=>`${i.product.id}:${i.quantity}`).join('|')]);
-  useEffect(()=>{ if(!entries.some(([n])=>n===carrier)) { setCarrier('PenguinBox'); setMethod('box'); } },[entries.length,carrier]);
+  useEffect(()=>{ if(destination==='sk' && carrier==='PenguinBox') { setCarrier(''); setMethod('address'); setPoint(null); return; } if(carrier && entries.some(([n])=>n===carrier)) return; const first=entries.find(([n])=>n!=='PenguinBox'); if(first) { setCarrier(first[0]); setMethod('address'); setPoint(null); } else if(destination==='cz') { setCarrier('PenguinBox'); setMethod('box'); setPoint(null); } },[entries.length,carrier,destination]);
 
   const chooseDestination = (d: Destination) => { setDestination(d); setPoint(null); setPicker(false); setPenguinAddress(''); setMethod('address'); setCarrier(d === 'cz' ? 'PenguinBox' : ''); };
   const chooseCarrier = (c: string) => { setCarrier(c); setPoint(null); setPenguinAddress(''); setPicker(false); setMethod(c === 'PenguinBox' ? 'box' : 'address'); };
