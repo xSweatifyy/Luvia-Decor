@@ -1,0 +1,35 @@
+name: Update pickup map instruction
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace map instruction
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text()
+          old = 'Kliknout pro otevření mapy'
+          new = 'Klikněte na Výdejní místo/box pro otevření mapy.'
+          if old not in s:
+              raise SystemExit('Text "Kliknout pro otevření mapy" was not found')
+          s = s.replace(old, new)
+          p.write_text(s)
+          PY
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/CheckoutCartPage.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m 'Update pickup map instruction text'
+          git push
