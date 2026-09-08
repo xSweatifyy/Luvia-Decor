@@ -6,6 +6,11 @@
   "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/api/coupons/validate", "destination": "/api/coupons?action=validate" }
+    { "source": "/api/coupons/validate", "destination": "/api/coupons?action=validate" },
+    {
+      "source": "/api/orders",
+      "has": [{ "type": "query", "key": "action", "value": "rates" }],
+      "destination": "/api/zaslat-rates"
+    }
   ]
 }
