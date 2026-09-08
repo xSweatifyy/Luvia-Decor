@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Update cart shipping, payment details and money formatting
+      - name: Update payment details, QR and money formatting
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -24,33 +24,29 @@ jobs:
           p = Path('src/pages/CheckoutCartPage.tsx')
           s = p.read_text()
 
-          # Correct payment details everywhere in the checkout confirmation and QR.
           s = s.replace("const IBAN = 'CZ45550000000000963625011';", "const DOMESTIC_ACCOUNT = '963625003/5500';\nconst INTERNATIONAL_IBAN = 'CZ96 5500 0000 0009 6362 5003';\nconst PAYMENT_SWIFT = 'RZBCCZPP';")
           s = s.replace("ACC:${IBAN}", "ACC:${DOMESTIC_ACCOUNT}")
           s = s.replace("<p><b>Číslo účtu:</b> 963625011/5500</p><p><b>IBAN:</b> CZ45 5500 0000 0096 3625 011</p>", "<p><b>Číslo účtu (ČR):</b> {DOMESTIC_ACCOUNT}</p><p><b>IBAN (zahraniční platby):</b> {INTERNATIONAL_IBAN}</p><p><b>SWIFT/BIC:</b> {PAYMENT_SWIFT}</p>")
-
-          # Exactly two decimal places for checkout money.
+          s = s.replace("<img src={qrOf(done)} alt=\"QR platba\" width=\"280\" height=\"280\" className=\"mx-auto mt-7 rounded-2xl border border-[#E3D8CA]\"/>", "<div className=\"mt-7 grid gap-6 sm:grid-cols-2\"><div className=\"text-center\"><p className=\"text-xs font-semibold text-[#6F6258] mb-2\">QR platba pro ČR</p><img src={qrOf(done)} alt=\"QR platba pro ČR\" width=\"280\" height=\"280\" className=\"mx-auto rounded-2xl border border-[#E3D8CA]\"/></div><div className=\"text-center\"><p className=\"text-xs font-semibold text-[#6F6258] mb-2\">QR platba pro zahraničí (IBAN)</p><img src={qrInternationalOf(done)} alt=\"QR platba pro zahraničí\" width=\"280\" height=\"280\" className=\"mx-auto rounded-2xl border border-[#E3D8CA]\"/></div></div>")
           s = s.replace("toLocaleString('cs-CZ')", "toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })")
-          s = s.replace('toLocaleString("cs-CZ")', 'toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })')
-          s = s.replace("Number(done.totalPrice||0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2, minimumFractionDigits: 2, maximumFractionDigits: 2 })", "Number(done.totalPrice||0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })")
-
-          # Keep shipping values numeric; format only when rendered.
-          s = s.replace("const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'ZASILKOVNA' ? Number(Number(basePrice || 0).toFixed(2)) : carrier === 'PenguinBox' ? 59 : carrier === 'UPS' ? 356 : Number(withCharges(Number(basePrice || 0)).toFixed(2));", "const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) : carrier === 'ZASILKOVNA' ? Number(Number(basePrice || 0).toFixed(2)) : carrier === 'PenguinBox' ? 59 : carrier === 'UPS' ? 356 : Number(withCharges(Number(basePrice || 0)).toFixed(2));")
-
+          s = s.replace('toLocaleString(\"cs-CZ\")', 'toLocaleString(\"cs-CZ\", { minimumFractionDigits: 2, maximumFractionDigits: 2 })')
+          s = s.replace("maximumFractionDigits: 3", "maximumFractionDigits: 2")
+          s = s.replace("minimumFractionDigits: 3", "minimumFractionDigits: 2")
+          s = s.replace(".toFixed(3)", ".toFixed(2)")
           p.write_text(s)
 
-          # Apply the exact two-decimal Czech money formatter to all source files
-          # where a bare cs-CZ locale formatter is used.
           for p in Path('src').rglob('*'):
-              if p.suffix not in {'.ts', '.tsx', '.js', '.jsx'}:
+              if p.suffix not in {'.ts', '.tsx', '.js', '.jsx'} or p == Path('src/pages/CheckoutCartPage.tsx'):
                   continue
               s = p.read_text()
               ns = s.replace("toLocaleString('cs-CZ')", "toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })")
               ns = ns.replace('toLocaleString("cs-CZ")', 'toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })')
+              ns = ns.replace('maximumFractionDigits: 3', 'maximumFractionDigits: 2')
+              ns = ns.replace('minimumFractionDigits: 3', 'minimumFractionDigits: 2')
+              ns = ns.replace('.toFixed(3)', '.toFixed(2)')
               if ns != s:
                   p.write_text(ns)
           PY
-
       - name: Commit fix
         run: |
           git config user.name 'github-actions[bot]'
