@@ -38,6 +38,7 @@ jobs:
           s = p.read_text(encoding='utf-8')
           s = re.sub(r"function money\(value: unknown\): string \{.*?\}", lambda _: "function money(value: unknown): string { return Number(value || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }", s, count=1, flags=re.S)
           s = re.sub(r"function paymentQrUrl\(order: any\): string \{.*?\}", lambda _: "function paymentQrUrl(order: any): string { const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', amount: Number(order.totalPrice || 0).toFixed(2), currency: 'CZK', vs: String(order.variableSymbol || variableSymbol(order.orderNumber) || '').replace(/\\D/g, ''), message: String(order.orderNumber || '').trim() }); return `https://api.paylibo.com/paylibo/generator/czech/image?${params.toString()}`; }", s, count=1, flags=re.S)
+          s = re.sub(r"\}\*AM:.*?(?=function emailLayout)", "}\n", s, count=1, flags=re.S)
           s = s.replace('963625011/5500', ACCOUNT).replace('CZ45 5500 0000 0096 3625 011', IBAN).replace('CZ45550000000000963625011', IBAN.replace(' ', ''))
           s = re.sub(r"Číslo účtu: <strong>.*?</strong><br>IBAN: <strong>.*?</strong><br>Variabilní symbol:", lambda _: f"Číslo účtu (ČR): <strong>{ACCOUNT}</strong><br>IBAN: <strong>{IBAN}</strong><br>SWIFT/BIC: <strong>{SWIFT}</strong><br>Variabilní symbol:", s, count=1, flags=re.S)
           s = s.replace('${escapeHtml(order.variableSymbol)}', '${escapeHtml(order.variableSymbol || variableSymbol(order.orderNumber))}')
@@ -77,4 +78,4 @@ jobs:
           done
           exit 1
 
-# Final retry trigger
+# Final cleanup trigger
