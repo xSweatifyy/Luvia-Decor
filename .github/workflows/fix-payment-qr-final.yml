@@ -30,12 +30,10 @@ jobs:
           ACCOUNT = '963625003/5500'
           IBAN = 'CZ96 5500 0000 0009 6362 5003'
           SWIFT = 'RZBCCZPP'
-
           p = Path('src/pages/CheckoutCartPage.tsx')
           s = p.read_text(encoding='utf-8')
           s = re.sub(r"const qrOf = \(o: any\) => \{.*?\};", lambda _: "const qrOf = (o: any) => { const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', amount: Number(o?.totalPrice || 0).toFixed(2), currency: 'CZK', vs: String(vsOf(o) || '').replace(/\\D/g, ''), message: String(o?.orderNumber || o?.id || '').trim() }); return `https://api.paylibo.com/paylibo/generator/czech/image?${params.toString()}`; };", s, count=1, flags=re.S)
           p.write_text(s, encoding='utf-8')
-
           p = Path('api/orders.ts')
           s = p.read_text(encoding='utf-8')
           s = re.sub(r"function money\(value: unknown\): string \{.*?\}", lambda _: "function money(value: unknown): string { return Number(value || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }", s, count=1, flags=re.S)
@@ -44,13 +42,11 @@ jobs:
           s = re.sub(r"Číslo účtu: <strong>.*?</strong><br>IBAN: <strong>.*?</strong><br>Variabilní symbol:", lambda _: f"Číslo účtu (ČR): <strong>{ACCOUNT}</strong><br>IBAN: <strong>{IBAN}</strong><br>SWIFT/BIC: <strong>{SWIFT}</strong><br>Variabilní symbol:", s, count=1, flags=re.S)
           s = s.replace('${escapeHtml(order.variableSymbol)}', '${escapeHtml(order.variableSymbol || variableSymbol(order.orderNumber))}')
           p.write_text(s, encoding='utf-8')
-
           p = Path('api/order-status-email.ts')
           s = p.read_text(encoding='utf-8')
           s = s.replace('CZ96 5500 0000 0009 6362 5003', IBAN).replace('RZBCCZPP', SWIFT)
           s = s.replace('IBAN:</strong> ' + IBAN + '<br><strong>SWIFT/BIC:</strong> ' + SWIFT, 'Číslo účtu (ČR):</strong> ' + ACCOUNT + '<br><strong>IBAN:</strong> ' + IBAN + '<br><strong>SWIFT/BIC:</strong> ' + SWIFT)
           p.write_text(s, encoding='utf-8')
-
           p = Path('server/resendService.ts')
           s = p.read_text(encoding='utf-8')
           s = s.replace('963625011/5500', ACCOUNT).replace('CZ45 5500 0000 0096 3625 011', IBAN).replace('CZ96 5500 0000 0009 6362 5003', IBAN).replace('RZBCCZPP', SWIFT)
@@ -58,13 +54,27 @@ jobs:
               s = s.replace('<strong>IBAN:</strong> ' + IBAN + '<br>', '<strong>Číslo účtu (ČR):</strong> ' + ACCOUNT + '<br>            <strong>IBAN:</strong> ' + IBAN + '<br>', 1)
           p.write_text(s, encoding='utf-8')
           PY
-      - name: Commit fixes
+      - name: Commit and push with retry
+        shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/pages/CheckoutCartPage.tsx api/orders.ts api/order-status-email.ts server/resendService.ts
           git diff --cached --quiet && exit 0
           git commit -m 'Apply final bank payment QR fix'
-          git push origin HEAD:main --force-with-lease=refs/heads/main:$(git rev-parse origin/main)
+          for i in 1 2 3 4 5 6 7 8; do
+            git fetch origin main
+            if git rebase origin/main -X theirs; then
+              if git push origin HEAD:main; then exit 0; fi
+            else
+              git rebase --abort || true
+              git reset --hard HEAD~1
+              git fetch origin main
+              git reset --hard origin/main
+              exit 1
+            fi
+            sleep 1
+          done
+          exit 1
 
-# Retry trigger
+# Final retry trigger
