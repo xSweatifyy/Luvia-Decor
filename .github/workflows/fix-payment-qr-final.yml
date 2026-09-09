@@ -27,70 +27,35 @@ jobs:
           IBAN = 'CZ96 5500 0000 0009 6362 5003'
           SWIFT = 'RZBCCZPP'
 
-          def qr_paylibo(var_expr, amount_expr, note_expr, size='280x280'):
-              return (
-                  "const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', "
-                  f"amount: Number({amount_expr} || 0).toFixed(2), currency: 'CZK', vs: String({var_expr} || '').replace(/\\D/g, ''), message: String({note_expr} || '').trim() }}); "
-                  f"return `https://api.paylibo.com/paylibo/generator/czech/image?${{params.toString()}}`;"
-              )
-
-          # Checkout confirmation QR: domestic Czech QR must contain account, exact amount, VS and order number.
+          # Checkout confirmation QR: reliable Czech bank QR generator with exact account, amount, VS and order number.
           p = Path('src/pages/CheckoutCartPage.tsx')
           s = p.read_text(encoding='utf-8')
-          s = re.sub(
-              r"const qrOf = \(o: any\) => \{.*?\};",
-              "const qrOf = (o: any) => { " + qr_paylibo("vsOf(o)", "o?.totalPrice", "o?.orderNumber || o?.id") + " };",
-              s, count=1, flags=re.S
-          )
-          s = s.replace("const INTERNATIONAL_IBAN = 'CZ96 5500 0000 0009 6362 5003';", "const INTERNATIONAL_IBAN = 'CZ96 5500 0000 0009 6362 5003';")
+          s = re.sub(r"const qrOf = \(o: any\) => \{.*?\};", "const qrOf = (o: any) => { const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', amount: Number(o?.totalPrice || 0).toFixed(2), currency: 'CZK', vs: String(vsOf(o) || '').replace(/\\D/g, ''), message: String(o?.orderNumber || o?.id || '').trim() }); return `https://api.paylibo.com/paylibo/generator/czech/image?${params.toString()}`; };", s, count=1, flags=re.S)
           p.write_text(s, encoding='utf-8')
 
-          # Main order emails are generated in api/orders.ts. Replace every old bank detail and QR implementation.
+          # Main order emails are generated here.
           p = Path('api/orders.ts')
           s = p.read_text(encoding='utf-8')
           s = re.sub(r"function money\(value: unknown\): string \{.*?\}", "function money(value: unknown): string { return Number(value || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }", s, count=1, flags=re.S)
-          s = re.sub(
-              r"function paymentQrUrl\(order: any\): string \{.*?\}",
-              "function paymentQrUrl(order: any): string { const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', amount: Number(order.totalPrice || 0).toFixed(2), currency: 'CZK', vs: String(order.variableSymbol || variableSymbol(order.orderNumber) || '').replace(/\\D/g, ''), message: String(order.orderNumber || '').trim() }); return `https://api.paylibo.com/paylibo/generator/czech/image?${params.toString()}`; }",
-              s, count=1, flags=re.S
-          )
+          s = re.sub(r"function paymentQrUrl\(order: any\): string \{.*?\}", "function paymentQrUrl(order: any): string { const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', amount: Number(order.totalPrice || 0).toFixed(2), currency: 'CZK', vs: String(order.variableSymbol || variableSymbol(order.orderNumber) || '').replace(/\\D/g, ''), message: String(order.orderNumber || '').trim() }); return `https://api.paylibo.com/paylibo/generator/czech/image?${params.toString()}`; }", s, count=1, flags=re.S)
           s = s.replace('963625011/5500', ACCOUNT).replace('CZ45 5500 0000 0096 3625 011', IBAN).replace('CZ45550000000000963625011', IBAN.replace(' ', ''))
-          # Ensure the bank block has the exact requested fields and a working QR.
           s = re.sub(r"Číslo účtu: <strong>.*?</strong><br>IBAN: <strong>.*?</strong><br>Variabilní symbol:", f"Číslo účtu (ČR): <strong>{ACCOUNT}</strong><br>IBAN: <strong>{IBAN}</strong><br>SWIFT/BIC: <strong>{SWIFT}</strong><br>Variabilní symbol:", s, count=1, flags=re.S)
-          # If the account block somehow did not match, make sure the new account/IBAN still appear in the payment block.
-          if ACCOUNT not in s:
-              s = s.replace('Bankovní převod</div>', f'Bankovní převod</div><div style="font-size:13px;line-height:1.8">Číslo účtu (ČR): <strong>{ACCOUNT}</strong><br>IBAN: <strong>{IBAN}</strong><br>SWIFT/BIC: <strong>{SWIFT}</strong></div>', 1)
-          # Make VS deterministic from the exact order number when older orders/templates omit it.
           s = s.replace('${escapeHtml(order.variableSymbol)}', '${escapeHtml(order.variableSymbol || variableSymbol(order.orderNumber))}')
           p.write_text(s, encoding='utf-8')
 
-          # Status-change emails must use the same payment details and exact two-decimal amounts.
+          # Status-change emails.
           p = Path('api/order-status-email.ts')
           s = p.read_text(encoding='utf-8')
           s = s.replace('CZ96 5500 0000 0009 6362 5003', IBAN).replace('RZBCCZPP', SWIFT)
           s = s.replace('IBAN:</strong> ' + IBAN + '<br><strong>SWIFT/BIC:</strong> ' + SWIFT, 'Číslo účtu (ČR):</strong> ' + ACCOUNT + '<br><strong>IBAN:</strong> ' + IBAN + '<br><strong>SWIFT/BIC:</strong> ' + SWIFT)
-          # Add VS + amount + recipient note + QR to status emails if the current template lacks them.
-          old = f"<p>Platba bankovním převodem:<br><strong>Číslo účtu (ČR):</strong> {ACCOUNT}<br><strong>IBAN:</strong> {IBAN}<br><strong>SWIFT/BIC:</strong> {SWIFT}</p>"
-          new = f"<p>Platba bankovním převodem:<br><strong>Číslo účtu (ČR):</strong> {ACCOUNT}<br><strong>IBAN:</strong> {IBAN}<br><strong>SWIFT/BIC:</strong> {SWIFT}<br><strong>Variabilní symbol:</strong> ${{esc(order?.variableSymbol||String(order?.orderNumber||id).replace(/\\D/g,''))}}<br><strong>Částka:</strong> ${{formatMoney(order?.totalPrice)}} Kč<br><strong>Poznámka pro příjemce:</strong> ${{esc(order?.orderNumber||id)}}</p>"
-          if old in s and 'api.paylibo.com' not in s:
-              s = s.replace(old, new, 1)
-          elif 'api.paylibo.com' not in s:
-              s = s.replace('</div></div>`;', f'</div><p>Číslo účtu (ČR): <strong>{ACCOUNT}</strong><br>IBAN: <strong>{IBAN}</strong><br>SWIFT/BIC: <strong>{SWIFT}</strong><br>Variabilní symbol: ${{esc(order?.variableSymbol||String(order?.orderNumber||id).replace(/\\D/g,\'\'))}}<br>Částka: ${{formatMoney(order?.totalPrice)}} Kč<br>Poznámka pro příjemce: ${{esc(order?.orderNumber||id)}}</p></div></div>`;', 1)
           p.write_text(s, encoding='utf-8')
 
-          # Legacy/server-side Resend template: keep it correct too so no email path can show the old account.
+          # Legacy Resend template too, so no email path can retain the old account.
           p = Path('server/resendService.ts')
           s = p.read_text(encoding='utf-8')
-          s = s.replace('CZ96 5500 0000 0009 6362 5003', IBAN).replace('RZBCCZPP', SWIFT)
-          if 'Číslo účtu (ČR):</strong> 963625003/5500' not in s:
+          s = s.replace('963625011/5500', ACCOUNT).replace('CZ45 5500 0000 0009 6362 5011', IBAN).replace('CZ96 5500 0000 0009 6362 5003', IBAN).replace('RZBCCZPP', SWIFT)
+          if '<strong>Číslo účtu (ČR):</strong> 963625003/5500' not in s:
               s = s.replace('<strong>IBAN:</strong> ' + IBAN + '<br>', '<strong>Číslo účtu (ČR):</strong> ' + ACCOUNT + '<br>            <strong>IBAN:</strong> ' + IBAN + '<br>', 1)
-          if '<strong>Variabilní symbol:</strong>' not in s:
-              s = s.replace('<strong>SWIFT/BIC:</strong> ' + SWIFT, '<strong>SWIFT/BIC:</strong> ' + SWIFT + '<br>            <strong>Variabilní symbol:</strong> ${(order as any).variableSymbol || String(order.orderNumber || order.id || "").replace(/\\D/g, "")}<br>            <strong>Částka:</strong> ${formatMoney(order.totalPrice)} Kč<br>            <strong>Poznámka pro příjemce:</strong> ${order.orderNumber}', 1)
-          if 'api.paylibo.com/paylibo/generator/czech/image' not in s:
-              marker = "const carrierName = String(order.delivery?.carrier || '').trim() || 'Doprava';"
-              helper = marker + "\n  const paymentQrUrl = (() => { const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', amount: Number(order.totalPrice || 0).toFixed(2), currency: 'CZK', vs: String((order as any).variableSymbol || order.orderNumber || '').replace(/\\D/g, ''), message: String(order.orderNumber || order.id || '').trim() }); return `https://api.paylibo.com/paylibo/generator/czech/image?${params.toString()}`; })();"
-              s = s.replace(marker, helper, 1)
-              s = s.replace('</div>\n          </div>\n\n          <h3', '<div style="margin-top:16px;text-align:center"><img src="${paymentQrUrl}" width="220" height="220" alt="QR platba" style="display:inline-block;border:1px solid #e6ded5;border-radius:8px"></div>\n          </div>\n\n          <h3', 1)
           p.write_text(s, encoding='utf-8')
           PY
       - name: Commit fixes
@@ -101,3 +66,5 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m 'Apply final bank payment QR fix'
           git push
+
+# Trigger final payment patch
