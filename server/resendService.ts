@@ -87,7 +87,7 @@ export async function sendOrderEmails(order: Order, config: SiteConfig): Promise
             <strong>Číslo objednávky:</strong> ${order.orderNumber}<br>
             <strong>Datum vytvoření:</strong> ${new Date(order.createdAt).toLocaleString('cs-CZ')}<br>
             <strong>Způsob platby:</strong> Bankovní převod<br>
-            <strong>IBAN:</strong> CZ96 5500 0000 0009 6362 5003<br>
+            <strong>Číslo účtu (ČR):</strong> 963625003/5500<br>            <strong>IBAN:</strong> CZ96 5500 0000 0009 6362 5003<br>
             <strong>SWIFT/BIC:</strong> RZBCCZPP
           </div>
 

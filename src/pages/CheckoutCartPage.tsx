@@ -16,7 +16,7 @@ const input = 'w-full rounded-2xl border border-[#E5DCD2] bg-[#FCFAF7] px-4 py-3
 const option = (active: boolean) => `relative rounded-2xl border p-4 text-left transition ${active ? 'border-[#9A7B58] bg-[#FBF6EF] shadow-sm' : 'border-[#E8E0D8] bg-white hover:border-[#C8B39B]'}`;
 const normalizeCategory = (value: unknown) => String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const vsOf = (o: any) => String(o?.orderNumber || o?.id || '').replace(/\D/g, '');
-const qrOf = (o: any) => { const n = String(o?.orderNumber || o?.id || ''); const p = `SPD*1.0*ACC:${DOMESTIC_ACCOUNT}*AM:${Number(o?.totalPrice || 0).toFixed(2)}*CC:CZK*X-VS:${vsOf(o)}*X-MSG:${n}`; return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=8&data=${encodeURIComponent(p)}`; };
+const qrOf = (o: any) => { const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', amount: Number(o?.totalPrice || 0).toFixed(2), currency: 'CZK', vs: String(vsOf(o) || '').replace(/\D/g, ''), message: String(o?.orderNumber || o?.id || '').trim() }); return `https://api.paylibo.com/paylibo/generator/czech/image?${params.toString()}`; };
 const qrInternationalOf = (o: any) => { const n = String(o?.orderNumber || o?.id || ''); const p = `SPD*1.0*ACC:${INTERNATIONAL_IBAN}*AM:${Number(o?.totalPrice || 0).toFixed(2)}*CC:CZK*X-VS:${vsOf(o)}*X-MSG:${n}`; return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=8&data=${encodeURIComponent(p)}`; };
 const normalizePhone = (value: string) => value.replace(/[\s()-]/g, '');
 const validInternationalPhone = (value: string) => /^\+[1-9]\d{7,14}$/.test(normalizePhone(value));
