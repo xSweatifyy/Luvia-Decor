@@ -1,0 +1,43 @@
+name: Add pickup point address to order emails
+on:
+  push:
+    branches: [main]
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch pickup address
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text()
+          old = "zaslatPickupBranch:carrier==='PenguinBox'?undefined:(point?.code||point?.carrierPickupPointId||undefined),"
+          new = old + "pickupPointAddress:carrier==='PenguinBox'?penguinAddress.trim():(point?.formattedAddress||point?.address||[point?.street,point?.zip,point?.city].filter(Boolean).join(', ')||point?.name||point?.label||undefined),"
+          if old not in s:
+              raise SystemExit('Checkout pickup branch expression not found')
+          if 'pickupPointAddress:' not in s:
+              s = s.replace(old, new, 1)
+              p.write_text(s)
+
+          p = Path('api/orders.ts')
+          s = p.read_text()
+          old = "const deliveryText = delivery.method === 'personal_pickup' ? 'Osobní odběr – Kroměříž' : delivery.method === 'box' ? `Box – ${delivery.carrier || ''}: ${delivery.pickupPoint || ''}` : delivery.method === 'pickup_point' ? `Výdejní místo – ${delivery.carrier || ''}: ${delivery.pickupPoint || ''}` : `Doručení na adresu – ${delivery.carrier || ''}`;"
+          new = "const pickupAddress = String(delivery.pickupPointAddress || delivery.pickupAddress || (delivery.pickupPoint && typeof delivery.pickupPoint === 'object' ? (delivery.pickupPoint.formattedAddress || delivery.pickupPoint.address || [delivery.pickupPoint.street, delivery.pickupPoint.zip, delivery.pickupPoint.city].filter(Boolean).join(', ')) : '') || '').trim(); const pickupLabel = String(delivery.pickupPoint || '').trim(); const pickupDetails = [pickupLabel, pickupAddress].filter(Boolean).join(' · '); const deliveryText = delivery.method === 'personal_pickup' ? 'Osobní odběr – Kroměříž' : delivery.method === 'box' ? `Box – ${delivery.carrier || ''}: ${pickupDetails}` : delivery.method === 'pickup_point' ? `Výdejní místo – ${delivery.carrier || ''}: ${pickupDetails}` : `Doručení na adresu – ${delivery.carrier || ''}`;"
+          if old not in s:
+              raise SystemExit('Order delivery text expression not found')
+          if 'const pickupAddress = String(delivery.pickupPointAddress' not in s:
+              s = s.replace(old, new, 1)
+              p.write_text(s)
+          PY
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/CheckoutCartPage.tsx api/orders.ts
+          git diff --cached --quiet || git commit -m 'Include exact pickup point address in emails'
+          git push
