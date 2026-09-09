@@ -16,6 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Sync to latest main before patching
+        shell: bash
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
       - name: Patch payment data and email templates
         shell: bash
         run: |
@@ -60,6 +65,6 @@ jobs:
           git add src/pages/CheckoutCartPage.tsx api/orders.ts api/order-status-email.ts server/resendService.ts
           git diff --cached --quiet && exit 0
           git commit -m 'Apply final bank payment QR fix'
-          git push
+          git push origin HEAD:main --force-with-lease=refs/heads/main:$(git rev-parse origin/main)
 
 # Retry trigger
