@@ -22,6 +22,7 @@ import { AdminPage } from './pages/AdminPage';
 import { CookieConsent, getCookieConsent } from './components/CookieConsent';
 import { TermsAgreementEnhancer } from './components/TermsAgreementEnhancer';
 import { NonPickupTermsSection } from './components/NonPickupTermsSection';
+import { CouponApiCompat } from './components/CouponApiCompat';
 
 const AppContent: React.FC = () => {
   const { page, setPage } = useApp();
@@ -45,7 +46,7 @@ const AppContent: React.FC = () => {
     return () => { window.removeEventListener('open-terms', openTerms); window.removeEventListener('open-privacy', openPrivacy); document.removeEventListener('click', handleTermsClick, true); };
   }, [setPage]);
 
-  return <div className="min-h-screen bg-[#FCFAF7] text-[#2D2723] flex flex-col font-sans selection:bg-[#8C7355] selection:text-white"><Navbar/><main className="flex-1">
+  return <div className="min-h-screen bg-[#FCFAF7] text-[#2D2723] flex flex-col font-sans selection:bg-[#8C7355] selection:text-white"><CouponApiCompat/><Navbar/><main className="flex-1">
     {page === 'home' && <HomePage/>}{page === 'catalog' && <CatalogPage/>}{page === 'custom-order' && <CustomOrderPage/>}{page === 'gallery' && <GalleryPage/>}{page === 'contact' && <ContactPage/>}
     {page === 'cart' && <CheckoutCartPage/>}
     {page === 'terms' && <><TermsPage/><NonPickupTermsSection/></>}{page === 'privacy' && <PrivacyPage/>}{page === 'admin' && <AdminPage/>}
