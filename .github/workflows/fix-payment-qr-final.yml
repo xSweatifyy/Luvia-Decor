@@ -22,38 +22,33 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-
           ACCOUNT = '963625003/5500'
           IBAN = 'CZ96 5500 0000 0009 6362 5003'
           SWIFT = 'RZBCCZPP'
 
-          # Checkout confirmation QR: reliable Czech bank QR generator with exact account, amount, VS and order number.
           p = Path('src/pages/CheckoutCartPage.tsx')
           s = p.read_text(encoding='utf-8')
-          s = re.sub(r"const qrOf = \(o: any\) => \{.*?\};", "const qrOf = (o: any) => { const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', amount: Number(o?.totalPrice || 0).toFixed(2), currency: 'CZK', vs: String(vsOf(o) || '').replace(/\\D/g, ''), message: String(o?.orderNumber || o?.id || '').trim() }); return `https://api.paylibo.com/paylibo/generator/czech/image?${params.toString()}`; };", s, count=1, flags=re.S)
+          s = re.sub(r"const qrOf = \(o: any\) => \{.*?\};", lambda _: "const qrOf = (o: any) => { const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', amount: Number(o?.totalPrice || 0).toFixed(2), currency: 'CZK', vs: String(vsOf(o) || '').replace(/\\D/g, ''), message: String(o?.orderNumber || o?.id || '').trim() }); return `https://api.paylibo.com/paylibo/generator/czech/image?${params.toString()}`; };", s, count=1, flags=re.S)
           p.write_text(s, encoding='utf-8')
 
-          # Main order emails are generated here.
           p = Path('api/orders.ts')
           s = p.read_text(encoding='utf-8')
-          s = re.sub(r"function money\(value: unknown\): string \{.*?\}", "function money(value: unknown): string { return Number(value || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }", s, count=1, flags=re.S)
-          s = re.sub(r"function paymentQrUrl\(order: any\): string \{.*?\}", "function paymentQrUrl(order: any): string { const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', amount: Number(order.totalPrice || 0).toFixed(2), currency: 'CZK', vs: String(order.variableSymbol || variableSymbol(order.orderNumber) || '').replace(/\\D/g, ''), message: String(order.orderNumber || '').trim() }); return `https://api.paylibo.com/paylibo/generator/czech/image?${params.toString()}`; }", s, count=1, flags=re.S)
+          s = re.sub(r"function money\(value: unknown\): string \{.*?\}", lambda _: "function money(value: unknown): string { return Number(value || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }", s, count=1, flags=re.S)
+          s = re.sub(r"function paymentQrUrl\(order: any\): string \{.*?\}", lambda _: "function paymentQrUrl(order: any): string { const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', amount: Number(order.totalPrice || 0).toFixed(2), currency: 'CZK', vs: String(order.variableSymbol || variableSymbol(order.orderNumber) || '').replace(/\\D/g, ''), message: String(order.orderNumber || '').trim() }); return `https://api.paylibo.com/paylibo/generator/czech/image?${params.toString()}`; }", s, count=1, flags=re.S)
           s = s.replace('963625011/5500', ACCOUNT).replace('CZ45 5500 0000 0096 3625 011', IBAN).replace('CZ45550000000000963625011', IBAN.replace(' ', ''))
-          s = re.sub(r"Číslo účtu: <strong>.*?</strong><br>IBAN: <strong>.*?</strong><br>Variabilní symbol:", f"Číslo účtu (ČR): <strong>{ACCOUNT}</strong><br>IBAN: <strong>{IBAN}</strong><br>SWIFT/BIC: <strong>{SWIFT}</strong><br>Variabilní symbol:", s, count=1, flags=re.S)
+          s = re.sub(r"Číslo účtu: <strong>.*?</strong><br>IBAN: <strong>.*?</strong><br>Variabilní symbol:", lambda _: f"Číslo účtu (ČR): <strong>{ACCOUNT}</strong><br>IBAN: <strong>{IBAN}</strong><br>SWIFT/BIC: <strong>{SWIFT}</strong><br>Variabilní symbol:", s, count=1, flags=re.S)
           s = s.replace('${escapeHtml(order.variableSymbol)}', '${escapeHtml(order.variableSymbol || variableSymbol(order.orderNumber))}')
           p.write_text(s, encoding='utf-8')
 
-          # Status-change emails.
           p = Path('api/order-status-email.ts')
           s = p.read_text(encoding='utf-8')
           s = s.replace('CZ96 5500 0000 0009 6362 5003', IBAN).replace('RZBCCZPP', SWIFT)
           s = s.replace('IBAN:</strong> ' + IBAN + '<br><strong>SWIFT/BIC:</strong> ' + SWIFT, 'Číslo účtu (ČR):</strong> ' + ACCOUNT + '<br><strong>IBAN:</strong> ' + IBAN + '<br><strong>SWIFT/BIC:</strong> ' + SWIFT)
           p.write_text(s, encoding='utf-8')
 
-          # Legacy Resend template too, so no email path can retain the old account.
           p = Path('server/resendService.ts')
           s = p.read_text(encoding='utf-8')
-          s = s.replace('963625011/5500', ACCOUNT).replace('CZ45 5500 0000 0009 6362 5011', IBAN).replace('CZ96 5500 0000 0009 6362 5003', IBAN).replace('RZBCCZPP', SWIFT)
+          s = s.replace('963625011/5500', ACCOUNT).replace('CZ45 5500 0000 0096 3625 011', IBAN).replace('CZ96 5500 0000 0009 6362 5003', IBAN).replace('RZBCCZPP', SWIFT)
           if '<strong>Číslo účtu (ČR):</strong> 963625003/5500' not in s:
               s = s.replace('<strong>IBAN:</strong> ' + IBAN + '<br>', '<strong>Číslo účtu (ČR):</strong> ' + ACCOUNT + '<br>            <strong>IBAN:</strong> ' + IBAN + '<br>', 1)
           p.write_text(s, encoding='utf-8')
@@ -67,4 +62,4 @@ jobs:
           git commit -m 'Apply final bank payment QR fix'
           git push
 
-# Trigger final payment patch
+# Retry trigger
