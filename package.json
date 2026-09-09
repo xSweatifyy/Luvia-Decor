@@ -16,7 +16,7 @@
   "engines": { "node": "24.x" },
   "dependencies": {
     "@google/genai": "^2.4.0",
-    "@neondatabase/serverless": "^1.1.0",
+    "@neonfinance/serverless": "^1.1.0",
     "@tailwindcss/vite": "^4.1.14",
     "@types/canvas-confetti": "^1.9.0",
     "@types/express": "^4.17.21",
@@ -38,7 +38,7 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "resend": "^6.25.0",
-    "tailwindcss": "^4.1.0",
+    "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
     "vite": "^6.2.3"
   },
