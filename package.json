@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "prebuild": "node scripts/patch-shipping-rules.cjs",
+    "prebuild": "node scripts/patch-shipping-rules.cjs && node scripts/patch-invoice-pdf.cjs",
     "build": "vite build",
     "build:server": "esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
@@ -29,9 +29,12 @@
     "autoprefixer": "^10.4.21",
     "canvas-confetti": "^1.9.4",
     "dotenv": "^17.2.3",
+    "esbuild": "^0.25.0",
     "express": "^4.21.2",
     "firebase": "^12.18.0",
     "framer-motion": "^12.4.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.3",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.1",
@@ -42,7 +45,6 @@
     "vite": "^6.2.3"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0",
     "tsx": "^4.21.0"
   }
 }
