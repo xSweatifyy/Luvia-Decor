@@ -1,0 +1,48 @@
+name: Apply payment email QR fix
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch payment email QR
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('api/orders.ts')
+          s = p.read_text()
+          old = "function paymentQrUrl(order: any): string { const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', amount: Number(order.totalPrice || 0).toFixed(2), currency: 'CZK', vs: String(order.variableSymbol || variableSymbol(order.orderNumber) || '').replace(/\\D/g, ''), message: String(order.orderNumber || '').trim() }); return `https://api.paylibo.com/paylibo/generator/czech/image?${params.toString()}`; }"
+          new = "function paymentQrUrl(order: any): string { const params = new URLSearchParams({ accountNumber: '963625003', bankCode: '5500', amount: Number(order.totalPrice || 0).toFixed(2), currency: 'CZK', vs: String(order.variableSymbol || variableSymbol(order.orderNumber) || '').replace(/\\D/g, ''), message: String(order.orderNumber || '').trim(), size: '220', compress: 'false' }); return `https://api.paylibo.com/paylibo/generator/czech/image?${params.toString()}`; }"
+          if old not in s: raise SystemExit('orders.ts QR helper not found')
+          s = s.replace(old, new, 1)
+          old = "const results = await Promise.allSettled([resend.emails.send({ from: 'Luvia Decor <objednavky@luvia-decor.cz>', to: customerEmail, replyTo: 'podpora@luvia-decor.cz', subject: `Potvrzení objednávky · ${order.orderNumber} | Luvia Decor`, html: customerHtml }), resend.emails.send({ from: 'Luvia Decor <objednavky@luvia-decor.cz>', to: sellerEmail, subject: `NOVÁ OBJEDNÁVKA · ${order.orderNumber} | Luvia Decor`, html: sellerHtml })]);"
+          new = "const paymentQrAttachment = { path: paymentQrUrl(order), filename: `qr-platba-${order.orderNumber}.png`, contentId: 'payment-qr', contentType: 'image/png' }; const results = await Promise.allSettled([resend.emails.send({ from: 'Luvia Decor <objednavky@luvia-decor.cz>', to: customerEmail, replyTo: 'podpora@luvia-decor.cz', subject: `Potvrzení objednávky · ${order.orderNumber} | Luvia Decor`, html: customerHtml, attachments: [paymentQrAttachment] }), resend.emails.send({ from: 'Luvia Decor <objednavky@luvia-decor.cz>', to: sellerEmail, subject: `NOVÁ OBJEDNÁVKA · ${order.orderNumber} | Luvia Decor`, html: sellerHtml, attachments: [paymentQrAttachment] })]);"
+          if old not in s: raise SystemExit('orders.ts send block not found')
+          s = s.replace(old, new, 1)
+          s = s.replace('src=\\\"${paymentQrUrl(order)}\\\" width=\\\"220\\\" height=\\\"220\\\"', 'src=\\\"cid:payment-qr\\\" width=\\\"220\\\" height=\\\"220\\\"', 1)
+          p.write_text(s)
+
+          p = Path('api/order-status-email.ts')
+          s = p.read_text()
+          s = s.replace("message:String(order?.orderNumber||id||'').trim()", "message:String(order?.orderNumber||id||'').trim(),size:'220',compress:'false'", 1)
+          old = "const results=await Promise.allSettled([resend.emails.send({from:'Luvia Decor <objednavky@luvia-decor.cz>',to,replyTo:'podpora@luvia-decor.cz',subject:`${label} · ${orderNo} | Luvia Decor`,html}),resend.emails.send({from:'Luvia Decor <objednavky@luvia-decor.cz>',to:seller,subject:`${label} · ${orderNo} | Luvia Decor`,html})]);"
+          new = "const paymentQrAttachment={path:paymentQrUrl(order,id),filename:`qr-platba-${orderNo}.png`,contentId:'payment-qr',contentType:'image/png'};const results=await Promise.allSettled([resend.emails.send({from:'Luvia Decor <objednavky@luvia-decor.cz>',to,replyTo:'podpora@luvia-decor.cz',subject:`${label} · ${orderNo} | Luvia Decor`,html,attachments:[paymentQrAttachment]}),resend.emails.send({from:'Luvia Decor <objednavky@luvia-decor.cz>',to:seller,subject:`${label} · ${orderNo} | Luvia Decor`,html,attachments:[paymentQrAttachment]})]);"
+          if old not in s: raise SystemExit('status email send block not found')
+          s = s.replace(old, new, 1)
+          s = s.replace('src=\\\"${paymentQrUrl(order,id)}\\\" width=\\\"220\\\" height=\\\"220\\\"', 'src=\\\"cid:payment-qr\\\" width=\\\"220\\\" height=\\\"220\\\"', 1)
+          p.write_text(s)
+          PY
+      - name: Commit patch and remove one-time workflows
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/fix-payment-email-qr.yml .github/workflows/apply-payment-email-qr-fix.yml
+          git add api/orders.ts api/order-status-email.ts .github/workflows/fix-payment-email-qr.yml .github/workflows/apply-payment-email-qr-fix.yml
+          git commit -m "Fix payment email QR rendering" || exit 0
+          git push
