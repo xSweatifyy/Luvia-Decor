@@ -6,9 +6,7 @@ let source = fs.readFileSync(file, 'utf8');
 source = source.replace("type InvoiceItem = { name: string; qty: number; price: number; vat: number };", "type InvoiceItem = { productId?: string; name: string; qty: number; price: number; vat: number };\ntype ShopProduct = { id: string | number; title?: string; name?: string; price?: number };");
 source = source.replace("const blankItem = (): InvoiceItem => ({ name: '', qty: 1, price: 0, vat: 21 });", "const blankItem = (): InvoiceItem => ({ productId: '', name: '', qty: 1, price: 0, vat: 21 });");
 source = source.replace("sellerName: 'Luvia Decor', sellerAddress: '', sellerIco: '', sellerDic: '', sellerWeb: 'www.luvia-decor.cz', sellerEmail: 'info@luvia-decor.cz', sellerPhone: '',", "sellerName: 'Luvia Decor', sellerAddress: 'U Rejdiště 3732/15, 767 01, Kroměříž', sellerIco: '29905061', sellerDic: '', sellerWeb: 'www.luvia-decor.cz', sellerEmail: 'objednavky@luvia-decor.cz', sellerPhone: '+420 702 345 999',");
-
 source = source.replace("  const [form, setForm] = useState<Invoice>(initialInvoice);", "  const [form, setForm] = useState<Invoice>(initialInvoice);\n  const [products, setProducts] = useState<ShopProduct[]>([]);\n  const [loadingProducts, setLoadingProducts] = useState(true);\n  useEffect(() => { let active = true; fetch('/api/products').then(r => r.ok ? r.json() : []).then(data => { if (active) setProducts(Array.isArray(data) ? data : []); }).catch(() => {}).finally(() => { if (active) setLoadingProducts(false); }); return () => { active = false; }; }, []);");
-source = source.replace("  useEffect(() => { localStorage.setItem('luvia_invoices', JSON.stringify(invoices)); }, [invoices]);\n", "");
 
 const itemStart = source.indexOf("        <div><div className=\"flex items-center justify-between mb-2\"><h3 className=\"font-black\">Položky</h3>");
 const itemEnd = source.indexOf("        <div className=\"grid md:grid-cols-3 gap-3\">", itemStart);
