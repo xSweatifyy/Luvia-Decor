@@ -15,10 +15,13 @@ source = source.replace(
   "sellerName: 'Luvia Decor', sellerAddress: '', sellerIco: '', sellerDic: '', sellerWeb: 'www.luvia-decor.cz', sellerEmail: 'info@luvia-decor.cz', sellerPhone: '',",
   "sellerName: 'Luvia Decor', sellerAddress: 'U Rejdiště 3732/15, 767 01, Kroměříž', sellerIco: '29905061', sellerDic: '', sellerWeb: 'www.luvia-decor.cz', sellerEmail: 'objednavky@luvia-decor.cz', sellerPhone: '+420 702 345 999',"
 );
-source = source.replace(
-  "  const [form, setForm] = useState<Invoice>(initialInvoice);",
-  "  const [form, setForm] = useState<Invoice>(initialInvoice);\n  const [products, setProducts] = useState<ShopProduct[]>([]);\n  const [loadingProducts, setLoadingProducts] = useState(true);\n  const [productSearch, setProductSearch] = useState<Record<number, string>>({});\n  const [productOpen, setProductOpen] = useState<number | null>(null);\n  useEffect(() => { fetch('/api/products', { cache: 'no-store' }).then(r => r.ok ? r.json() : []).then(data => setProducts(Array.isArray(data) ? data : [])).catch(() => {}).finally(() => setLoadingProducts(false)); }, []);"
-);
+
+if (!source.includes("const [products, setProducts] = useState<ShopProduct[]>([]);")) {
+  source = source.replace(
+    "  const [form, setForm] = useState<Invoice>(initialInvoice);",
+    "  const [form, setForm] = useState<Invoice>(initialInvoice);\n  const [products, setProducts] = useState<ShopProduct[]>([]);\n  const [loadingProducts, setLoadingProducts] = useState(true);\n  const [productSearch, setProductSearch] = useState<Record<number, string>>({});\n  const [productOpen, setProductOpen] = useState<number | null>(null);\n  useEffect(() => { fetch('/api/products', { cache: 'no-store' }).then(r => r.ok ? r.json() : []).then(data => setProducts(Array.isArray(data) ? data : [])).catch(() => {}).finally(() => setLoadingProducts(false)); }, []);"
+  );
+}
 
 const itemStart = source.indexOf('        <div><div className="flex items-center justify-between mb-2"><h3 className="font-black">Položky</h3>');
 const itemEnd = source.indexOf('        <div className="grid md:grid-cols-3 gap-3">', itemStart);
