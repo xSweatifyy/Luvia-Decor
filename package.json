@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "prebuild": "node scripts/patch-shipping-rules.cjs && node scripts/patch-invoice-pdf.cjs && node scripts/patch-invoice-a4.cjs && node scripts/patch-invoice-products.cjs",
+    "prebuild": "node scripts/patch-shipping-rules.cjs && node scripts/patch-invoice-pdf.cjs && node scripts/patch-invoice-a4.cjs && node scripts/patch-invoice-products.cjs && node scripts/patch-terms-eet.cjs",
     "build": "vite build",
     "build:server": "esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
@@ -23,7 +23,6 @@
     "@types/node": "^22.14.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/node": "^10.0.0",
-    "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.4.21",
     "canvas-confetti": "^1.9.4",
     "dotenv": "^17.2.3",
