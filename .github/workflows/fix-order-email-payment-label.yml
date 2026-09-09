@@ -1,0 +1,35 @@
+name: Fix order email payment labels
+on:
+  push:
+    branches: [main]
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch payment label
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('api/orders.ts')
+          s = p.read_text()
+          old = '<br>IBAN: <strong>CZ96 5500 0000 0009 6362 5003</strong>'
+          new = '<br>IBAN (zahraniční platby): <strong>CZ96 5500 0000 0009 6362 5003</strong>'
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif 'IBAN (zahraniční platby): <strong>CZ96 5500 0000 0009 6362 5003</strong>' not in s:
+              raise SystemExit('Expected IBAN text not found in api/orders.ts')
+          p.write_text(s)
+          PY
+      - name: Commit and remove one-time workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add api/orders.ts .github/workflows/fix-order-email-payment-label.yml
+          git commit -m 'Fix payment labels in order emails'
+          git rm .github/workflows/fix-order-email-payment-label.yml
+          git commit -m 'Remove one-time payment email workflow'
+          git push
