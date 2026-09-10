@@ -1,2 +1,3 @@
 Luvia Decor production redeploy trigger.
+Gift card JSX build fix is ready.
 Trigger Vercel production deployment from main.
