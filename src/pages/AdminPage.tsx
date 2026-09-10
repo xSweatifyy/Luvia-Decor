@@ -13,6 +13,7 @@ import { ProductImageLibraryBridge } from '../components/ProductImageLibraryBrid
 import { GalleryImageLibraryBridge } from '../components/GalleryImageLibraryBridge';
 import { InvoiceManager } from '../components/InvoiceManager';
 import { PaidCompletedOrdersReport } from '../components/PaidCompletedOrdersReport';
+import { ProcessingOrdersPanel } from '../components/ProcessingOrdersPanel';
 import { useApp } from '../context/AppContext';
 
 export const AdminPage: React.FC = () => {
@@ -33,7 +34,7 @@ export const AdminPage: React.FC = () => {
       <div className="sticky top-0 z-40 px-3 sm:px-6 lg:px-8 -mt-1 pt-3"><div className="max-w-[1500px] mx-auto rounded-2xl border border-[#e6ddd2] bg-white/95 backdrop-blur-xl shadow-[0_12px_40px_rgba(74,55,40,.12)] p-2"><div className="flex items-center gap-1.5 overflow-x-auto">{tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setActive(id)} className={`shrink-0 flex items-center gap-2 rounded-xl px-3.5 sm:px-4 py-2.5 text-xs font-bold transition-all ${active === id ? 'bg-[#2D2723] text-white shadow-md translate-y-[-1px]' : 'text-[#67594e] hover:bg-[#f5efe8]'}`}><Icon className="w-4 h-4" />{label}</button>)}</div></div></div>
     </>}
     <div className="max-w-[1500px] mx-auto px-2 sm:px-4 lg:px-6 pt-5 pb-14">
-      {active === 'images' && adminUser ? <ProductImageLibrary /> : active === 'statuses' && adminUser ? <OrderStatusCategory /> : active === 'tracking' && adminUser ? <OrderTrackingManager /> : active === 'shipping' && adminUser ? <ShippingSettingsManager /> : active === 'invoices' && adminUser ? <InvoiceManager /> : active === 'audit' && adminUser ? <PaidCompletedOrdersReport /> : <div className="space-y-5"><LegacyAdminPage /><CouponManager /><GiftVoucherManager /><ShippingCouponManager /><AllCouponsList /></div>}
+      {active === 'images' && adminUser ? <ProductImageLibrary /> : active === 'statuses' && adminUser ? <OrderStatusCategory /> : active === 'tracking' && adminUser ? <OrderTrackingManager /> : active === 'shipping' && adminUser ? <ShippingSettingsManager /> : active === 'invoices' && adminUser ? <InvoiceManager /> : active === 'audit' && adminUser ? <div className="space-y-5"><ProcessingOrdersPanel /><PaidCompletedOrdersReport /></div> : <div className="space-y-5"><LegacyAdminPage /><CouponManager /><GiftVoucherManager /><ShippingCouponManager /><AllCouponsList /></div>}
     </div>
     {adminUser && <><ProductImageLibraryBridge /><GalleryImageLibraryBridge /></>}
   </div>;
