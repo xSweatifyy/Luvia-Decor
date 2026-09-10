@@ -26,6 +26,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Confirm production deploy
+        run: echo "Luvia Decor production deploy after gift-card changes"
+
       - name: Deploy to Vercel
         run: npx vercel deploy --prebuilt --prod --token "$VERCEL_TOKEN" --yes
         env:
