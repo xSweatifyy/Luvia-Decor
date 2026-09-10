@@ -101,7 +101,7 @@ export const InvoiceManager: React.FC = () => {
           <div className="space-y-3">
             {form.items.map((it,i)=>{
               const q=(productSearch[i] ?? '');
-              const filtered=products.filter(p=>`${productTitle(p)} ${String(p.id)}`.toLowerCase().includes(q.toLowerCase())).slice(0,80);
+              const filtered=products.filter(p=>`${productTitle(p)} ${String(p.id)}`.toLowerCase().includes(q.toLowerCase()));
               const selectedProduct=products.find(p=>String(p.id)===String(it.productId||''));
               return <div key={i} className="rounded-xl border p-3 bg-[#fcfaf8]">
                 <div className="grid grid-cols-[minmax(0,1fr)_80px_120px_42px] gap-2 items-center">
@@ -109,10 +109,10 @@ export const InvoiceManager: React.FC = () => {
                     <div className="flex items-center gap-2 rounded-lg border bg-white p-2">
                       {it.imageUrl ? <img src={it.imageUrl} alt="" className="w-10 h-10 rounded-md object-cover border shrink-0" onError={e=>{e.currentTarget.style.display='none';}}/> : <div className="w-10 h-10 rounded-md border bg-[#f1ece6] shrink-0"/>}
                       <input value={q || it.name} onFocus={()=>{setOpenProductPicker(i); if(!q && it.name) setProductSearch(s=>({...s,[i]:it.name}));}} onChange={e=>{setProductSearch(s=>({...s,[i]:e.target.value}));setOpenProductPicker(i);}} placeholder={loadingProducts?'Načítám všechny produkty…':'Vyhledat produkt z e-shopu…'} className="min-w-0 w-full outline-none text-sm bg-transparent"/>
-                      {q && <button onClick={()=>setProductSearch(s=>({...s,[i]:''}))} className="shrink-0"><X className="w-4 h-4 text-[#75685d]"/></button>}
+                      {q && <button onClick={()=>{setProductSearch(s=>({...s,[i]:''}));setOpenProductPicker(null);}} className="shrink-0"><X className="w-4 h-4 text-[#75685d]"/></button>}
                     </div>
                     {openProductPicker===i && <div className="absolute z-50 left-0 right-0 mt-1 rounded-xl border bg-white shadow-2xl overflow-hidden">
-                      <div className="px-3 py-2 border-b text-xs text-[#75685d] flex items-center gap-2"><Search className="w-3.5 h-3.5"/>{loadingProducts?`Načítám…`:`${filtered.length} z ${products.length} produktů`}</div>
+                      <div className="px-3 py-2 border-b bg-white flex items-center gap-2"><Search className="w-4 h-4 shrink-0 text-[#75685d]"/><input autoFocus value={q} onChange={e=>{setProductSearch(s=>({...s,[i]:e.target.value}));setOpenProductPicker(i);}} placeholder="Vyhledat mezi všemi produkty z e-shopu…" className="min-w-0 flex-1 outline-none text-sm bg-transparent"/><button type="button" onClick={()=>setOpenProductPicker(null)} aria-label="Zavřít nabídku produktů" title="Zavřít" className="shrink-0 rounded-lg p-1.5 hover:bg-[#f1ece6]"><X className="w-5 h-5 text-[#75685d]"/></button></div><div className="px-3 py-2 border-b text-xs text-[#75685d]">{loadingProducts?`Načítám všechny produkty…`:`${filtered.length} z ${products.length} produktů`}</div>
                       <div className="max-h-80 overflow-y-auto">
                         {!loadingProducts && filtered.length===0 && <div className="p-4 text-sm text-[#75685d]">Produkt nebyl nalezen.</div>}
                         {filtered.map(p=>{const out=productIsOutOfStock(p); const stock=productStock(p); return <button type="button" key={String(p.id)} onMouseDown={e=>e.preventDefault()} onClick={()=>chooseProduct(i,p)} className={`w-full flex items-center gap-3 p-2.5 text-left border-b last:border-b-0 hover:bg-[#faf7f3] ${out?'bg-red-50':''}`}>
