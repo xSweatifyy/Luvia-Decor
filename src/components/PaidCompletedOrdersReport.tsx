@@ -9,11 +9,19 @@ const date = (value: unknown) => {
   return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString('cs-CZ');
 };
 
+const paidStatuses = ['zaplaceno', 'u_prepravce', 'dokonceno'] as const;
+
 const statusLabel = (status: string) => ({
   zaplaceno: 'Zaplaceno',
   u_prepravce: 'U přepravce',
   dokonceno: 'Vyřízeno'
 }[status] || status);
+
+const statusTone = (status: string) => ({
+  zaplaceno: { bg: '#EAF6EE', color: '#176B3A', border: '#BFE4CB' },
+  u_prepravce: { bg: '#EEF4FF', color: '#2456A6', border: '#C9D9F5' },
+  dokonceno: { bg: '#F5F0FF', color: '#6542A4', border: '#D9CBF2' }
+}[status] || { bg: '#F5F5F5', color: '#555', border: '#DDD' });
 
 const deliveryLabel = (order: Order) => {
   const delivery = order.delivery;
@@ -47,167 +55,170 @@ export const PaidCompletedOrdersReport: React.FC = () => {
 
   useEffect(() => { load(); }, []);
 
+  // U přepravce a Vyřízeno jsou už zaplacené objednávky také.
   const eligible = useMemo(
-    () => orders.filter(o => ['zaplaceno', 'u_prepravce', 'dokonceno'].includes(o.status)),
+    () => orders.filter(o => paidStatuses.includes(o.status as typeof paidStatuses[number])),
     [orders]
   );
+
   const shown = useMemo(() => {
-    if (mode === 'both') return eligible;
-    const wanted = mode === 'paid' ? 'zaplaceno' : mode === 'carrier' ? 'u_prepravce' : 'dokonceno';
+    if (mode === 'both' || mode === 'paid') return eligible;
+    const wanted = mode === 'carrier' ? 'u_prepravce' : 'dokonceno';
     return eligible.filter(o => o.status === wanted);
   }, [eligible, mode]);
 
   const counts = useMemo(() => ({
-    paid: eligible.filter(o => o.status === 'zaplaceno').length,
+    paid: eligible.length,
+    paidDirect: eligible.filter(o => o.status === 'zaplaceno').length,
     carrier: eligible.filter(o => o.status === 'u_prepravce').length,
     completed: eligible.filter(o => o.status === 'dokonceno').length,
   }), [eligible]);
 
   const total = shown.reduce((sum, o) => sum + Number(o.totalPrice || 0), 0);
 
-  const downloadPdf = () => {
+  const downloadPdf = async () => {
     if (!shown.length || downloading) return;
     setDownloading(true);
 
+    const root = document.createElement('div');
+    root.style.position = 'absolute';
+    root.style.left = '-100000px';
+    root.style.top = '0';
+    root.style.width = '180mm';
+    root.style.background = '#ffffff';
+    root.style.color = '#2D2723';
+    root.style.fontFamily = 'Arial, Helvetica, sans-serif';
+    root.style.padding = '0';
+    root.style.boxSizing = 'border-box';
+
     try {
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const margin = 14;
-      const pageWidth = 210;
-      const pageHeight = 297;
-      const contentWidth = pageWidth - margin * 2;
-      let y = margin;
-      let pageNumber = 1;
-
-      const ensureSpace = (height: number) => {
-        if (y + height > pageHeight - 16) {
-          pdf.addPage();
-          pageNumber += 1;
-          y = margin;
-          pdf.setFontSize(8);
-          pdf.setTextColor(120, 110, 100);
-          pdf.text(`Luvia Decor — kontrolní výpis · strana ${pageNumber}`, margin, 9);
-        }
+      const generatedAt = new Date().toLocaleString('cs-CZ');
+      const statusChip = (status: string) => {
+        const tone = statusTone(status);
+        return `<span style="display:inline-block;padding:4px 9px;border-radius:999px;background:${tone.bg};color:${tone.color};border:1px solid ${tone.border};font-size:10px;font-weight:700;">${statusLabel(status)}</span>`;
       };
 
-      const addWrapped = (value: string, x: number, width: number, fontSize = 8.5, gap = 3.8) => {
-        pdf.setFontSize(fontSize);
-        pdf.setTextColor(45, 39, 35);
-        const lines = pdf.splitTextToSize(value, width) as string[];
-        ensureSpace(lines.length * gap + 1);
-        pdf.text(lines, x, y);
-        y += lines.length * gap;
-      };
-
-      const addLabelValue = (label: string, value: unknown, width = contentWidth) => {
-        pdf.setFontSize(8);
-        pdf.setTextColor(105, 93, 82);
-        pdf.text(`${label}:`, margin, y);
-        pdf.setFontSize(8.5);
-        pdf.setTextColor(45, 39, 35);
-        const lines = pdf.splitTextToSize(text(value), width - 28) as string[];
-        ensureSpace(Math.max(4, lines.length * 3.8));
-        pdf.text(lines, margin + 28, y);
-        y += Math.max(4, lines.length * 3.8);
-      };
-
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(17);
-      pdf.setTextColor(45, 39, 35);
-      pdf.text('Luvia Decor', margin, y);
-      y += 7;
-      pdf.setFontSize(12);
-      pdf.text('Kontrolní výpis objednávek', margin, y);
-      y += 5;
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(8);
-      pdf.setTextColor(105, 93, 82);
-      pdf.text(`Zaplacené, u přepravce a vyřízené objednávky · vytvořeno ${new Date().toLocaleString('cs-CZ')}`, margin, y);
-      y += 7;
-      pdf.setDrawColor(45, 39, 35);
-      pdf.line(margin, y, pageWidth - margin, y);
-      y += 6;
-
-      addLabelValue('Počet objednávek', shown.length);
-      addLabelValue('Zaplaceno', counts.paid);
-      addLabelValue('U přepravce', counts.carrier);
-      addLabelValue('Vyřízeno', counts.completed);
-      addLabelValue('Celková hodnota výpisu', money(total));
-      y += 3;
-
-      shown.forEach((order, index) => {
+      const rows = shown.map((order, index) => {
         const raw = order as Order & Record<string, unknown>;
         const customer = order.customer || ({} as Order['customer']);
         const delivery = order.delivery;
         const paymentMethod = raw.paymentMethod || raw.payment || raw.paymentType;
         const variableSymbol = raw.variableSymbol || raw.vs;
-
-        ensureSpace(38);
-        pdf.setFillColor(247, 243, 238);
-        pdf.rect(margin, y, contentWidth, 9, 'F');
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(10);
-        pdf.setTextColor(45, 39, 35);
-        pdf.text(`${index + 1}. ${text(order.orderNumber || order.id)}`, margin + 3, y + 5.8);
-        pdf.text(money(order.totalPrice), pageWidth - margin - pdf.getTextWidth(money(order.totalPrice)) - 3, y + 5.8);
-        y += 13;
-        pdf.setFont('helvetica', 'normal');
-
-        addLabelValue('Datum objednávky', date(order.createdAt));
-        addLabelValue('Stav', statusLabel(order.status));
-        addLabelValue('Zákazník', customer.fullName);
-        addLabelValue('E-mail', customer.email);
-        addLabelValue('Telefon', customer.phone);
-        addLabelValue('Adresa', `${text(customer.street)}, ${text(customer.zip)} ${text(customer.city)}, ${text(customer.country)}`);
-        addLabelValue('Doprava', deliveryLabel(order));
-        addLabelValue('Přepravce', delivery?.carrier || (delivery?.method === 'personal_pickup' ? 'Osobní odběr' : '—'));
-        if (delivery?.pickupPoint) addLabelValue('Výdejní místo / box', delivery.pickupPoint);
-        addLabelValue('Cena dopravy', money(order.shipping));
-        addLabelValue('Mezisoučet', money(order.subtotal));
-        addLabelValue('Sleva', order.discount ? `-${money(order.discount)}` : '0,00 Kč');
-        addLabelValue('Slevový kód / poukaz', order.couponCode);
-        if (paymentMethod) addLabelValue('Platba', paymentMethod);
-        if (variableSymbol) addLabelValue('Variabilní symbol', variableSymbol);
-
-        ensureSpace(8);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(8.5);
-        pdf.text('Položky objednávky:', margin, y);
-        y += 4.5;
-        pdf.setFont('helvetica', 'normal');
-        order.items.forEach(item => {
-          const line = `${item.quantity}× ${text(item.title)} · ${money(item.price)} / ks · celkem ${money(item.price * item.quantity)}`;
-          addWrapped(line, margin + 3, contentWidth - 3, 8, 3.7);
-          if (item.customNote) addWrapped(`Poznámka k položce: ${item.customNote}`, margin + 7, contentWidth - 7, 7.5, 3.5);
-        });
+        const itemRows = (order.items || []).map(item => `
+          <tr>
+            <td style="padding:7px 8px;border-bottom:1px solid #EEE8DF;vertical-align:top;">${item.quantity}×</td>
+            <td style="padding:7px 8px;border-bottom:1px solid #EEE8DF;vertical-align:top;"><strong>${text(item.title)}</strong>${item.customNote ? `<div style="font-size:9px;color:#7B6E63;margin-top:3px;">Poznámka: ${text(item.customNote)}</div>` : ''}</td>
+            <td style="padding:7px 8px;border-bottom:1px solid #EEE8DF;text-align:right;vertical-align:top;white-space:nowrap;">${money(item.price)} / ks</td>
+            <td style="padding:7px 8px;border-bottom:1px solid #EEE8DF;text-align:right;vertical-align:top;white-space:nowrap;font-weight:700;">${money(item.price * item.quantity)}</td>
+          </tr>`).join('');
 
         const orderNote = customer.note || raw.note || raw.customerNote;
-        if (orderNote) addWrapped(`Poznámka zákazníka: ${text(orderNote)}`, margin + 3, contentWidth - 3, 8, 3.7);
+        return `
+          <section style="margin:0 0 18px 0;border:1px solid #E5DDD2;border-radius:12px;overflow:hidden;page-break-inside:avoid;background:#fff;">
+            <div style="background:#F7F2EC;padding:11px 13px;border-bottom:1px solid #E5DDD2;display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div style="font-size:13px;font-weight:800;letter-spacing:.1px;">${index + 1}. ${text(order.orderNumber || order.id)}</div>
+                <div style="font-size:9px;color:#7B6E63;margin-top:3px;">${date(order.createdAt)}</div>
+              </div>
+              <div style="text-align:right;">${statusChip(order.status)}<div style="font-size:13px;font-weight:800;color:#8C7355;margin-top:5px;">${money(order.totalPrice)}</div></div>
+            </div>
+            <div style="padding:13px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;font-size:9.5px;line-height:1.45;">
+                <div><span style="color:#8A7C70;">Zákazník</span><br><strong>${text(customer.fullName)}</strong></div>
+                <div><span style="color:#8A7C70;">E-mail</span><br>${text(customer.email)}</div>
+                <div><span style="color:#8A7C70;">Telefon</span><br>${text(customer.phone)}</div>
+                <div><span style="color:#8A7C70;">Adresa</span><br>${text(customer.street)}, ${text(customer.zip)} ${text(customer.city)}, ${text(customer.country)}</div>
+                <div><span style="color:#8A7C70;">Doprava</span><br>${deliveryLabel(order)}</div>
+                <div><span style="color:#8A7C70;">Přepravce</span><br>${text(delivery?.carrier || (delivery?.method === 'personal_pickup' ? 'Osobní odběr' : '—'))}</div>
+                ${delivery?.pickupPoint ? `<div style="grid-column:1 / -1;"><span style="color:#8A7C70;">Výdejní místo / box</span><br>${text(delivery.pickupPoint)}</div>` : ''}
+                ${paymentMethod ? `<div><span style="color:#8A7C70;">Platba</span><br>${text(paymentMethod)}</div>` : ''}
+                ${variableSymbol ? `<div><span style="color:#8A7C70;">Variabilní symbol</span><br>${text(variableSymbol)}</div>` : ''}
+              </div>
 
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(9);
-        pdf.text(`Celkem objednávky: ${money(order.totalPrice)}`, pageWidth - margin - 65, y);
-        y += 6;
-        pdf.setDrawColor(220, 211, 201);
-        pdf.line(margin, y, pageWidth - margin, y);
-        y += 6;
+              <div style="margin-top:12px;border-top:1px solid #EEE8DF;padding-top:10px;">
+                <div style="font-size:10px;font-weight:800;margin-bottom:5px;">Položky objednávky</div>
+                <table style="width:100%;border-collapse:collapse;font-size:9px;">
+                  <thead><tr style="background:#FAF7F3;color:#7B6E63;"><th style="padding:6px 8px;text-align:left;width:9%;">Ks</th><th style="padding:6px 8px;text-align:left;">Produkt</th><th style="padding:6px 8px;text-align:right;">Cena</th><th style="padding:6px 8px;text-align:right;">Celkem</th></tr></thead>
+                  <tbody>${itemRows}</tbody>
+                </table>
+              </div>
+
+              <div style="display:flex;justify-content:flex-end;margin-top:9px;font-size:9.5px;line-height:1.6;">
+                <div style="min-width:190px;">
+                  <div style="display:flex;justify-content:space-between;"><span>Mezisoučet</span><strong>${money(order.subtotal)}</strong></div>
+                  <div style="display:flex;justify-content:space-between;"><span>Doprava</span><strong>${money(order.shipping)}</strong></div>
+                  <div style="display:flex;justify-content:space-between;"><span>Sleva</span><strong>${order.discount ? `-${money(order.discount)}` : '0,00 Kč'}</strong></div>
+                  ${order.couponCode ? `<div style="display:flex;justify-content:space-between;"><span>Kód / poukaz</span><strong>${text(order.couponCode)}</strong></div>` : ''}
+                  <div style="display:flex;justify-content:space-between;border-top:1px solid #DCD2C6;margin-top:4px;padding-top:5px;font-size:11px;"><span><strong>Celkem</strong></span><strong style="color:#8C7355;">${money(order.totalPrice)}</strong></div>
+                </div>
+              </div>
+              ${orderNote ? `<div style="margin-top:9px;padding:8px 10px;background:#FBF8F4;border-left:3px solid #C9B294;border-radius:4px;font-size:9px;"><strong>Poznámka zákazníka:</strong> ${text(orderNote)}</div>` : ''}
+            </div>
+          </section>`;
+      }).join('');
+
+      root.innerHTML = `
+        <div style="background:#fff;padding:0 0 20px 0;">
+          <div style="padding:18px 0 12px;border-bottom:2px solid #2D2723;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:20px;">
+              <div><div style="font-size:23px;font-weight:800;letter-spacing:-.3px;">Luvia Decor</div><div style="font-size:13px;font-weight:700;margin-top:3px;">Kontrolní výpis objednávek</div></div>
+              <div style="font-size:9px;color:#7B6E63;text-align:right;">Interní administrace<br>${generatedAt}</div>
+            </div>
+            <div style="font-size:9.5px;color:#6F6258;margin-top:9px;">Zaplacené objednávky — včetně stavů U přepravce a Vyřízeno</div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0 16px;">
+            <div style="border:1px solid #E5DDD2;border-radius:9px;padding:9px;background:#FAF7F3;"><div style="font-size:8px;color:#8A7C70;text-transform:uppercase;font-weight:700;">Zaplacené celkem</div><div style="font-size:16px;font-weight:800;margin-top:3px;">${counts.paid}</div></div>
+            <div style="border:1px solid #E5DDD2;border-radius:9px;padding:9px;background:#FAF7F3;"><div style="font-size:8px;color:#8A7C70;text-transform:uppercase;font-weight:700;">Zaplaceno</div><div style="font-size:16px;font-weight:800;margin-top:3px;">${counts.paidDirect}</div></div>
+            <div style="border:1px solid #E5DDD2;border-radius:9px;padding:9px;background:#FAF7F3;"><div style="font-size:8px;color:#8A7C70;text-transform:uppercase;font-weight:700;">U přepravce</div><div style="font-size:16px;font-weight:800;margin-top:3px;">${counts.carrier}</div></div>
+            <div style="border:1px solid #E5DDD2;border-radius:9px;padding:9px;background:#FAF7F3;"><div style="font-size:8px;color:#8A7C70;text-transform:uppercase;font-weight:700;">Vyřízeno</div><div style="font-size:16px;font-weight:800;margin-top:3px;">${counts.completed}</div></div>
+          </div>
+
+          <div style="margin-bottom:14px;padding:10px 12px;background:#2D2723;color:#fff;border-radius:9px;display:flex;justify-content:space-between;align-items:center;font-size:10px;"><span>Hodnota aktuálního výpisu</span><strong style="font-size:13px;">${money(total)}</strong></div>
+          ${rows}
+          <div style="border-top:2px solid #2D2723;padding-top:9px;margin-top:4px;display:flex;justify-content:space-between;font-size:12px;font-weight:800;"><span>CELKEM ZA VÝPIS</span><span style="color:#8C7355;">${money(total)}</span></div>
+          <div style="margin-top:13px;padding-top:9px;border-top:1px solid #E5DDD2;font-size:8px;color:#7B6E63;">Výpis objednávek z interní administrace.</div>
+        </div>`;
+
+      document.body.appendChild(root);
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      await new Promise<void>((resolve, reject) => {
+        pdf.html(root, {
+          x: 15,
+          y: 12,
+          width: 180,
+          windowWidth: 680,
+          autoPaging: 'text',
+          margin: [12, 15, 12, 15],
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#ffffff',
+            logging: false,
+            scrollX: 0,
+            scrollY: 0
+          },
+          callback: () => resolve(),
+          error: (error: Error) => reject(error)
+        });
       });
 
-      ensureSpace(14);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(10);
-      pdf.setTextColor(45, 39, 35);
-      pdf.text(`CELKEM ZA VÝPIS: ${money(total)}`, margin, y);
-      y += 6;
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(7);
-      pdf.setTextColor(120, 110, 100);
-      addWrapped('Tento dokument je interní administrativní výpis z objednávek e-shopu. Nenahrazuje účetní ani daňovou evidenci, pokud je podle právních předpisů vedena samostatně.', margin, contentWidth, 7, 3.2);
+      const pageCount = pdf.getNumberOfPages();
+      for (let page = 1; page <= pageCount; page += 1) {
+        pdf.setPage(page);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(7);
+        pdf.setTextColor(125, 115, 105);
+        pdf.text(`Luvia Decor · Výpis objednávek · ${page}/${pageCount}`, 15, 290);
+      }
 
       pdf.save(`luvia-decor-vypis-objednavek-${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (error) {
       console.error('PDF export failed:', error);
       window.alert('PDF se nepodařilo vytvořit. Zkuste prosím výpis obnovit a stáhnout znovu.');
     } finally {
+      root.remove();
       setDownloading(false);
     }
   };
@@ -219,7 +230,7 @@ export const PaidCompletedOrdersReport: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 text-[#8C7355] text-[10px] font-bold uppercase tracking-[0.18em]"><ShieldCheck className="w-4 h-4" /> Kontrolní výpis</div>
             <h2 className="font-editorial text-2xl font-bold text-[#2D2723] mt-1">Zaplacené, u přepravce a vyřízené objednávky</h2>
-            <p className="text-xs text-[#7B6E63] mt-1 max-w-2xl">Samostatný přehled objednávek ve stavech Zaplaceno, U přepravce a Dokončeno. Každá objednávka obsahuje detail zákazníka, dopravy, položek a částek.</p>
+            <p className="text-xs text-[#7B6E63] mt-1 max-w-2xl">Objednávky ve stavech Zaplaceno, U přepravce a Vyřízeno. Stavy U přepravce a Vyřízeno se automaticky počítají také mezi zaplacené objednávky.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={load} className="px-3 py-2 rounded-xl border border-[#E3DACF] bg-[#FAF5EE] text-xs font-bold flex items-center gap-2"><RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Obnovit</button>
@@ -230,7 +241,7 @@ export const PaidCompletedOrdersReport: React.FC = () => {
         <div className="flex flex-wrap gap-2 pt-5">
           {([
             ['both', `Vše (${eligible.length})`],
-            ['paid', `Zaplacené (${counts.paid})`],
+            ['paid', `Zaplacené celkem (${counts.paid})`],
             ['carrier', `U přepravce (${counts.carrier})`],
             ['completed', `Vyřízené (${counts.completed})`]
           ] as const).map(([value, label]) => (
@@ -239,10 +250,10 @@ export const PaidCompletedOrdersReport: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
-          <div className="rounded-2xl bg-[#FAF8F5] border border-[#EDE5DA] p-4"><span className="text-[10px] uppercase font-bold text-[#8C7355]">Výpis</span><p className="text-2xl font-bold mt-1">{shown.length}</p><p className="text-[11px] text-stone-500">objednávek</p></div>
-          <div className="rounded-2xl bg-[#FAF8F5] border border-[#EDE5DA] p-4"><span className="text-[10px] uppercase font-bold text-[#8C7355]">Zaplacené</span><p className="text-2xl font-bold mt-1">{counts.paid}</p><p className="text-[11px] text-stone-500">objednávek</p></div>
-          <div className="rounded-2xl bg-[#FAF8F5] border border-[#EDE5DA] p-4"><span className="text-[10px] uppercase font-bold text-[#8C7355]">U přepravce</span><p className="text-2xl font-bold mt-1">{counts.carrier}</p><p className="text-[11px] text-stone-500">objednávek</p></div>
-          <div className="rounded-2xl bg-[#FAF8F5] border border-[#EDE5DA] p-4"><span className="text-[10px] uppercase font-bold text-[#8C7355]">Celkem</span><p className="text-xl font-bold mt-1 text-[#8C7355]">{money(total)}</p><p className="text-[11px] text-stone-500">podle výpisu</p></div>
+          <div className="rounded-2xl bg-[#FAF8F5] border border-[#EDE5DA] p-4"><span className="text-[10px] uppercase font-bold text-[#8C7355]">Zaplacené celkem</span><p className="text-2xl font-bold mt-1">{counts.paid}</p><p className="text-[11px] text-stone-500">včetně přepravce a vyřízených</p></div>
+          <div className="rounded-2xl bg-[#FAF8F5] border border-[#EDE5DA] p-4"><span className="text-[10px] uppercase font-bold text-[#8C7355]">Zaplaceno</span><p className="text-2xl font-bold mt-1">{counts.paidDirect}</p><p className="text-[11px] text-stone-500">aktuálně ve stavu Zaplaceno</p></div>
+          <div className="rounded-2xl bg-[#FAF8F5] border border-[#EDE5DA] p-4"><span className="text-[10px] uppercase font-bold text-[#8C7355]">U přepravce</span><p className="text-2xl font-bold mt-1">{counts.carrier}</p><p className="text-[11px] text-stone-500">již zaplacené</p></div>
+          <div className="rounded-2xl bg-[#FAF8F5] border border-[#EDE5DA] p-4"><span className="text-[10px] uppercase font-bold text-[#8C7355]">Vyřízeno</span><p className="text-2xl font-bold mt-1">{counts.completed}</p><p className="text-[11px] text-stone-500">již zaplacené</p></div>
         </div>
       </div>
 
