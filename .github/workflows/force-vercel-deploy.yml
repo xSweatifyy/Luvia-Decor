@@ -1,5 +1,4 @@
 name: Force Vercel Deploy
-
 on:
   push:
     branches: [main]
