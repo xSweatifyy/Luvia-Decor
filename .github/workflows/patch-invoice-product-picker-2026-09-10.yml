@@ -1,0 +1,51 @@
+name: Patch invoice product picker
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Patch invoice product picker
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/InvoiceManager.tsx')
+          s = p.read_text()
+
+          old = "const filtered=products.filter(p=>`${productTitle(p)} ${String(p.id)}`.toLowerCase().includes(q.toLowerCase())).slice(0,80);"
+          new = "const filtered=products.filter(p=>`${productTitle(p)} ${String(p.id)}`.toLowerCase().includes(q.toLowerCase()));"
+          if old in s:
+              s = s.replace(old, new)
+
+          old = '''{openProductPicker===i && <div className=\"absolute z-50 left-0 right-0 mt-1 rounded-xl border bg-white shadow-2xl overflow-hidden\">\n                      <div className=\"px-3 py-2 border-b text-xs text-[#75685d] flex items-center gap-2\"><Search className=\"w-3.5 h-3.5\"/>{loadingProducts?`Načítám…`:`${filtered.length} z ${products.length} produktů`}</div>'''
+          new = '''{openProductPicker===i && <div className=\"invoice-product-picker absolute z-50 left-0 right-0 mt-1 rounded-xl border bg-white shadow-2xl overflow-hidden\">\n                      <div className=\"flex items-center gap-2 px-3 py-2 border-b bg-[#fcfaf8]\">\n                        <Search className=\"w-4 h-4 text-[#75685d] shrink-0\"/>\n                        <input\n                          autoFocus\n                          value={q}\n                          onChange={e=>{setProductSearch(s=>({...s,[i]:e.target.value}));setOpenProductPicker(i);}}\n                          placeholder=\"Vyhledat mezi všemi produkty e-shopu…\"\n                          className=\"min-w-0 flex-1 bg-transparent outline-none text-sm font-medium\"\n                        />\n                        <span className=\"text-[11px] text-[#75685d] whitespace-nowrap\">{loadingProducts?'Načítám…':`${filtered.length} z ${products.length}`}</span>\n                        <button type=\"button\" aria-label=\"Zavřít výběr produktů\" title=\"Zavřít\" onMouseDown={e=>e.preventDefault()} onClick={()=>setOpenProductPicker(null)} className=\"shrink-0 rounded-lg border p-1.5 hover:bg-white\">\n                          <X className=\"w-4 h-4 text-[#75685d]\"/>\n                        </button>\n                      </div>'''
+          if old in s:
+              s = s.replace(old, new)
+          else:
+              raise SystemExit('Expected product picker header was not found')
+
+          p.write_text(s)
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/components/InvoiceManager.tsx
+          if git diff --cached --quiet; then
+            echo 'No changes needed.'
+            exit 0
+          fi
+          git commit -m 'Vylepšit výběr produktů ve fakturách'
+          git push
