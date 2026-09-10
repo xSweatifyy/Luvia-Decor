@@ -1,0 +1,83 @@
+name: Fix gift card email delivery
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'fix: restrict gift card delivery to email'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Patch checkout
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          p = Path('src/pages/CheckoutCartPage.tsx')
+          s = p.read_text(encoding='utf-8')
+
+          if "type Method = 'address' | 'pickup_point' | 'box' | 'personal_pickup' | 'email';" not in s:
+              s = s.replace("type Method = 'address' | 'pickup_point' | 'box' | 'personal_pickup';", "type Method = 'address' | 'pickup_point' | 'box' | 'personal_pickup' | 'email';")
+
+          if 'const onlyGiftCards =' not in s:
+              s = s.replace("  const pplAllowed = cart.length > 0 && cart.every(i => PPL_ALLOWED.has(normalizeCategory(i.product.category)));", "  const onlyGiftCards = cart.length > 0 && cart.every(i => normalizeCategory(i.product.category) === 'darkove-karty');\n  const pplAllowed = cart.length > 0 && cart.every(i => PPL_ALLOWED.has(normalizeCategory(i.product.category)));")
+
+          s = s.replace("  const carrierNames = destination === 'sk' ? ['ZASILKOVNA'] : ['BALIKOVNA','DPD','GLS','WEDO','PPL','ZASILKOVNA',...(upsAllowed ? ['UPS'] : [])];", "  const carrierNames = onlyGiftCards ? ['EMAIL'] : destination === 'sk' ? ['ZASILKOVNA'] : ['BALIKOVNA','DPD','GLS','WEDO','PPL','ZASILKOVNA',...(upsAllowed ? ['UPS'] : [])];")
+          s = s.replace("  if (destination === 'cz') entries.push(['PenguinBox',{enabled:true}]);", "  if (!onlyGiftCards && destination === 'cz') entries.push(['PenguinBox',{enabled:true}]);")
+          s = s.replace("  const basePrice = carrier === 'PenguinBox' ? 59 :", "  const basePrice = carrier === 'EMAIL' ? 0 : carrier === 'PenguinBox' ? 59 :")
+          s = s.replace("  const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) :", "  const shipping = method === 'email' ? 0 : method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) :")
+
+          old = "  useEffect(()=>{ if(destination==='sk'){setCarrier('ZASILKOVNA');setMethod('pickup_point');setPoint(null);return;}"
+          new = "  useEffect(()=>{ if(onlyGiftCards){setCarrier('EMAIL');setMethod('email');setPoint(null);setPicker(false);setPenguinAddress('');return;} if(destination==='sk'){setCarrier('ZASILKOVNA');setMethod('pickup_point');setPoint(null);return;}"
+          s = s.replace(old, new)
+
+          s = s.replace("  const chooseCarrier = (c: string) => { setCarrier(c); setPoint(null); setPenguinAddress(''); setPicker(false); setMethod(c==='PenguinBox'?'box':c==='UPS'?'address':'pickup_point'); };", "  const chooseCarrier = (c: string) => { setCarrier(c); setPoint(null); setPenguinAddress(''); setPicker(false); setMethod(c==='EMAIL'?'email':c==='PenguinBox'?'box':c==='UPS'?'address':'pickup_point'); };")
+          s = s.replace("  const chooseMethod = (m: Method) => { if(m==='personal_pickup')", "  const chooseMethod = (m: Method) => { if(m==='email'){setMethod(m);setPoint(null);setPicker(false);return;} if(m==='personal_pickup')")
+
+          s = s.replace("if(!carrier||!entries.some(([n])=>n===carrier))return addToast('error','Vyberte přepravce','Vyberte dostupného přepravce.');", "if(!onlyGiftCards && (!carrier||!entries.some(([n])=>n===carrier)))return addToast('error','Vyberte přepravce','Vyberte dostupného přepravce.');")
+          s = s.replace("if(carrier==='PPL'&&!pplAllowed)", "if(!onlyGiftCards && carrier==='PPL'&&!pplAllowed)")
+          s = s.replace("if(carrier==='UPS'&&(!upsAllowed||method!=='address'))", "if(!onlyGiftCards && carrier==='UPS'&&(!upsAllowed||method!=='address'))")
+          s = s.replace("if(carrier==='ZASILKOVNA'&&destination==='cz'&&method==='address'&&!zasilkovnaAddressAllowed)", "if(!onlyGiftCards && carrier==='ZASILKOVNA'&&destination==='cz'&&method==='address'&&!zasilkovnaAddressAllowed)")
+          s = s.replace("if(method==='address'&&(!street.trim()||!city.trim()||!zip.trim()))", "if(!onlyGiftCards && method==='address'&&(!street.trim()||!city.trim()||!zip.trim()))")
+          s = s.replace("if(carrier==='PenguinBox'&&!penguinAddress.trim())", "if(!onlyGiftCards && carrier==='PenguinBox'&&!penguinAddress.trim())")
+          s = s.replace("if((method==='pickup_point'||method==='box')&&carrier!=='PenguinBox'&&destination!=='sk'&&!point)", "if(!onlyGiftCards && (method==='pickup_point'||method==='box')&&carrier!=='PenguinBox'&&destination!=='sk'&&!point)")
+
+          s = s.replace("delivery:method==='personal_pickup'?{method}:{method,carrier,country:destination==='sk'?'SK':'CZ',", "delivery:onlyGiftCards?{method:'email',carrier:'EMAIL',country:destination==='sk'?'SK':'CZ'}:method==='personal_pickup'?{method}:{method,carrier,country:destination==='sk'?'SK':'CZ',")
+
+          marker = "  <div><div className=\"flex items-center gap-2 mb-3\"><MapPinned className=\"w-4 h-4 text-[#9A7B58]\"/><b>Způsob doručení *</b></div>"
+          if marker in s and 'onlyGiftCards ?' not in s[s.index(marker):s.index(marker)+1000]:
+              start = s.index(marker)
+              end = s.index("  {carrier!=='PenguinBox'&&method!=='personal_pickup'", start)
+              replacement = '''  <div><div className="flex items-center gap-2 mb-3"><MapPinned className="w-4 h-4 text-[#9A7B58]"/><b>Způsob doručení *</b></div>{onlyGiftCards ? <div className="rounded-2xl border border-[#9A7B58] bg-[#FBF6EF] p-4"><div className="flex items-center justify-between gap-3"><div><b>Emailem</b><span className="block text-[11px] text-[#8B8178] mt-1">Dárková karta je digitální a bude doručena na zadaný e-mail.</span></div><strong>Zdarma</strong></div></div> : <><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{entries.map(([n])=>{const isPenguin=n==='PenguinBox'; const isUps=n==='UPS'; const rate=FIXED_SHIPPING[n]; const pickupFinal=rate?(n==='ZASILKOVNA'?rate.pickup:withCharges(rate.pickup)):59; const addressFinal=rate?.address!=null?(n==='ZASILKOVNA'?rate.address:withCharges(rate.address)):null; const pickupLabel=isUps?'—':destination==='sk'?'Po dohodě':`${displayShipping(pickupFinal)} Kč`; const addressLabel=destination==='sk'?'Po dohodě':isUps?'356,00 Kč':addressFinal!=null?`${displayShipping(addressFinal)} Kč`:null; return <button type="button" key={n} onClick={()=>chooseCarrier(n)} className={option(carrier===n)}><div className="flex items-start justify-between gap-3"><div><b>{isPenguin?'PenguinBox':ZASLAT_LABELS[n]||n}</b><span className="block text-[11px] text-[#8B8178] mt-1">{isPenguin?'Výdejní box · pouze ČR':isUps?'Doručení na adresu · do 5 kg':n==='GLS'||n==='PPL'?'Pouze výdejní místo / box':addressFinal!=null?'Výdejní místo / box · nebo doručení na adresu':'Výdejní místo / box'}</span></div><strong className="whitespace-nowrap">{isPenguin?displayShipping(59):isUps?'356,00 Kč':pickupLabel}</strong></div>{!isPenguin&&<span className="block text-[11px] text-[#8B8178] mt-2">{isUps?'Na adresu: 356,00 Kč':addressFinal!=null?`Adresa: ${addressLabel}`:''}</span>}{!isPenguin&&!isUps&&destination==='cz'&&<span className="block text-[10px] text-[#8B8178] mt-1">Cena včetně 10,5 % palivového příplatku a DPH</span>}{isUps&&<span className="block text-[10px] text-[#8B8178] mt-1">Maximální hmotnost zásilky: 5 kg</span>}{n==='ZASILKOVNA'&&destination==='cz'&&!zasilkovnaAddressAllowed&&<span className="block text-[10px] text-amber-700 mt-1">Adresa pouze do 5 kg</span>}</button>})}{destination==='cz'&&shippingConfig.personalPickup?.enabled!==false&&<button type="button" onClick={()=>chooseMethod('personal_pickup')} className={option(method==='personal_pickup')}><b>{shippingConfig.personalPickup?.label||'Osobní odběr – Kroměříž'}</b><span className="block text-[11px] mt-1">Osobní odběr · {displayShipping(Number(shippingConfig.personalPickup?.price||0))} Kč</span></button>}</div></>}</div>\n'''
+              s = s[:start] + replacement + s[end:]
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Commit source change
+        run: |
+          if git diff --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/CheckoutCartPage.tsx
+          git commit -m "fix: restrict gift card delivery to email"
+          git push
+
+      - name: Remove one-shot workflow
+        if: success()
+        run: |
+          git rm .github/workflows/fix-gift-card-email-delivery.yml || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: remove one-shot gift card delivery patch" || true
+          git push || true
