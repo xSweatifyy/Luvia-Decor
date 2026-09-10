@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, FileText, Printer, Send } from 'lucide-react';
+import { ArrowLeft, FileText, Send } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export const ComplaintPage: React.FC = () => {
@@ -16,8 +16,8 @@ export const ComplaintPage: React.FC = () => {
         <label className="block text-xs font-semibold">Reklamované zboží<input required name="product" className="mt-1 w-full rounded-xl border border-[#E3DACF] bg-[#FCFAF7] px-3 py-3 text-sm"/></label>
         <label className="block text-xs font-semibold">Popis vady<textarea required name="description" rows={5} className="mt-1 w-full rounded-xl border border-[#E3DACF] bg-[#FCFAF7] px-3 py-3 text-sm resize-y"/></label>
         <label className="block text-xs font-semibold">Požadovaný způsob vyřízení<select name="resolution" defaultValue="oprava" className="mt-1 w-full rounded-xl border border-[#E3DACF] bg-[#FCFAF7] px-3 py-3 text-sm"><option value="oprava">Oprava, je-li možná</option><option value="vymena">Výměna</option><option value="sleva">Přiměřená sleva</option><option value="odstoupeni">Odstoupení od smlouvy, jsou-li splněny zákonné podmínky</option></select></label>
-        <div className="flex flex-wrap gap-3"><button type="submit" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#2D2723] text-white px-5 py-3.5 text-sm font-bold"><Send className="w-4 h-4"/>Odeslat reklamační protokol</button><button type="button" onClick={() => window.print()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#DCCDBD] bg-[#FCFAF7] px-5 py-3.5 text-sm font-bold text-[#75604B]"><Printer className="w-4 h-4"/>Vytisknout / uložit PDF</button></div>
-        {sent && <div className="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 p-4 text-sm font-semibold">Protokol byl připraven. Zákazník jej může vytisknout nebo uložit jako PDF.</div>}
+        <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#2D2723] text-white px-5 py-3.5 text-sm font-bold"><Send className="w-4 h-4"/>Odeslat reklamační protokol</button>
+        {sent && <div className="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 p-4 text-sm font-semibold">Protokol byl odeslán k dalšímu zpracování.</div>}
         <p className="text-[11px] leading-5 text-[#81766D]">Reklamační protokol slouží jako podklad pro uplatnění reklamace. Zákonná práva spotřebitele tímto formulářem nejsou omezena.</p>
       </form>
     </div>
