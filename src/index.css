@@ -78,3 +78,16 @@ main { width: 100%; min-width: 0; }
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/* Gift card PDF – add more breathing room between the text blocks without changing the designs. */
+body > div[style*="left:-20000px"] .card .brand { top: 62px !important; }
+body > div[style*="left:-20000px"] .card .category { top: 145px !important; line-height: 1.8 !important; }
+body > div[style*="left:-20000px"] .card .eyebrow { top: 278px !important; line-height: 1.8 !important; }
+body > div[style*="left:-20000px"] .card .title { top: 335px !important; line-height: 1.2 !important; }
+body > div[style*="left:-20000px"] .card .sub { top: 438px !important; line-height: 1.8 !important; }
+body > div[style*="left:-20000px"] .card .amount { top: 515px !important; line-height: 1.15 !important; }
+body > div[style*="left:-20000px"] .card .motto { top: 655px !important; line-height: 2 !important; }
+body > div[style*="left:-20000px"] .card .details { bottom: 116px !important; padding-top: 28px !important; gap: 110px !important; }
+body > div[style*="left:-20000px"] .card .label { margin-bottom: 13px !important; line-height: 1.7 !important; }
+body > div[style*="left:-20000px"] .card .value { line-height: 1.55 !important; }
+body > div[style*="left:-20000px"] .card .footer { bottom: 48px !important; line-height: 1.7 !important; }
