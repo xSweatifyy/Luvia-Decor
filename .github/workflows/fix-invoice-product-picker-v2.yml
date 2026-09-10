@@ -1,0 +1,55 @@
+name: Fix invoice product picker v2
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch invoice product picker
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('src/components/InvoiceManager.tsx')
+          text = path.read_text(encoding='utf-8')
+          original = text
+
+          text = text.replace(
+              ".slice(0,80);",
+              ";"
+          )
+
+          text = text.replace(
+              "onClick={()=>setProductSearch(s=>({...s,[i]:''}))}",
+              "onClick={()=>{setProductSearch(s=>({...s,[i]:''}));setOpenProductPicker(null);}}"
+          )
+
+          old_header = '<div className="px-3 py-2 border-b text-xs text-[#75685d] flex items-center gap-2"><Search className="w-3.5 h-3.5"/>{loadingProducts?`Načítám…`:`${filtered.length} z ${products.length} produktů`}</div>'
+          new_header = '<div className="px-3 py-2 border-b bg-white flex items-center gap-2"><Search className="w-4 h-4 shrink-0 text-[#75685d]"/><input autoFocus value={q} onChange={e=>{setProductSearch(s=>({...s,[i]:e.target.value}));setOpenProductPicker(i);}} placeholder="Vyhledat mezi všemi produkty z e-shopu…" className="min-w-0 flex-1 outline-none text-sm bg-transparent"/><button type="button" onClick={()=>setOpenProductPicker(null)} aria-label="Zavřít nabídku produktů" title="Zavřít" className="shrink-0 rounded-lg p-1.5 hover:bg-[#f1ece6]"><X className="w-5 h-5 text-[#75685d]"/></button></div><div className="px-3 py-2 border-b text-xs text-[#75685d]">{loadingProducts?`Načítám všechny produkty…`:`${filtered.length} z ${products.length} produktů`}</div>'
+          if old_header in text:
+              text = text.replace(old_header, new_header, 1)
+          else:
+              raise SystemExit('Invoice product picker header not found')
+
+          if text == original:
+              raise SystemExit('No changes made')
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/InvoiceManager.tsx
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add complete invoice product search and close button"
+          git push
