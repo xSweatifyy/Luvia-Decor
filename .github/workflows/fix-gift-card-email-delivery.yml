@@ -9,7 +9,6 @@ permissions:
 
 jobs:
   patch:
-    if: github.event.head_commit.message != 'fix: restrict gift card delivery to email'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +18,6 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-          import re
 
           p = Path('src/pages/CheckoutCartPage.tsx')
           s = p.read_text(encoding='utf-8')
@@ -35,10 +33,7 @@ jobs:
           s = s.replace("  const basePrice = carrier === 'PenguinBox' ? 59 :", "  const basePrice = carrier === 'EMAIL' ? 0 : carrier === 'PenguinBox' ? 59 :")
           s = s.replace("  const shipping = method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) :", "  const shipping = method === 'email' ? 0 : method === 'personal_pickup' ? Number(shippingConfig.personalPickup?.price || 0) :")
 
-          old = "  useEffect(()=>{ if(destination==='sk'){setCarrier('ZASILKOVNA');setMethod('pickup_point');setPoint(null);return;}"
-          new = "  useEffect(()=>{ if(onlyGiftCards){setCarrier('EMAIL');setMethod('email');setPoint(null);setPicker(false);setPenguinAddress('');return;} if(destination==='sk'){setCarrier('ZASILKOVNA');setMethod('pickup_point');setPoint(null);return;}"
-          s = s.replace(old, new)
-
+          s = s.replace("  useEffect(()=>{ if(destination==='sk'){setCarrier('ZASILKOVNA');setMethod('pickup_point');setPoint(null);return;}", "  useEffect(()=>{ if(onlyGiftCards){setCarrier('EMAIL');setMethod('email');setPoint(null);setPicker(false);setPenguinAddress('');return;} if(destination==='sk'){setCarrier('ZASILKOVNA');setMethod('pickup_point');setPoint(null);return;}")
           s = s.replace("  const chooseCarrier = (c: string) => { setCarrier(c); setPoint(null); setPenguinAddress(''); setPicker(false); setMethod(c==='PenguinBox'?'box':c==='UPS'?'address':'pickup_point'); };", "  const chooseCarrier = (c: string) => { setCarrier(c); setPoint(null); setPenguinAddress(''); setPicker(false); setMethod(c==='EMAIL'?'email':c==='PenguinBox'?'box':c==='UPS'?'address':'pickup_point'); };")
           s = s.replace("  const chooseMethod = (m: Method) => { if(m==='personal_pickup')", "  const chooseMethod = (m: Method) => { if(m==='email'){setMethod(m);setPoint(null);setPicker(false);return;} if(m==='personal_pickup')")
 
@@ -49,7 +44,6 @@ jobs:
           s = s.replace("if(method==='address'&&(!street.trim()||!city.trim()||!zip.trim()))", "if(!onlyGiftCards && method==='address'&&(!street.trim()||!city.trim()||!zip.trim()))")
           s = s.replace("if(carrier==='PenguinBox'&&!penguinAddress.trim())", "if(!onlyGiftCards && carrier==='PenguinBox'&&!penguinAddress.trim())")
           s = s.replace("if((method==='pickup_point'||method==='box')&&carrier!=='PenguinBox'&&destination!=='sk'&&!point)", "if(!onlyGiftCards && (method==='pickup_point'||method==='box')&&carrier!=='PenguinBox'&&destination!=='sk'&&!point)")
-
           s = s.replace("delivery:method==='personal_pickup'?{method}:{method,carrier,country:destination==='sk'?'SK':'CZ',", "delivery:onlyGiftCards?{method:'email',carrier:'EMAIL',country:destination==='sk'?'SK':'CZ'}:method==='personal_pickup'?{method}:{method,carrier,country:destination==='sk'?'SK':'CZ',")
 
           marker = "  <div><div className=\"flex items-center gap-2 mb-3\"><MapPinned className=\"w-4 h-4 text-[#9A7B58]\"/><b>Způsob doručení *</b></div>"
