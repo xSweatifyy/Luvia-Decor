@@ -12,23 +12,47 @@ export const GiftCardPaymentEnhancer: React.FC = () => {
   const [code, setCode] = useState('');
   const [card, setCard] = useState<CardResult | null>(null);
   const [checking, setChecking] = useState(false);
-  const codeRef = useRef(code);
-  const cardRef = useRef<CardResult | null>(card);
-  const paymentRef = useRef(payment);
+  const codeRef = useRef(code); const cardRef = useRef<CardResult | null>(card); const paymentRef = useRef(payment);
   codeRef.current = code; cardRef.current = card; paymentRef.current = payment;
+
+  useEffect(() => {
+    const nativeFetch = window.fetch.bind(window);
+    const wrappedFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const isOrder = url.includes('/api/orders') && (init?.method || 'GET').toUpperCase() === 'POST' && paymentRef.current === 'gift_card';
+      if (!isOrder) return nativeFetch(input, init);
+      const response = await nativeFetch(input, init);
+      if (!response.ok) return response;
+      try {
+        const payload = await response.clone().json();
+        const order = payload?.order;
+        const cardCode = codeRef.current.trim().toUpperCase();
+        if (!order?.id || !cardCode) return response;
+        const shipping = Number(order.shipping || 0);
+        const settle = await nativeFetch('/api/gift-card-shipping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.id, code: cardCode, amount: shipping }) });
+        const settled = await settle.json().catch(() => null);
+        if (!settle.ok || !settled?.order) throw new Error(settled?.error || 'Platbu dárkovou kartou se nepodařilo dokončit.');
+        const finalOrder = settled.order;
+        return new Response(JSON.stringify({ ...payload, success: true, order: finalOrder }), { status: response.status, statusText: response.statusText, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (error) {
+        addToast('error', 'Platba dárkovou kartou se nedokončila', error instanceof Error ? error.message : 'Zkuste to znovu.');
+        return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Platbu se nepodařilo dokončit.' }), { status: 409, headers: { 'Content-Type': 'application/json' } });
+      }
+    };
+    window.fetch = wrappedFetch as typeof window.fetch;
+    return () => { window.fetch = nativeFetch; };
+  }, [addToast]);
 
   useEffect(() => {
     if (page !== 'cart') { setForm(null); return; }
     const find = () => setForm(document.querySelector('form') as HTMLFormElement | null);
-    find();
-    const observer = new MutationObserver(find);
-    observer.observe(document.body, { childList: true, subtree: true });
+    find(); const observer = new MutationObserver(find); observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [page]);
 
   useEffect(() => {
     if (!form) return;
-    const onSubmit = async (event: Event) => {
+    const onSubmit = (event: Event) => {
       if (paymentRef.current !== 'gift_card') return;
       const codeValue = codeRef.current.trim().toUpperCase();
       if (!codeValue || !cardRef.current?.valid || !cardRef.current.giftVoucher) {
@@ -36,34 +60,19 @@ export const GiftCardPaymentEnhancer: React.FC = () => {
         addToast('error', 'Dárková karta není ověřená', 'Pro odeslání objednávky zvolte Dárková karta a ověřte platný kód.');
         return;
       }
-      const current = cardRef.current;
-      const totalText = Array.from(form.querySelectorAll('*')).map(n => (n.textContent || '').trim()).find(t => /^Celkem\s+/.test(t));
-      const totalMatch = totalText?.match(/Celkem\s+([0-9\s.,]+)\s*Kč/);
-      const checkoutTotal = totalMatch ? Number(totalMatch[1].replace(/\s/g, '').replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.')) : 0;
-      if (checkoutTotal > Number(current.remainingValue || 0) + 0.009) {
-        event.preventDefault(); event.stopImmediatePropagation();
-        addToast('error', 'Nedostatečný zůstatek', `Na kartě je ${Number(current.remainingValue || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })} Kč, objednávka je za ${checkoutTotal.toLocaleString('cs-CZ', { minimumFractionDigits: 2 })} Kč.`);
-        return;
-      }
-      localStorage.setItem('luvia_gift_card_payment', JSON.stringify({ code: codeValue, remainingValue: current.remainingValue, checkedAt: Date.now() }));
+      const total = Number(cardRef.current.remainingValue || 0);
+      const text = Array.from(form.querySelectorAll('*')).map(n => (n.textContent || '').trim()).find(t => /^Celkem\s+/.test(t));
+      const match = text?.match(/Celkem\s+([0-9\s.,]+)\s*Kč/);
+      const checkoutTotal = match ? Number(match[1].replace(/\s/g, '').replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.')) : 0;
+      if (checkoutTotal > total + 0.009) { event.preventDefault(); event.stopImmediatePropagation(); addToast('error', 'Nedostatečný zůstatek', `Na kartě je ${total.toLocaleString('cs-CZ', { minimumFractionDigits: 2 })} Kč, objednávka je za ${checkoutTotal.toLocaleString('cs-CZ', { minimumFractionDigits: 2 })} Kč.`); return; }
     };
-    form.addEventListener('submit', onSubmit, true);
-    return () => form.removeEventListener('submit', onSubmit, true);
+    form.addEventListener('submit', onSubmit, true); return () => form.removeEventListener('submit', onSubmit, true);
   }, [form, addToast]);
 
   const verify = async () => {
-    const value = code.trim().toUpperCase();
-    if (!value) return addToast('error', 'Chybí kód', 'Zadejte kód dárkové karty.');
+    const value = code.trim().toUpperCase(); if (!value) return addToast('error', 'Chybí kód', 'Zadejte kód dárkové karty.');
     setChecking(true); setCard(null);
-    try {
-      const r = await fetch(`/api/coupons?action=validate&code=${encodeURIComponent(value)}&_=${Date.now()}`, { cache: 'no-store' });
-      const d = await r.json().catch(() => null);
-      if (!r.ok || !d?.valid || !d?.giftVoucher) throw new Error(d?.error || 'Kód dárkové karty není platný.');
-      const result = { ...d, valid: true };
-      setCard(result); cardRef.current = result;
-      addToast('success', 'Dárková karta ověřena', `Zůstatek: ${Number(d.remainingValue || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })} Kč.`);
-    } catch (e: any) { addToast('error', 'Karta není platná', e?.message || 'Zkontrolujte kód.'); }
-    finally { setChecking(false); }
+    try { const r = await fetch(`/api/coupons?action=validate&code=${encodeURIComponent(value)}&_=${Date.now()}`, { cache: 'no-store' }); const d = await r.json().catch(() => null); if (!r.ok || !d?.valid || !d?.giftVoucher) throw new Error(d?.error || 'Kód dárkové karty není platný.'); const result = { ...d, valid: true }; setCard(result); cardRef.current = result; addToast('success', 'Dárková karta ověřena', `Zůstatek: ${Number(d.remainingValue || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })} Kč.`); } catch (e: any) { addToast('error', 'Karta není platná', e?.message || 'Zkontrolujte kód.'); } finally { setChecking(false); }
   };
 
   if (page !== 'cart' || !form) return null;
