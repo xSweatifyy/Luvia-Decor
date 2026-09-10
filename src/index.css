@@ -56,3 +56,25 @@ main { width: 100%; min-width: 0; }
 /* Status/checkout additions are intentionally fluid on phones, tablets and desktop. */
 #admin-order-status-view { width:100%; min-width:0; }
 #admin-order-status-view select { min-width:0; }
+
+/* Invoice product picker – on phones use the full available viewport width. */
+@media (max-width: 640px) {
+  .admin-panel div.absolute.z-50.left-0.right-0.mt-1 {
+    position: fixed !important;
+    left: 8px !important;
+    right: 8px !important;
+    top: 76px !important;
+    bottom: 8px !important;
+    width: auto !important;
+    max-height: none !important;
+    margin-top: 0 !important;
+    overflow: hidden !important;
+    z-index: 9999 !important;
+  }
+  .admin-panel div.absolute.z-50.left-0.right-0.mt-1 > .max-h-80 {
+    max-height: calc(100vh - 140px) !important;
+    height: calc(100% - 45px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+}
