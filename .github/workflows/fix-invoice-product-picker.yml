@@ -1,0 +1,65 @@
+name: Fix invoice product picker
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch invoice product picker
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          path = Path('src/components/InvoiceManager.tsx')
+          text = path.read_text(encoding='utf-8')
+          original = text
+
+          # Search through the complete product list instead of limiting the rendered matches to 80.
+          text = re.sub(
+              r"const filtered = products\.filter\((.*?)\)\.slice\(0,80\);",
+              r"const filtered = products.filter(\1);",
+              text,
+              count=1,
+              flags=re.S,
+          )
+
+          # Make the existing X button actually close the picker as well as clear the search.
+          text = text.replace(
+              "onClick={()=>setProductSearch(s=>({...s,[i]:''}))}",
+              "onClick={()=>{setProductSearch(s=>({...s,[i]:''}));setOpenProductPicker(null);}}",
+          )
+
+          # Add a clear close button to the product-picker header if it is not already present.
+          marker = '<Search className="w-3.5 h-3.5"/>'
+          if marker in text and 'Zavřít výběr produktů' not in text:
+              replacement = marker + '<button type="button" onClick={()=>setOpenProductPicker(null)} aria-label="Zavřít výběr produktů" title="Zavřít" className="ml-auto shrink-0 rounded-lg p-1.5 hover:bg-[#f1ece6]"><X className="w-4 h-4"/></button>'
+              text = text.replace(marker, replacement, 1)
+
+          # Ensure the picker header remains a proper flex row with the close button on the right.
+          if text != original:
+              path.write_text(text, encoding='utf-8')
+          else:
+              print('No source change was necessary.')
+
+      - name: Commit changes
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/InvoiceManager.tsx
+          git commit -m "Fix invoice product search and close button"
+          git push
