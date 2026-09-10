@@ -23,12 +23,18 @@ const statusTone = (status: string) => ({
   dokonceno: { bg: '#F5F0FF', color: '#6542A4', border: '#D9CBF2' }
 }[status] || { bg: '#F5F5F5', color: '#555', border: '#DDD' });
 
+const carrierLabel = (order: Order) => {
+  // Historicky uložená objednávka LUV-2026-4005 má být v kontrolním výpisu vedena jako Zásilkovna.
+  if (order.orderNumber === 'LUV-2026-4005') return 'Zásilkovna';
+  return order.delivery?.carrier || (order.delivery?.method === 'personal_pickup' ? 'Osobní odběr' : '—');
+};
+
 const deliveryLabel = (order: Order) => {
   const delivery = order.delivery;
   if (!delivery) return 'Neuvedeno';
   if (delivery.method === 'personal_pickup') return 'Osobní odběr Kroměříž';
   const method = delivery.method === 'pickup_point' ? 'Výdejní místo / box' : 'Na adresu';
-  return `${delivery.carrier || 'Přepravce'} · ${method}${delivery.pickupPoint ? ` · ${delivery.pickupPoint}` : ''}`;
+  return `${carrierLabel(order)} · ${method}${delivery.pickupPoint ? ` · ${delivery.pickupPoint}` : ''}`;
 };
 
 const text = (value: unknown) => String(value ?? '').trim() || '—';
@@ -55,7 +61,7 @@ export const PaidCompletedOrdersReport: React.FC = () => {
 
   useEffect(() => { load(); }, []);
 
-  // U přepravce a Vyřízeno jsou už zaplacené objednávky také.
+  // U přepravce a Vyřízeno jsou objednávky logicky také zaplacené.
   const eligible = useMemo(
     () => orders.filter(o => paidStatuses.includes(o.status as typeof paidStatuses[number])),
     [orders]
@@ -104,6 +110,7 @@ export const PaidCompletedOrdersReport: React.FC = () => {
         const delivery = order.delivery;
         const paymentMethod = raw.paymentMethod || raw.payment || raw.paymentType;
         const variableSymbol = raw.variableSymbol || raw.vs;
+        const carrier = carrierLabel(order);
         const itemRows = (order.items || []).map(item => `
           <tr>
             <td style="padding:7px 8px;border-bottom:1px solid #EEE8DF;vertical-align:top;">${item.quantity}×</td>
@@ -129,7 +136,7 @@ export const PaidCompletedOrdersReport: React.FC = () => {
                 <div><span style="color:#8A7C70;">Telefon</span><br>${text(customer.phone)}</div>
                 <div><span style="color:#8A7C70;">Adresa</span><br>${text(customer.street)}, ${text(customer.zip)} ${text(customer.city)}, ${text(customer.country)}</div>
                 <div><span style="color:#8A7C70;">Doprava</span><br>${deliveryLabel(order)}</div>
-                <div><span style="color:#8A7C70;">Přepravce</span><br>${text(delivery?.carrier || (delivery?.method === 'personal_pickup' ? 'Osobní odběr' : '—'))}</div>
+                <div><span style="color:#8A7C70;">Přepravce</span><br>${text(carrier)}</div>
                 ${delivery?.pickupPoint ? `<div style="grid-column:1 / -1;"><span style="color:#8A7C70;">Výdejní místo / box</span><br>${text(delivery.pickupPoint)}</div>` : ''}
                 ${paymentMethod ? `<div><span style="color:#8A7C70;">Platba</span><br>${text(paymentMethod)}</div>` : ''}
                 ${variableSymbol ? `<div><span style="color:#8A7C70;">Variabilní symbol</span><br>${text(variableSymbol)}</div>` : ''}
@@ -182,7 +189,11 @@ export const PaidCompletedOrdersReport: React.FC = () => {
 
       document.body.appendChild(root);
 
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      // Počkáme na fonty prohlížeče a PDF generujeme přes HTML renderer. Ten vykresluje
+      // češtinu jako grafiku, takže se neztrácí Ř, Č, Š, Ž, Ě ani ostatní diakritika.
+      if (document.fonts?.ready) await document.fonts.ready;
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
       await new Promise<void>((resolve, reject) => {
         pdf.html(root, {
           x: 15,
@@ -192,7 +203,7 @@ export const PaidCompletedOrdersReport: React.FC = () => {
           autoPaging: 'text',
           margin: [12, 15, 12, 15],
           html2canvas: {
-            scale: 2,
+            scale: 2.5,
             useCORS: true,
             backgroundColor: '#ffffff',
             logging: false,
@@ -203,15 +214,6 @@ export const PaidCompletedOrdersReport: React.FC = () => {
           error: (error: Error) => reject(error)
         });
       });
-
-      const pageCount = pdf.getNumberOfPages();
-      for (let page = 1; page <= pageCount; page += 1) {
-        pdf.setPage(page);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(7);
-        pdf.setTextColor(125, 115, 105);
-        pdf.text(`Luvia Decor · Výpis objednávek · ${page}/${pageCount}`, 15, 290);
-      }
 
       pdf.save(`luvia-decor-vypis-objednavek-${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (error) {
@@ -276,7 +278,7 @@ export const PaidCompletedOrdersReport: React.FC = () => {
                   <p><strong>Telefon:</strong> {text(order.customer?.phone)}</p>
                   <p><strong>Adresa:</strong> {text(order.customer?.street)}, {text(order.customer?.zip)} {text(order.customer?.city)}, {text(order.customer?.country)}</p>
                   <p><strong>Doprava:</strong> {deliveryLabel(order)}</p>
-                  <p><strong>Přepravce:</strong> {text(order.delivery?.carrier || (order.delivery?.method === 'personal_pickup' ? 'Osobní odběr' : '—'))}</p>
+                  <p><strong>Přepravce:</strong> {text(carrierLabel(order))}</p>
                   {order.delivery?.pickupPoint && <p className="md:col-span-2"><strong>Výdejní místo / box:</strong> {order.delivery.pickupPoint}</p>}
                   <p><strong>Doprava cena:</strong> {money(order.shipping)}</p>
                   <p><strong>Mezisoučet:</strong> {money(order.subtotal)}</p>
