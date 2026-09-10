@@ -1,0 +1,9 @@
+name: Trigger Vercel
+on:
+  push:
+    branches: [main]
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Main branch updated - Vercel Git integration should deploy automatically."
