@@ -6,6 +6,7 @@
   "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/api/coupons/validate", "destination": "/api/coupons?action=validate" }
+    { "source": "/api/coupons/validate", "destination": "/api/coupons?action=validate" },
+    { "source": "/api/order-status-email", "destination": "/api/order-status?action=email" }
   ]
 }
