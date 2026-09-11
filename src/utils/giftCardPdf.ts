@@ -102,9 +102,13 @@ export const createGiftCardPdf = async (options: GiftCardPdfOptions) => {
   if (typeof document === 'undefined') throw new Error('PDF lze vytvořit pouze v prohlížeči.');
   if (document.fonts?.ready) await document.fonts.ready;
 
-  const scale = 8;
-  const width = 210 * scale;
-  const height = 148 * scale;
+  // The artwork is designed in a 210 × 148 mm coordinate system. Scale it
+  // uniformly to a full A4 landscape sheet so nothing is cropped or left
+  // outside the PDF page.
+  const A4_SCALE = 297 / 210;
+  const scale = 8 * A4_SCALE;
+  const width = 297 * 8;
+  const height = 210 * 8;
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -197,8 +201,10 @@ export const createGiftCardPdf = async (options: GiftCardPdfOptions) => {
   drawText(ctx, 'UPLATNĚNÍ POUZE PŘES E-SHOP', center, S(137.5), `700 ${S(6.1)}px ${sans}`, goldLight);
   drawText(ctx, 'LUVIA DECOR  ·  KROMĚŘÍŽ', center, S(142), `700 ${S(5.2)}px ${sans}`, gold);
 
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a5' });
-  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 210, 148, undefined, 'FAST');
+  // A4 landscape PDF: 297 × 210 mm. The complete artwork above is
+  // uniformly scaled, so its proportions and every text element remain intact.
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 297, 210, undefined, 'FAST');
   const suffix = options.cardCode || `${options.amount}Kc`;
   pdf.save(`Luvia-Decor-Darkova-karta-${suffix}.pdf`);
 };
