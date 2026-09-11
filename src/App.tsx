@@ -27,6 +27,7 @@ import { CookieConsent, getCookieConsent } from './components/CookieConsent';
 import { TermsAgreementEnhancer } from './components/TermsAgreementEnhancer';
 import { NonPickupTermsSection } from './components/NonPickupTermsSection';
 import { CouponApiCompat } from './components/CouponApiCompat';
+import { ConsultationTermsSection } from './components/ConsultationTermsSection';
 
 const GiftCardShortcut: React.FC = () => { const { page, setPage } = useApp(); if(page==='admin'||page==='gift-card'||page==='gift-card-balance') return null; return <div className="border-b border-[#E8DFD5] bg-[#FAF6F0]"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-center"><button type="button" onClick={()=>setPage('gift-card')} className="text-[11px] sm:text-xs font-bold tracking-wide text-[#75604B] hover:text-[#2D2723] transition">🎁 Dárková karta · od 200 Kč · doručení e-mailem</button></div></div>; };
 
@@ -42,7 +43,18 @@ const AppContent: React.FC = () => {
     return () => { window.removeEventListener('open-terms', openTerms); window.removeEventListener('open-privacy', openPrivacy); document.removeEventListener('click', handleTermsClick, true); };
   }, [setPage]);
   return <div className="min-h-screen bg-[#FCFAF7] text-[#2D2723] flex flex-col font-sans selection:bg-[#8C7355] selection:text-white"><CouponApiCompat/><Navbar/><GiftCardShortcut/><main className="flex-1">
-    {page === 'home' && <HomePage/>}{page === 'catalog' && <CatalogPage/>}{page === 'custom-order' && <CustomOrderPage/>}{page === 'gallery' && <GalleryPage/>}{page === 'contact' && <ContactPage/>}{page === 'cart' && <CheckoutCartPage/>}{page === 'gift-card' && <GiftCardPage/>}{page === 'gift-card-balance' && <GiftCardBalancePage/>}{page === 'terms' && <><TermsPage/><NonPickupTermsSection/></>}{page === 'privacy' && <PrivacyPage/>}{page === 'complaint' && <ComplaintPage/>}{page === 'admin' && <AdminPage/>}
+    {page === 'home' && <HomePage/>}
+    {page === 'catalog' && <CatalogPage/>}
+    {page === 'custom-order' && <><ConsultationTermsSection/><CustomOrderPage/></>}
+    {page === 'gallery' && <GalleryPage/>}
+    {page === 'contact' && <ContactPage/>}
+    {page === 'cart' && <CheckoutCartPage/>}
+    {page === 'gift-card' && <GiftCardPage/>}
+    {page === 'gift-card-balance' && <GiftCardBalancePage/>}
+    {page === 'terms' && <><TermsPage/><NonPickupTermsSection/></>}
+    {page === 'privacy' && <PrivacyPage/>}
+    {page === 'complaint' && <ComplaintPage/>}
+    {page === 'admin' && <AdminPage/>}
   </main><Footer/><ProductDetailModal/><ToastContainer/><GiftCardPaymentEnhancer/><TermsAgreementEnhancer/>{analyticsConsent&&<Analytics/>}<CookieConsent onConsent={(choice)=>setAnalyticsConsent(choice==='all')}/></div>;
 };
 export default function App(){return <AppProvider><AppContent/></AppProvider>}
