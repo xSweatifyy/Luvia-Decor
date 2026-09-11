@@ -3,33 +3,161 @@ import { ArrowLeft, FileText } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const sections = [
-['1. PRODÁVAJÍCÍ', `Prodávající: Ladislav Pekárek / Luvia Decor\nIČO: 29905061\nSídlo: U Rejdiště 3732/15, 767 01 Kroměříž, Česká republika\nE-mail: podpora@luvia-decor.cz\nTelefon: +420 702 345 999\nWeb: www.luvia-decor.cz\n\nProdávající není plátcem DPH, není-li u konkrétního údaje nebo dokladu uvedeno jinak.`],
-['2. ÚVODNÍ USTANOVENÍ', `2.1. Tyto obchodní podmínky se vztahují na nákup zboží prostřednictvím internetového obchodu Luvia-Decor.\n\n2.2. Obchodní podmínky jsou určeny zejména spotřebitelům a podnikatelům nakupujícím prostřednictvím internetového obchodu.\n\n2.3. Kupující odesláním objednávky potvrzuje, že se před uzavřením kupní smlouvy seznámil s těmito obchodními podmínkami a souhlasí s nimi.\n\n2.4. Ujednání odlišná od těchto obchodních podmínek mohou být sjednána individuálně mezi prodávajícím a kupujícím. Taková individuální ujednání mají přednost před ustanoveními těchto obchodních podmínek.\n\n2.5. Práva spotřebitele vyplývající z kogentních ustanovení právních předpisů nejsou těmito obchodními podmínkami nijak omezena.`],
-['3. VYMEZENÍ POJMŮ', `3.1. Prodávajícím se rozumí Ladislav Pekárek / Luvia Decor.\n\n3.2. Kupujícím se rozumí osoba, která prostřednictvím internetového obchodu uzavírá kupní smlouvu s prodávajícím.\n\n3.3. Spotřebitelem je fyzická osoba, která uzavírá smlouvu s prodávajícím mimo rámec své podnikatelské činnosti nebo mimo rámec samostatného výkonu svého povolání.\n\n3.4. Podnikatelem je osoba, která při uzavírání a plnění smlouvy jedná v rámci své podnikatelské činnosti nebo samostatného výkonu svého povolání.\n\n3.5. Zbožím se rozumí produkty nabízené prostřednictvím internetového obchodu Luvia-Decor.\n\n3.6. Objednávkou se rozumí řádně vyplněný a odeslaný elektronický formulář obsahující zejména informace o objednávaném zboží, jeho množství, ceně, způsobu platby a způsobu doručení.`],
-['4. INFORMACE O ZBOŽÍ', `4.1. Informace o zboží, jeho vlastnostech a ceně jsou uvedeny u jednotlivých produktů v internetovém obchodě.\n\n4.2. Fotografie zboží jsou určeny pro ilustraci. Skutečné barevné provedení se může v přiměřeném rozsahu lišit v závislosti na nastavení monitoru, telefonu nebo jiného zobrazovacího zařízení kupujícího.\n\n4.3. U ručně vyráběných výrobků může docházet k drobným odchylkám v barvě, tvaru, struktuře, velikosti nebo rozmístění dekorativních prvků.\n\n4.4. Tyto přirozené odchylky odpovídající charakteru ruční výroby nejsou samy o sobě vadou zboží, pokud zboží odpovídá popisu a účelu.\n\n4.5. Pokud je u konkrétního výrobku uvedeno, že se jedná o ruční výrobu, bere kupující tuto skutečnost na vědomí.`],
-['5. OBJEDNÁVKA A UZAVŘENÍ KUPNÍ SMLOUVY', `5.1. Kupující může objednávku vytvořit prostřednictvím objednávkového systému internetového obchodu.\n\n5.2. Před odesláním objednávky má kupující možnost zkontrolovat a opravit údaje, které do objednávkového formuláře zadal.\n\n5.3. Odesláním objednávky kupující potvrzuje správnost uvedených údajů a činí závazný návrh na uzavření kupní smlouvy.\n\n5.4. Kupní smlouva je uzavřena okamžikem, kdy prodávající potvrdí přijetí objednávky kupujícího.\n\n5.5. Prodávající potvrdí přijetí objednávky elektronickou zprávou zaslanou na e-mailovou adresu uvedenou kupujícím v objednávce.\n\n5.6. Prodávající není povinen objednávku přijmout. Zejména může objednávku odmítnout v případě vyprodání zboží, nemožnosti dodání, technické chyby v internetovém obchodě, zjevně chybně uvedené ceny, nedostupnosti materiálu potřebného k výrobě nebo z jiného objektivního důvodu bránícího splnění objednávky.\n\n5.7. Pokud byla objednávka před jejím zrušením již uhrazena, prodávající vrátí kupujícímu uhrazenou částku bez zbytečného odkladu.`],
-['6. CENA ZBOŽÍ', `6.1. Aktuální cena zboží je uvedena u konkrétního produktu na internetovém obchodě.\n\n6.2. Cena uvedená v objednávce je cenou platnou pro danou objednávku.\n\n6.3. Náklady na dopravu nejsou zahrnuty v ceně zboží, pokud není u konkrétní nabídky uvedeno jinak.\n\n6.4. Před odesláním objednávky je kupující informován o celkové ceně objednávky včetně případných nákladů na dopravu.\n\n6.5. V případě zjevné chyby v ceně zboží, zejména v důsledku technické chyby nebo chybného zadání ceny, není prodávající povinen dodat zboží za zjevně nesprávnou cenu.`],
-['7. PLATEBNÍ PODMÍNKY', `7.1. Aktuálně je jako způsob platby nabízena: Bankovní převod.\n\n7.2. Po vytvoření objednávky obdrží kupující platební údaje potřebné k provedení bankovního převodu.\n\n7.3. Kupující je povinen při platbě uvést správné platební údaje, zejména částku a případný variabilní symbol.\n\n7.4. Objednávka může být zahájena ke zpracování až po připsání příslušné částky na účet prodávajícího, pokud nebylo s kupujícím dohodnuto jinak.\n\n7.5. Pokud kupující objednávku neuhradí v přiměřené lhůtě, může prodávající kupujícího vyzvat k úhradě a následně od kupní smlouvy odstoupit nebo objednávku zrušit v souladu s právními předpisy.`],
-['8. DODACÍ PODMÍNKY', `8.1. Prodávající dodává zboží způsobem zvoleným kupujícím při objednávce.\n\n8.2. Doručení je možné kamkoliv v rámci možností aktuálně nabízených v internetovém obchodě.\n\n8.3. Dostupné způsoby dopravy a jejich cena jsou uvedeny v průběhu objednávky.\n\n8.4. Předpokládaná dodací lhůta je uvedena u konkrétního produktu nebo je kupujícímu sdělena po přijetí objednávky.\n\n8.5. U výrobků vyráběných na objednávku může být dodací lhůta delší než u zboží skladem. Kupující bude o předpokládaném termínu informován.\n\n8.6. Pokud prodávající není schopen objednávku dodat v dohodnutém termínu, informuje o této skutečnosti kupujícího bez zbytečného odkladu.`],
-['9. OSOBNÍ ODBĚR', `9.1. Pokud je v objednávkovém systému nabízena možnost osobního odběru, může ji kupující zvolit.\n\n9.2. Kupující bude informován, kdy je jeho objednávka připravena k převzetí.\n\n9.3. Konkrétní místo, datum a čas osobního odběru budou kupujícímu sděleny prostřednictvím e-mailu nebo jiného dohodnutého komunikačního kanálu.\n\n9.4. Při osobním odběru může být požadováno prokázání totožnosti nebo jiný způsob ověření objednávky.`],
-['10. PŘEVZETÍ ZBOŽÍ', `10.1. Kupující je povinen při převzetí zásilky zkontrolovat její stav.\n\n10.2. Pokud kupující zjistí poškození zásilky nebo obalu, doporučuje se tuto skutečnost zdokumentovat a oznámit dopravci a prodávajícímu.\n\n10.3. Neoznámení poškození zásilky při převzetí však samo o sobě nezbavuje kupujícího jeho zákonných práv z vadného plnění.\n\n10.4. Pokud kupující zboží bezdůvodně nepřevezme, není tím automaticky zrušena kupní smlouva.`],
-['11. ZBOŽÍ VYRÁBĚNÉ NA OBJEDNÁVKU', `11.1. Některé výrobky Luvia-Decor mohou být vyrobeny nebo individuálně upraveny podle požadavků kupujícího.\n\n11.2. Za individuálně upravené zboží se považuje zejména výrobek, jehož vlastnosti byly vytvořeny nebo změněny na základě konkrétního požadavku kupujícího.\n\n11.3. Pokud je výrobek skutečně upraven podle přání kupujícího nebo přizpůsoben jeho osobním potřebám, nemusí mít spotřebitel podle zákona právo odstoupit od kupní smlouvy ve lhůtě 14 dnů.\n\n11.4. O případné výjimce z práva na odstoupení bude kupující informován před uzavřením kupní smlouvy.\n\n11.5. Samotný výběr z předem stanovených variant prodávajícího nemusí představovat individuální úpravu zboží. Právo na odstoupení se proto posuzuje podle skutečného charakteru konkrétní objednávky.`],
-['12. ODPOVĚDNOST PRODÁVAJÍCÍHO ZA VADY', `12.1. Prodávající odpovídá kupujícímu za to, že zboží při převzetí nemá vady a odpovídá kupní smlouvě a právním předpisům.\n\n12.2. Pokud zboží obsahuje vadu, může kupující uplatnit práva z vadného plnění podle platných právních předpisů.\n\n12.3. Práva kupujícího z vadného plnění se nevztahují na běžné opotřebení zboží způsobené jeho obvyklým používáním.\n\n12.4. Prodávající neodpovídá za poškození vzniklé zejména nesprávným používáním, používáním v rozporu s pokyny, nevhodným skladováním, mechanickým poškozením způsobeným kupujícím, zásahem kupujícího nebo třetí osoby nebo jiným jednáním, které není způsobeno vadou zboží.\n\n12.5. U ručně vyráběných výrobků se za vadu nepovažují přirozené drobné odchylky odpovídající charakteru ruční výroby, pokud výrobek odpovídá jeho popisu a účelu.`],
-['13. REKLAMACE', `13.1. Kupující může reklamaci uplatnit u prodávajícího prostřednictvím e-mailu podpora@luvia-decor.cz, telefonu +420 702 345 999 nebo na adrese U Rejdiště 3732/15, 767 01 Kroměříž.\n\n13.2. Při uplatnění reklamace je vhodné uvést jméno a příjmení kupujícího, číslo objednávky, kontaktní údaje, popis reklamované vady, datum zjištění vady, případně fotografie nebo jiné podklady a požadovaný způsob vyřízení reklamace, pokud jej právní předpisy umožňují.\n\n13.3. Prodávající vydá kupujícímu při uplatnění reklamace potvrzení o jejím uplatnění.\n\n13.4. Reklamace bude vyřízena v zákonné lhůtě.\n\n13.5. Kupující bude o výsledku reklamace informován způsobem odpovídajícím dohodě nebo kontaktním údajům uvedeným při reklamaci.`],
-['14. PRÁVO SPOTŘEBITELE ODSTOUPIT OD SMLOUVY', `14.1. Spotřebitel má u smlouvy uzavřené prostřednictvím internetového obchodu právo odstoupit od kupní smlouvy bez uvedení důvodu ve lhůtě 14 dnů, pokud zákon nestanoví výjimku.\n\n14.2. U kupní smlouvy začíná lhůta běžet dnem následujícím po dni, kdy spotřebitel nebo jím určená osoba převezme zboží.\n\n14.3. Pokud je předmětem smlouvy více druhů zboží nebo dodání několika částí, počítá se lhůta podle zákonných pravidel.\n\n14.4. Spotřebitel může od smlouvy odstoupit také před převzetím zboží.\n\n14.5. Odstoupení od smlouvy může spotřebitel zaslat zejména e-mailem na podpora@luvia-decor.cz nebo písemně na adresu Ladislav Pekárek / Luvia Decor, U Rejdiště 3732/15, 767 01 Kroměříž.\n\n14.6. Pro odstoupení může spotřebitel použít vzorový formulář uvedený na konci těchto obchodních podmínek.\n\n14.7. Spotřebitel není povinen uvádět důvod odstoupení.\n\n14.8. Odstoupení od smlouvy je účinné okamžikem, kdy je oznámení o odstoupení doručeno prodávajícímu.`],
-['15. VRÁCENÍ ZBOŽÍ PO ODSTOUPENÍ', `15.1. Po odstoupení od smlouvy je spotřebitel povinen zaslat nebo předat zboží prodávajícímu bez zbytečného odkladu, nejpozději ve lhůtě stanovené zákonem.\n\n15.2. Náklady spojené s vrácením zboží prodávajícímu nese spotřebitel, pokud právní předpisy nestanoví jinak.\n\n15.3. Spotřebitel odpovídá pouze za takové snížení hodnoty zboží, které vzniklo v důsledku nakládání se zbožím jinak, než je nutné s ohledem na jeho povahu, vlastnosti a funkčnost.\n\n15.4. Prodávající nemůže po spotřebiteli požadovat poplatek za opětovné uvedení zboží do prodeje.`],
-['16. VRÁCENÍ PENĚŽNÍCH PROSTŘEDKŮ', `16.1. V případě platného odstoupení od smlouvy vrátí prodávající spotřebiteli přijaté peněžní prostředky včetně nákladů na dodání zboží v rozsahu stanoveném zákonem.\n\n16.2. Pokud spotřebitel zvolil jiný než nejlevnější způsob dodání, který prodávající nabízel, vrací prodávající náklady na dodání pouze do výše odpovídající nejlevnějšímu nabízenému způsobu dodání.\n\n16.3. Peněžní prostředky budou vráceny stejným způsobem, jakým byly prodávajícímu uhrazeny, pokud se prodávající a spotřebitel nedohodnou jinak.\n\n16.4. Prodávající může s vrácením peněžních prostředků počkat do okamžiku, než obdrží vrácené zboží nebo doklad o jeho odeslání.`],
-['17. VÝJIMKY Z PRÁVA NA ODSTOUPENÍ', `17.1. Spotřebitel nemůže odstoupit od smlouvy v případech stanovených právními předpisy.\n\n17.2. Jedná se zejména o zboží, které bylo upraveno podle přání spotřebitele, bylo vyrobeno podle konkrétních požadavků spotřebitele, bylo přizpůsobeno jeho osobním potřebám, podléhá rychlé zkáze nebo má krátkou dobu spotřeby, nebo u kterého zákon stanoví jinou výjimku z práva na odstoupení.\n\n17.3. U květin, přírodních materiálů nebo jiného zboží podléhajícího rychlé zkáze může být právo na odstoupení zákonem vyloučeno.\n\n17.4. Výjimka z práva na odstoupení se neuplatní automaticky na každý výrobek pouze proto, že je ručně vyráběný. Rozhodující je charakter konkrétního výrobku a zákonné podmínky.\n\n17.5. Pokud se na konkrétní výrobek vztahuje zákonná výjimka z práva na odstoupení, bude o této skutečnosti zákazník informován před uzavřením kupní smlouvy.`],
-['18. ZPRACOVÁNÍ OBJEDNÁVEK', `18.1. Prodávající zpracovává objednávky v pořadí podle jejich přijetí a podle aktuálních výrobních a skladových možností.\n\n18.2. U ručně vyráběného zboží může být doba zpracování ovlivněna aktuálním počtem objednávek.\n\n18.3. Pokud dojde k významnému prodloužení předpokládané doby dodání, prodávající kupujícího informuje.`],
-['19. KOMUNIKACE SE ZÁKAZNÍKEM', `19.1. Prodávající používá e-mailovou adresu uvedenou zákazníkem zejména pro komunikaci související s objednávkou.\n\n19.2. Zákazník může obdržet zejména potvrzení objednávky, informace o přijetí objednávky, informace o přijetí platby, informace o zpracování objednávky, informace o odeslání objednávky, informace o změně stavu objednávky, informace o reklamaci a informace související s odstoupením od smlouvy.\n\n19.3. Tyto provozní e-maily nejsou považovány za obchodní sdělení, pokud jejich účelem není propagace dalších produktů nebo služeb.`],
-['20. OCHRANA OSOBNÍCH ÚDAJŮ', `20.1. Prodávající zpracovává osobní údaje zákazníků v souladu s platnými právními předpisy, zejména s Nařízením Evropského parlamentu a Rady (EU) 2016/679 (GDPR).\n\n20.2. Osobní údaje mohou být zpracovávány zejména za účelem vyřízení objednávky, uzavření a plnění kupní smlouvy, komunikace se zákazníkem, doručení objednávky, vystavení účetních dokladů, plnění zákonných povinností, vyřízení reklamace a ochrany právních nároků prodávajícího.\n\n20.3. Podrobné informace o zpracování osobních údajů jsou uvedeny v samostatném dokumentu Zásady ochrany osobních údajů.`],
-['21. UŽIVATELSKÝ ÚČET', `21.1. Pokud internetový obchod umožňuje registraci zákazníků, může zákazník vytvořit uživatelský účet.\n\n21.2. Zákazník je povinen při registraci uvádět pravdivé a aktuální údaje.\n\n21.3. Zákazník je povinen chránit přístupové údaje ke svému účtu před zpřístupněním třetím osobám.\n\n21.4. Prodávající může uživatelský účet zrušit zejména v případě jeho dlouhodobé neaktivity, zneužití nebo porušení těchto obchodních podmínek.`],
-['22. DÁRKOVÉ KARTY A SLEVOVÉ KUPÓNY', `22.1. Pokud Luvia-Decor nabízí dárkové karty, slevové kódy nebo jiné obdobné poukazy, řídí se jejich použití podmínkami uvedenými u konkrétní nabídky.\n\n22.2. Slevový kód nebo dárková karta může mít omezenou platnost, pokud je tato skutečnost uvedena při jeho vydání.\n\n22.3. Slevové kódy nelze směnit za hotovost, pokud není u konkrétní nabídky uvedeno jinak.\n\n22.4. Podmínky jednotlivých akcí mohou stanovit minimální hodnotu objednávky, dobu platnosti nebo další omezení.`],
-['23. AUTORSKÁ PRÁVA A OBSAH WEBU', `23.1. Obsah internetového obchodu Luvia-Decor, zejména fotografie, texty, grafické prvky, logo, design a další materiály, může být chráněn autorským právem a dalšími právními předpisy.\n\n23.2. Bez předchozího souhlasu prodávajícího není dovoleno obsah internetového obchodu neoprávněně kopírovat, zveřejňovat, distribuovat nebo používat ke komerčním účelům.`],
-['24. MIMOSOUDNÍ ŘEŠENÍ SPOTŘEBITELSKÝCH SPORŮ', `24.1. Pokud mezi prodávajícím a spotřebitelem vznikne spotřebitelský spor, který se nepodaří vyřešit vzájemnou dohodou, může spotřebitel využít mimosoudního řešení spotřebitelského sporu (ADR).\n\n24.2. Subjektem mimosoudního řešení spotřebitelských sporů je v případech stanovených zákonem Česká obchodní inspekce (ČOI).\n\n24.3. Informace o ADR a možnostech podání návrhu jsou dostupné na internetových stránkách České obchodní inspekce.\n\n24.4. Návrh na zahájení ADR může spotřebitel podat za podmínek stanovených právními předpisy. Řízení ADR je založeno na snaze o smírné vyřešení sporu a Česká obchodní inspekce sama o předmětu sporu nevydává závazné rozhodnutí.`],
-['25. ZÁKAZNICKÉ PODNĚTY A STÍŽNOSTI', `25.1. Zákazník může své dotazy, podněty nebo stížnosti zaslat na podpora@luvia-decor.cz.\n\n25.2. Prodávající se bude snažit všechny zákaznické podněty řešit bez zbytečného odkladu.\n\n25.3. V případě reklamace nebo sporu je doporučeno nejprve kontaktovat prodávajícího přímo a pokusit se o smírné řešení.`],
-['26. ZMĚNY OBCHODNÍCH PODMÍNEK', `26.1. Prodávající může obchodní podmínky přiměřeně měnit nebo aktualizovat.\n\n26.2. Pro konkrétní objednávku je rozhodující znění obchodních podmínek účinné v okamžiku uzavření příslušné kupní smlouvy.\n\n26.3. Aktuální znění obchodních podmínek je zveřejněno na internetových stránkách Luvia-Decor.`],
-['27. ZÁVĚREČNÁ USTANOVENÍ', `27.1. Tyto obchodní podmínky a právní vztahy mezi prodávajícím a kupujícím se řídí právním řádem České republiky.\n\n27.2. Ustanovení těchto obchodních podmínek nesmí být vykládána způsobem, který by spotřebiteli odebíral práva přiznaná kogentními ustanoveními právních předpisů.\n\n27.3. Pokud bude některé ustanovení těchto obchodních podmínek shledáno neplatným nebo neúčinným, nemá tato skutečnost vliv na platnost ostatních ustanovení.\n\n27.4. Tyto obchodní podmínky nabývají účinnosti dne 3. 9. 2026.`]
+['1. PRODÁVAJÍCÍ', `Prodávající: Ladislav Pekárek / Luvia Decor
+IČO: 29905061
+Sídlo: U Rejdiště 3732/15, 767 01 Kroměříž, Česká republika
+E-mail: podpora@luvia-decor.cz
+Telefon: +420 702 345 999
+Web: www.luvia-decor.cz
+
+Prodávající není plátcem DPH, není-li u konkrétního dokladu nebo údaje uvedeno jinak.`],
+['2. ÚVODNÍ USTANOVENÍ', `2.1. Tyto obchodní podmínky upravují prodej zboží, dárkových karet, vybraných služeb, konzultací a zakázkové tvorby Luvia Decor.
+
+2.2. Práva spotřebitele vyplývající z kogentních ustanovení právních předpisů nejsou těmito podmínkami omezena.
+
+2.3. Individuální písemné ujednání mezi prodávajícím a zákazníkem má přednost před těmito podmínkami v rozsahu, v jakém se od nich odchyluje.`],
+['3. OBJEDNÁVKA A UZAVŘENÍ SMLOUVY', `3.1. Odesláním objednávky zákazník potvrzuje správnost uvedených údajů a činí návrh na uzavření smlouvy.
+
+3.2. Smlouva je uzavřena potvrzením objednávky prodávajícím, není-li u konkrétní služby nebo nabídky uvedeno jinak.
+
+3.3. Prodávající může objednávku odmítnout zejména při vyprodání, nemožnosti dodání, zjevné technické chybě, zjevně nesprávné ceně nebo jiném objektivním důvodu. Je-li již objednávka uhrazena a prodávající ji nemůže přijmout, vrátí přijaté peněžní prostředky bez zbytečného odkladu.`],
+['4. CENA A PLATBA', `4.1. Cena je uvedena u konkrétní nabídky a před odesláním objednávky je zákazník seznámen s celkovou cenou včetně dostupné dopravy.
+
+4.2. Neuhrazenou objednávku může prodávající po předchozí výzvě zrušit v souladu s právními předpisy.
+
+4.3. U služeb, svatebních zakázek a individuálních návrhů může být cena stanovena individuální nabídkou.`],
+['5. DODÁNÍ A ODPOVĚDNOST ZA PŘEPRAVU', `5.1. Prodávající předává zásilku zvolenému dopravci. Po dobu fyzické přepravy zásilku zpracovává dopravce a prodávající nemůže ovlivnit jeho interní manipulaci.
+
+5.2. Toto ustanovení však neomezuje zákonnou odpovědnost prodávajícího vůči spotřebiteli. Pokud je podle zákona za poškození nebo vadu odpovědný prodávající, zákazník může svá práva uplatnit u prodávajícího.
+
+5.3. Při poškození obalu se doporučuje stav zdokumentovat a oznámit dopravci i prodávajícímu. Nepřevzetí zásilky samo o sobě není odstoupením od smlouvy.`],
+['6. ODSTÁVKA, INVENTURA A DOČASNÁ NEDOSTUPNOST E-SHOPU', `6.1. Luvia Decor může z provozních důvodů dočasně omezit nebo přerušit provoz e-shopu, například z důvodu inventury, údržby, technické poruchy nebo jiné odstávky.
+
+6.2. Odstávka nekrátí ani neruší zákonná práva zákazníka. Zejména se tím automaticky neposouvá ani nezkracuje zákonná lhůta pro odstoupení od smlouvy.
+
+6.3. U spotřebitelské kupní smlouvy uzavřené na dálku činí zákonná lhůta pro odstoupení obecně 14 dnů od převzetí zboží, nikoliv 5 nebo 6 dnů od objednávky. Odstoupení lze za zákonných podmínek učinit i před převzetím zboží.
+
+6.4. Pokud prodávající v důsledku vlastní odstávky nebo jiné překážky nedodrží sjednanou povinnost, vyřeší situaci se zákazníkem podle právních předpisů a konkrétní smlouvy. Prodávající nebude tvrdit, že odstávkou automaticky zanikají práva zákazníka.`],
+['7. ODSTOUPENÍ OD SMLOUVY', `7.1. Spotřebitel má u smluv uzavřených prostřednictvím internetu právo odstoupit ve lhůtě stanovené zákonem, obecně 14 dnů u zboží od převzetí zboží. U služeb a některých digitálních produktů se počátek lhůty řídí zákonnými pravidly.
+
+7.2. Spotřebitel může odstoupit i před převzetím zboží. Odstoupení nesmí být spojeno se sankcí.
+
+7.3. Zákonné výjimky z práva na odstoupení se uplatní zejména u zboží upraveného podle přání zákazníka, zboží přizpůsobeného jeho osobě nebo zboží podléhajícího rychlé zkáze, pokud jsou splněny zákonné podmínky.`],
+['8. REKLAMACE A REKLAMAČNÍ KOMISE', `8.1. Reklamaci lze uplatnit na podpora@luvia-decor.cz, telefonicky na +420 702 345 999 nebo na adrese prodávajícího.
+
+8.2. Prodávající reklamaci přijme, zaeviduje a zákazníkovi vydá potvrzení o jejím uplatnění.
+
+8.3. Prodávající může pro posouzení reklamace využít interní reklamační komisi nebo jiného odborného pracovníka. Interní reklamační komise posoudí předložené podklady, případně stav zboží, a navrhne či určí výsledek reklamace.
+
+8.4. Reklamace může být schválena v plném rozsahu, částečně nebo zamítnuta, pokud se prokáže, že nejsou splněny zákonné podmínky pro požadovaný nárok.
+
+8.5. Interní reklamační komise nemůže odejmout spotřebiteli práva, která mu poskytuje zákon. Reklamace včetně odstranění vady bude vyřízena v zákonné lhůtě; u spotřebitelských reklamací obecně nejpozději do 30 dnů, pokud se strany nedohodnou na delší lhůtě.`],
+['9. SLEVOVÉ KÓDY', `9.1. Slevový kód lze použít pouze za podmínek uvedených při jeho vydání.
+
+9.2. Pokud systém kód odmítne, zákazník může ověřit jeho platnost, minimální hodnotu objednávky, dobu platnosti a případná omezení a kontaktovat podporu.
+
+9.3. Pokud zákazník splňuje podmínky platného kódu a technická chyba na straně e-shopu zabrání jeho použití, prodávající situaci individuálně ověří a v odůvodněném případě poskytne odpovídající nápravu.
+
+9.4. Neplatný, prošlý, již použitý, padělaný nebo zjevně zneužitý kód nemusí být akceptován.`],
+['10. DÁRKOVÉ KARTY – VZNIK A POUŽITÍ', `10.1. Dárková karta představuje poukaz na čerpání hodnoty za podmínek uvedených při jejím vydání.
+
+10.2. Karta obsahuje identifikační údaje, případně bezpečnostní kód, a její platnost je ověřována systémem prodávajícího.
+
+10.3. Kartu lze uplatnit pouze způsobem uvedeným u konkrétní nabídky. Pokud není výslovně uvedeno jinak, nelze její hodnotu směnit za hotovost.
+
+10.4. Hodnota použitá na nákup se odečítá z dostupného zůstatku. Pokud cena objednávky převyšuje zůstatek karty, zákazník doplatí rozdíl. Pokud je cena nižší, zůstatek se řídí pravidly konkrétní karty.
+
+10.5. Zákazník je povinen chránit kód karty před zneužitím. Prodávající nemusí nahradit hodnotu karty, pokud zákazník umožnil neoprávněné osobě získat platný kód, ledaže odpovědnost vznikla na straně prodávajícího.`],
+['11. DÁRKOVÁ KARTA NEJDE UPLATNIT', `11.1. Pokud systém kartu odmítne, zákazník nemá zadávat kód opakovaně ve velkém počtu pokusů. Doporučuje se kontaktovat podporu a uvést číslo objednávky nebo identifikaci karty, případně přiložit screenshot chyby.
+
+11.2. Prodávající ověří platnost, zůstatek, stav karty a případné technické důvody odmítnutí.
+
+11.3. Pokud je karta platná a problém vznikl technickou chybou na straně prodávajícího, prodávající zajistí opravu, náhradní způsob uplatnění nebo jinou přiměřenou nápravu.
+
+11.4. Pokud je karta neplatná, zrušená, prošlá, již vyčerpaná nebo zneužitá, může být její uplatnění odmítnuto v rozsahu odpovídajícím podmínkám karty a zákonu.`],
+['12. STORNO A VRÁCENÍ DÁRKOVÉ KARTY', `12.1. Storno nebo vrácení dárkové karty se posuzuje podle charakteru konkrétní smlouvy, stavu karty a práv spotřebitele.
+
+12.2. U nepoužité karty zakoupené spotřebitelem na dálku prodávající posoudí právo na odstoupení podle příslušných zákonných pravidel. U digitálního obsahu nebo služby mohou platit zvláštní pravidla, zejména pokud zákazník výslovně požádal o zahájení plnění před uplynutím lhůty a byl poučen o důsledcích.
+
+12.3. Jakmile byla karta v rozsahu odpovídajícím zákonu využita, nelze požadovat vrácení již řádně čerpané hodnoty.
+
+12.4. Při podezření na podvodné získání nebo použití karty může být karta dočasně zablokována do doby ověření. Prodávající následně zákazníka informuje o výsledku.`],
+['13. NEVYZVEDNUTÉ OBJEDNÁVKY A OPAKOVANÉ ZNEUŽÍVÁNÍ SYSTÉMU', `13.1. Zákazník je povinen objednávat s vážným úmyslem objednávku převzít a uhradit.
+
+13.2. Opakované objednávky, které zákazník bez důvodu nepřebírá, mohou být vyhodnoceny jako zneužívání objednávkového systému.
+
+13.3. Prodávající může po předchozím upozornění u takového zákazníka omezit některé platební nebo dodací možnosti, vyžadovat platbu předem nebo další přiměřené ověření. Není tím dotčeno právo spotřebitele na zákonné odstoupení.
+
+13.4. Pokud zákazník způsobí prodávajícímu skutečnou škodu nebo náklady, může prodávající požadovat jejich náhradu v rozsahu dovoleném právními předpisy. Nelze účtovat libovolnou paušální pokutu jen za uplatnění zákonného práva.`],
+['14. ZNEUŽITÍ WEBU, E-SHOPU, E-MAILU A TELEFONNÍHO ČÍSLA – STUPNĚ', `14.1. Nízký stupeň: opakované bezúčelné testovací objednávky, opakované zadávání nepravdivých údajů, spamování formulářů, opakované nevyzvednutí objednávky nebo jiné jednání, které způsobuje přiměřenou provozní zátěž. Prodávající může upozornit zákazníka, omezit funkce účtu, vyžadovat platbu předem a požadovat náhradu prokazatelných nákladů.
+
+14.2. Střední stupeň: úmyslné obcházení slevových pravidel, vytváření více účtů za účelem neoprávněných výhod, opakované automatizované požadavky, úmyslné zahlcování e-mailu či telefonu, pokusy manipulovat objednávkami nebo systémy. Prodávající může účet či objednávky zablokovat, zrušit další zneužívající požadavky a uplatnit náhradu skutečné škody.
+
+14.3. Vysoký stupeň: útoky na web nebo infrastrukturu, neoprávněné získávání přístupů, malware, úmyslné poškození dat, krádeže, výhrůžky, fyzické či psychické napadání personálu, úmyslné ničení majetku nebo závažné podvodné jednání. Prodávající může věc předat Policii ČR, požadovat náhradu škody a využít další právní prostředky.
+
+14.4. Částky 1 000 až 45 000 Kč mohou být v odůvodněných případech relevantní jako náhrada skutečně vzniklé škody, nákladů nebo jako smluvní sankce pouze tehdy, pokud její uplatnění konkrétně připouští zákon a platné smluvní ujednání. Tato tabulka sama o sobě nezakládá automatickou pokutu 1 000–45 000 Kč za běžné jednání zákazníka.`],
+['15. KONTROLA OBJEDNÁVKY A VEŘEJNÉ REGISTRY', `15.1. Prodávající může v zákonném rozsahu prověřit objednávku a dostupné veřejné informace, pokud je to nezbytné pro prevenci podvodu, ochranu právních nároků nebo bezpečné uzavření smlouvy.
+
+15.2. Samotná existence dluhu nebo exekuce automaticky neznamená, že zákazník nesmí nakoupit. Prodávající nesmí svévolně zrušit již uzavřenou a zaplacenou spotřebitelskou smlouvu pouze na základě existence dluhu, pokud k tomu nemá objektivní a právně přípustný důvod.
+
+15.3. Pokud právně přípustné ověření odhalí konkrétní důvod, pro který není možné nebo rozumné objednávku splnit, může prodávající objednávku odmítnout nebo zrušit v souladu se zákonem a případné uhrazené peníze vrátit.
+
+15.4. Zpracování osobních údajů při těchto kontrolách se řídí samostatnými Zásadami ochrany osobních údajů.`],
+['16. KONZULTACE – CENÍK', `16.1. Online konzultace 30 minut: 400 Kč.
+
+16.2. Online konzultace 60 minut: 700 Kč.
+
+16.3. Osobní konzultace 90 minut: 1 000 Kč.
+
+16.4. Svatební konzultace a návrh dekorace na míru: od 1 000 Kč podle rozsahu.
+
+16.5. Termín se rezervuje předem. U individuálních návrhů je konečná cena potvrzena před zahájením placené práce.`],
+['17. KONZULTACE – PRAVIDLA NÁVŠTĚVY', `17.1. Zákazník musí dodržovat pokyny personálu a bezpečnostní pravidla.
+
+17.2. Bez svolení nesmí otevírat skříně, zásuvky, úložné prostory ani prostory obsahující dokumenty nebo jiné neveřejné materiály prodávajícího.
+
+17.3. Bez svolení nesmí zapínat ani vypínat elektrická zařízení, vzduchotechniku, elektrické topné žebříky, pračku ani jiné technické vybavení. Nesmí manipulovat s vodou ve sprchovém koutě, koupelně nebo jiných prostorách, pokud to nesouvisí s poskytnutou službou.
+
+17.4. Zákazník nesmí zasahovat do vybavení budovy, elektroinstalace, technických zařízení, dekorací, dokumentů ani majetku prodávajícího.
+
+17.5. Při opakovaném neuposlechnutí může personál konzultaci ukončit a zákazníka vyzvat k opuštění budovy. Při napadení personálu, výhrůžkách, krádeži, úmyslném ničení majetku nebo jiném závažném incidentu může být přivolána Policie ČR.`],
+['18. SVATEBNÍ ZAKÁZKY A ZÁLOHA', `18.1. U svatební zakázky s celkovou cenou nad 15 000 Kč může prodávající požadovat zálohu. Výše a splatnost zálohy budou uvedeny v individuální nabídce nebo smlouvě.
+
+18.2. Záloha slouží zejména k pokrytí nákladů na rezervaci termínu, dekorace, květiny, materiál, výrobu a přípravu zakázky.
+
+18.3. Zbytek ceny je zákazník povinen uhradit nejpozději do 14 pracovních dnů po uskutečnění svatební akce, pokud individuální smlouva nestanoví jinak.
+
+18.4. Pokud zákazník nezaplatí splatný zbytek ceny ani po výzvě, může prodávající uplatnit zákonné prostředky k vymáhání pohledávky, včetně předání věci externímu vymáhání nebo právnímu zástupci.`],
+['19. SVATEBNÍ INSTALACE, MAJETEK A ODPOVĚDNOST', `19.1. Po dokončení instalace dekorací nebo materiálů na místě konání přebírá zákazník nebo pověřená osoba odpovědnost za běžnou ochranu dekorací proti zásahům hostů a třetích osob, pokud individuální smlouva nestanoví jinak.
+
+19.2. Prodávající neodpovídá za poškození nebo zničení dekorací způsobené hosty, personálem místa konání, jinou třetí osobou, nevhodnou manipulací nebo událostí mimo jeho kontrolu. Toto ustanovení se nevztahuje na odpovědnost, které se prodávající nemůže podle zákona zprostit.
+
+19.3. Pokud by v souvislosti s firemním materiálem došlo ke zranění, prodávající situaci neprodleně prověří, zajistí potřebnou součinnost a přijme další právní či bezpečnostní kroky podle okolností.`],
+['20. OCHRANA PERSONÁLU A MAJETKU', `20.1. Luvia Decor netoleruje slovní, fyzické ani psychické napadání personálu, výhrůžky, přepadení, krádeže, úmyslné ničení zboží nebo majetku a jiné protiprávní jednání.
+
+20.2. V závažných případech může být okamžitě přivolána Policie ČR a mohou být uplatněny nároky na náhradu škody nebo další právní prostředky.
+
+20.3. Personál je oprávněn při bezprostředním ohrožení bezpečnosti ukončit jednání se zákazníkem a požadovat opuštění prostor, aniž by tím byla dotčena zákonná práva zákazníka.`],
+['21. PODEZŘELÉ NEBO PADĚLANÉ BANKOVKY', `21.1. Pokud existuje důvodné podezření, že předložená bankovka nebo mince je padělaná nebo pozměněná, prodávající ji nepoužije k dalšímu placení a bude postupovat podle právních předpisů.
+
+21.2. U právnické osoby nebo jiné osoby, která má zákonnou povinnost podezřelé platidlo zadržet, může být platidlo zadrženo bez náhrady a předáno k odbornému posouzení; událost může být oznámena Policii ČR.
+
+21.3. Toto pravidlo platí bez ohledu na nominální hodnotu. Nejde pouze o bankovky nad 500 Kč. Pokud zákazník předloží podezřelou bankovku, bude postupováno podle zákona a pokynů ČNB.`],
+['22. OCHRANA OSOBNÍCH ÚDAJŮ', `22.1. Osobní údaje jsou zpracovávány v souladu s platnými právními předpisy a GDPR.
+
+22.2. Údaje mohou být použity zejména pro vyřízení objednávky, komunikaci, doručení, účetnictví, reklamace, ochranu právních nároků a další zákonné účely.
+
+22.3. Podrobnosti jsou uvedeny v samostatných Zásadách ochrany osobních údajů.`],
+['23. MIMOSOUDNÍ ŘEŠENÍ SPORŮ', `23.1. Spotřebitel může při nevyřešeném sporu využít mimosoudní řešení spotřebitelského sporu (ADR) u České obchodní inspekce, jsou-li splněny zákonné podmínky.
+
+23.2. Tím není dotčeno právo zákazníka obrátit se na soud nebo jiný příslušný orgán.`],
+['24. ZÁVĚREČNÁ USTANOVENÍ', `24.1. Tyto podmínky se řídí právním řádem České republiky.
+
+24.2. Pokud je některé ustanovení neplatné nebo neúčinné, nemá to vliv na ostatní ustanovení.
+
+24.3. Pro konkrétní objednávku je rozhodující znění podmínek účinné v době uzavření smlouvy.
+
+24.4. Tyto obchodní podmínky jsou účinné od 11. 9. 2026.`]
 ] as const;
 
 export const TermsPage: React.FC = () => {
@@ -37,11 +165,37 @@ export const TermsPage: React.FC = () => {
   return <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
     <button onClick={() => setPage('cart')} className="inline-flex items-center gap-2 text-xs font-semibold text-[#8C7355] hover:underline mb-6"><ArrowLeft className="w-4 h-4" />Zpět do košíku</button>
     <div className="bg-white rounded-3xl border border-[#E8DFC8] shadow-sm overflow-hidden">
-      <header className="bg-[#2D2723] text-white p-7 sm:p-10"><div className="flex items-center gap-3 text-[#C5A880] text-xs font-bold uppercase tracking-[0.2em]"><FileText className="w-5 h-5" />Právní dokument</div><h1 className="font-editorial text-3xl sm:text-5xl font-bold mt-3">Obchodní podmínky</h1><p className="text-[#D8CEC3] text-sm mt-3">Luvia-Decor · Platné a účinné od: 3. 9. 2026</p></header>
+      <header className="bg-[#2D2723] text-white p-7 sm:p-10"><div className="flex items-center gap-3 text-[#C5A880] text-xs font-bold uppercase tracking-[0.2em]"><FileText className="w-5 h-5" />Právní dokument</div><h1 className="font-editorial text-3xl sm:text-5xl font-bold mt-3">Obchodní podmínky</h1><p className="text-[#D8CEC3] text-sm mt-3">Luvia-Decor · Platné a účinné od: 11. 9. 2026</p></header>
       <article className="p-6 sm:p-10 space-y-9">{sections.map(([title, text]) => <section key={title}><h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#2D2723] mb-3">{title}</h2><div className="text-sm leading-7 text-[#5C5046] whitespace-pre-line">{text}</div></section>)}
-        <section className="pt-4 border-t border-[#E8DFC8]"><h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#2D2723] mb-4">VZOROVÝ FORMULÁŘ PRO ODSTOUPENÍ OD KUPNÍ SMLOUVY</h2><div className="bg-[#FAF8F5] rounded-2xl border border-[#E8DFC8] p-5 sm:p-7 text-sm leading-7 text-[#5C5046] whitespace-pre-line">{`Adresát:\n\nLadislav Pekárek / Luvia Decor\nU Rejdiště 3732/15\n767 01 Kroměříž\nČeská republika\n\nE-mail: podpora@luvia-decor.cz\n\nOZNÁMENÍ O ODSTOUPENÍ OD SMLOUVY\n\nTímto oznamuji, že odstupuji od kupní smlouvy uzavřené prostřednictvím internetového obchodu Luvia-Decor.\n\nČíslo objednávky:\n....................................................\n\nDatum objednání:\n....................................................\n\nDatum převzetí zboží:\n....................................................\n\nJméno a příjmení spotřebitele:\n....................................................\n\nAdresa spotřebitele:\n....................................................\n\nE-mail:\n....................................................\n\nTelefon:\n....................................................\n\nZboží, kterého se odstoupení týká:\n....................................................\n\nČíslo účtu pro vrácení peněžních prostředků:\n....................................................\n\nV případě, že požadujete vrácení peněz na účet, který byl použit při původní platbě, není nutné číslo účtu znovu uvádět.\n\nDatum:\n....................................................\n\nPodpis spotřebitele:\n....................................................\n\n(Podpis je nutný pouze v případě listinného formuláře.)`}</div></section>
-        <section className="pt-4 border-t border-[#E8DFC8]"><h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#2D2723] mb-3">KONTAKT PRO OBJEDNÁVKY, REKLAMACE A ODSTOUPENÍ</h2><div className="text-sm leading-7 text-[#5C5046] whitespace-pre-line">{`Ladislav Pekárek / Luvia Decor\nIČO: 29905061\nU Rejdiště 3732/15\n767 01 Kroměříž\nČeská republika\n\nE-mail: podpora@luvia-decor.cz\nTelefon: +420 702 345 999\nWeb: www.luvia-decor.cz`}</div></section>
-        <p className="text-xs text-[#8C7355] pt-2">Konec obchodních podmínek.</p>
+        <section className="pt-4 border-t border-[#E8DFC8]"><h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#2D2723] mb-4">VZOROVÝ FORMULÁŘ PRO ODSTOUPENÍ OD KUPNÍ SMLOUVY</h2><div className="bg-[#FAF8F5] rounded-2xl border border-[#E8DFC8] p-5 sm:p-7 text-sm leading-7 text-[#5C5046] whitespace-pre-line">{`Adresát:
+Ladislav Pekárek / Luvia Decor
+U Rejdiště 3732/15
+767 01 Kroměříž
+Česká republika
+E-mail: podpora@luvia-decor.cz
+
+OZNÁMENÍ O ODSTOUPENÍ OD SMLOUVY
+
+Tímto oznamuji, že odstupuji od smlouvy uzavřené prostřednictvím internetového obchodu Luvia-Decor.
+
+Číslo objednávky: ....................................................
+Datum objednání: ....................................................
+Datum převzetí: ....................................................
+Jméno a příjmení: ....................................................
+Adresa: ....................................................
+E-mail: ....................................................
+Telefon: ....................................................
+Zboží/služba: ....................................................
+Číslo účtu pro vrácení peněz: ....................................................
+Datum: ....................................................
+Podpis: ....................................................`}</div></section>
+        <section className="pt-4 border-t border-[#E8DFC8]"><h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#2D2723] mb-3">KONTAKT</h2><div className="text-sm leading-7 text-[#5C5046] whitespace-pre-line">{`Ladislav Pekárek / Luvia Decor
+IČO: 29905061
+U Rejdiště 3732/15
+767 01 Kroměříž
+E-mail: podpora@luvia-decor.cz
+Telefon: +420 702 345 999
+Web: www.luvia-decor.cz`}</div></section>
       </article>
     </div>
   </div>;
