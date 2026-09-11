@@ -24,12 +24,17 @@ const wrapText = (ctx: CanvasRenderingContext2D, value: string, maxWidth: number
   return lines;
 };
 
-const drawText = (ctx: CanvasRenderingContext2D, value: string, x: number, y: number, font: string, color: string, maxWidth?: number, lineHeight = 1.18) => {
+const drawText = (ctx: CanvasRenderingContext2D, value: string, x: number, y: number, font: string, color: string, maxWidth?: number, lineHeight = 1.18, maxLines = 3) => {
   ctx.font = font;
   ctx.fillStyle = color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  const lines = maxWidth ? wrapText(ctx, value, maxWidth) : [value];
+  let lines = maxWidth ? wrapText(ctx, value, maxWidth) : [value];
+  if (lines.length > maxLines) {
+    lines = lines.slice(0, maxLines);
+    const last = lines[maxLines - 1];
+    lines[maxLines - 1] = `${last.replace(/[.,;:!?\-–—\s]+$/, '')}…`;
+  }
   const size = Number(font.match(/(\d+(?:\.\d+)?)px/)?.[1] || 16);
   lines.forEach((item, index) => ctx.fillText(item, x, y + index * size * lineHeight));
 };
@@ -102,9 +107,7 @@ export const createGiftCardPdf = async (options: GiftCardPdfOptions) => {
   if (typeof document === 'undefined') throw new Error('PDF lze vytvořit pouze v prohlížeči.');
   if (document.fonts?.ready) await document.fonts.ready;
 
-  // The artwork is designed in a 210 × 148 mm coordinate system. Scale it
-  // uniformly to a full A4 landscape sheet so nothing is cropped or left
-  // outside the PDF page.
+  // A4 landscape artwork. Keep all text in a dedicated vertical rhythm so every block has its own space.
   const A4_SCALE = 297 / 210;
   const scale = 8 * A4_SCALE;
   const width = 297 * 8;
@@ -124,7 +127,6 @@ export const createGiftCardPdf = async (options: GiftCardPdfOptions) => {
   const sans = 'Arial, "Noto Sans", "Segoe UI", sans-serif';
   const serif = 'Georgia, "Times New Roman", serif';
 
-  // Fixed luxury theme matching the approved reference. The design selector is intentionally not used here.
   const bg = ctx.createRadialGradient(S(105), S(67), S(5), S(105), S(70), S(145));
   bg.addColorStop(0, '#21170C');
   bg.addColorStop(.45, '#0F0B07');
@@ -132,7 +134,6 @@ export const createGiftCardPdf = async (options: GiftCardPdfOptions) => {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, width, height);
 
-  // Subtle marble / satin texture.
   ctx.save();
   ctx.globalAlpha = .14;
   ctx.strokeStyle = '#8D6737';
@@ -145,7 +146,6 @@ export const createGiftCardPdf = async (options: GiftCardPdfOptions) => {
   }
   ctx.restore();
 
-  // Three-layer luxury frame.
   rounded(ctx, S(5.5), S(4.5), S(199), S(139), S(4.5), undefined, goldLight, S(.75));
   rounded(ctx, S(8.5), S(7.5), S(193), S(133), S(3.5), undefined, gold, S(.3));
   rounded(ctx, S(10.5), S(9.5), S(189), S(129), S(2.5), undefined, '#76562D', S(.18));
@@ -156,53 +156,53 @@ export const createGiftCardPdf = async (options: GiftCardPdfOptions) => {
   drawBotanical(ctx, S(195), S(17), .63, true, gold);
   drawBow(ctx, S(188), S(11), 1.0);
 
-  // Header and brand.
-  drawText(ctx, String(options.logoText || 'LUVIA DECOR').toUpperCase(), center, S(25), `700 ${S(15.5)}px ${serif}`, goldLight);
-  divider(ctx, S(69), S(97), S(30), gold, S(.45));
-  divider(ctx, S(113), S(141), S(30), gold, S(.45));
-  drawText(ctx, '♡', center, S(31.8), `400 ${S(7)}px ${serif}`, goldLight);
-  drawText(ctx, 'KVĚTINOVÝ ATELIÉR  ·  DEKORACE  ·  KROMĚŘÍŽ', center, S(37), `700 ${S(5.8)}px ${sans}`, cream);
+  // Header: fixed baselines with deliberate, equal spacing.
+  drawText(ctx, String(options.logoText || 'LUVIA DECOR').toUpperCase(), center, S(24), `700 ${S(14.5)}px ${serif}`, goldLight);
+  divider(ctx, S(69), S(97), S(29.5), gold, S(.45));
+  divider(ctx, S(113), S(141), S(29.5), gold, S(.45));
+  drawText(ctx, '♡', center, S(32), `400 ${S(6.5)}px ${serif}`, goldLight);
+  drawText(ctx, 'KVĚTINOVÝ ATELIÉR  ·  DEKORACE  ·  KROMĚŘÍŽ', center, S(38.5), `700 ${S(5.5)}px ${sans}`, cream, S(174), 1.1, 1);
 
-  drawText(ctx, 'DÁRKOVÁ KARTA', center, S(57), `700 ${S(18.5)}px ${serif}`, cream);
-  divider(ctx, S(61), S(97), S(63), gold, S(.5));
-  divider(ctx, S(113), S(149), S(63), gold, S(.5));
-  drawText(ctx, '♥', center, S(64.5), `400 ${S(7)}px ${sans}`, goldLight);
-  drawText(ctx, 'S LÁSKOU PRO VÁS', center, S(72), `700 ${S(7)}px ${sans}`, goldLight);
+  // Main title block.
+  drawText(ctx, 'DÁRKOVÁ KARTA', center, S(57), `700 ${S(18)}px ${serif}`, cream);
+  divider(ctx, S(61), S(97), S(62.5), gold, S(.5));
+  divider(ctx, S(113), S(149), S(62.5), gold, S(.5));
+  drawText(ctx, '♥', center, S(65), `400 ${S(6.5)}px ${sans}`, goldLight);
+  drawText(ctx, 'S LÁSKOU PRO VÁS', center, S(72.5), `700 ${S(6.7)}px ${sans}`, goldLight);
 
-  // Main value plaque.
+  // Main value plaque: its height is separated from both the title and slogan.
   const plaque = ctx.createLinearGradient(S(48), S(79), S(162), S(104));
   plaque.addColorStop(0, '#1A1209');
   plaque.addColorStop(.5, '#080604');
   plaque.addColorStop(1, '#1A1209');
   rounded(ctx, S(49), S(78), S(112), S(26), S(3.2), plaque, goldLight, S(.65));
   rounded(ctx, S(51), S(80), S(108), S(22), S(2.4), undefined, gold, S(.22));
-  drawText(ctx, 'HODNOTA', center, S(86), `700 ${S(5.8)}px ${sans}`, goldLight);
-  drawText(ctx, `${money(options.amount)} Kč`, center, S(98), `700 ${S(17.5)}px ${serif}`, goldLight);
+  drawText(ctx, 'HODNOTA', center, S(86), `700 ${S(5.5)}px ${sans}`, goldLight);
+  drawText(ctx, `${money(options.amount)} Kč`, center, S(98), `700 ${S(17)}px ${serif}`, goldLight);
 
-  // Brand promise.
-  drawText(ctx, options.slogan || 'Ručně tvořené dekorace a květinový ateliér v Kroměříži', center, S(111), `600 ${S(7.6)}px ${serif}`, cream, S(174), 1.15);
+  // Slogan is constrained to one compact line whenever possible; it never enters the code area.
+  drawText(ctx, options.slogan || 'Ručně tvořené dekorace a květinový ateliér v Kroměříži', center, S(112.5), `600 ${S(6.7)}px ${serif}`, cream, S(168), 1.1, 2);
 
-  // Real/admin cards have codes; customer preview deliberately does not.
+  // Code area is a separate horizontal section with generous internal padding.
   if (options.cardCode) {
-    rounded(ctx, S(31), S(115), S(148), S(14), S(2.5), '#080604D9', '#9C763E', S(.35));
-    divider(ctx, S(105), S(105), S(117), '#76562D', S(.3));
-    drawText(ctx, 'ČÍSLO DÁRKOVÉ KARTY', S(68), S(120), `700 ${S(4.7)}px ${sans}`, goldLight);
-    drawText(ctx, String(options.cardCode), S(68), S(125.8), `700 ${S(6.4)}px ${sans}`, cream);
-    drawText(ctx, 'BEZPEČNOSTNÍ KÓD', S(142), S(120), `700 ${S(4.7)}px ${sans}`, goldLight);
-    drawText(ctx, String(options.securityCode || ''), S(142), S(125.8), `700 ${S(6.4)}px ${sans}`, cream);
+    rounded(ctx, S(31), S(120), S(148), S(15), S(2.5), '#080604D9', '#9C763E', S(.35));
+    divider(ctx, S(105), S(105), S(122.2), '#76562D', S(.3));
+    drawText(ctx, 'ČÍSLO DÁRKOVÉ KARTY', S(68), S(125), `700 ${S(4.5)}px ${sans}`, goldLight, S(54), 1.05, 1);
+    drawText(ctx, String(options.cardCode), S(68), S(131), `700 ${S(6.1)}px ${sans}`, cream, S(58), 1.05, 1);
+    drawText(ctx, 'BEZPEČNOSTNÍ KÓD', S(142), S(125), `700 ${S(4.5)}px ${sans}`, goldLight, S(54), 1.05, 1);
+    drawText(ctx, String(options.securityCode || ''), S(142), S(131), `700 ${S(6.1)}px ${sans}`, cream, S(58), 1.05, 1);
   } else {
-    drawText(ctx, 'Digitální dárková karta · doručení e-mailem', center, S(119), `600 ${S(6.5)}px ${sans}`, muted);
-    drawText(ctx, 'Kód a bezpečnostní kód obdržíte po zaplacení dárkové karty.', center, S(125), `600 ${S(6.1)}px ${sans}`, muted, S(178), 1.1);
+    drawText(ctx, 'Digitální dárková karta · doručení e-mailem', center, S(123.5), `600 ${S(6.1)}px ${sans}`, muted, S(174), 1.05, 1);
+    drawText(ctx, 'Kód a bezpečnostní kód obdržíte po zaplacení dárkové karty.', center, S(130), `600 ${S(5.7)}px ${sans}`, muted, S(174), 1.08, 2);
   }
 
-  divider(ctx, S(72), S(97), S(132), gold, S(.45));
-  divider(ctx, S(113), S(138), S(132), gold, S(.45));
-  drawText(ctx, '♥', center, S(133.8), `400 ${S(5.5)}px ${sans}`, goldLight);
-  drawText(ctx, 'UPLATNĚNÍ POUZE PŘES E-SHOP', center, S(137.5), `700 ${S(6.1)}px ${sans}`, goldLight);
-  drawText(ctx, 'LUVIA DECOR  ·  KROMĚŘÍŽ', center, S(142), `700 ${S(5.2)}px ${sans}`, gold);
+  // Footer is intentionally kept below the code block with consistent 3–4 mm vertical gaps.
+  divider(ctx, S(72), S(97), S(136), gold, S(.45));
+  divider(ctx, S(113), S(138), S(136), gold, S(.45));
+  drawText(ctx, '♥', center, S(138), `400 ${S(5.2)}px ${sans}`, goldLight);
+  drawText(ctx, 'UPLATNĚNÍ POUZE PŘES E-SHOP', center, S(142), `700 ${S(5.8)}px ${sans}`, goldLight, S(160), 1.05, 1);
+  drawText(ctx, 'LUVIA DECOR  ·  KROMĚŘÍŽ', center, S(146), `700 ${S(5)}px ${sans}`, gold);
 
-  // A4 landscape PDF: 297 × 210 mm. The complete artwork above is
-  // uniformly scaled, so its proportions and every text element remain intact.
   const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 297, 210, undefined, 'FAST');
   const suffix = options.cardCode || `${options.amount}Kc`;
