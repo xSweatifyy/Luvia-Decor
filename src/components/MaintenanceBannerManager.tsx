@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Check, Eye, EyeOff, Info, Save, Wrench } from 'lucide-react';
+import { AlertTriangle, CalendarDays, Check, Eye, EyeOff, Info, Save, Wrench } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { MaintenanceBannerConfig } from '../types';
 
@@ -8,6 +8,9 @@ const emptyBanner: MaintenanceBannerConfig = {
   variant: 'maintenance',
   title: 'E-shop je dočasně mimo provoz',
   message: 'Momentálně probíhá plánovaná odstávka nebo technická údržba. Děkujeme za pochopení.',
+  reason: '',
+  dateFrom: '',
+  dateTo: '',
   until: '',
 };
 
@@ -32,6 +35,9 @@ export const MaintenanceBannerManager: React.FC = () => {
   };
 
   const Icon = banner.variant === 'warning' ? AlertTriangle : banner.variant === 'info' ? Info : Wrench;
+  const datePreview = banner.dateFrom || banner.dateTo
+    ? `${banner.dateFrom ? `Od ${banner.dateFrom}` : ''}${banner.dateFrom && banner.dateTo ? ' · ' : ''}${banner.dateTo ? `do ${banner.dateTo}` : ''}`
+    : banner.until || '';
 
   return (
     <div className="space-y-5">
@@ -60,8 +66,16 @@ export const MaintenanceBannerManager: React.FC = () => {
             </select>
           </div>
           <div>
-            <label className="block font-semibold text-[#5C5046] mb-1.5">Do kdy / kdy znovu otevřeme</label>
-            <input value={banner.until || ''} onChange={e => update({ until: e.target.value })} placeholder="Např. E-shop bude znovu dostupný v pondělí 15. 9. 2026 v 18:00." className="w-full px-3.5 py-3 bg-[#FAF8F5] border border-[#E3DACF] rounded-xl" />
+            <label className="block font-semibold text-[#5C5046] mb-1.5">Důvod odstávky</label>
+            <input value={banner.reason || ''} onChange={e => update({ reason: e.target.value })} placeholder="Např. technická údržba, aktualizace e-shopu, inventura, dovolená..." className="w-full px-3.5 py-3 bg-[#FAF8F5] border border-[#E3DACF] rounded-xl" />
+          </div>
+          <div>
+            <label className="block font-semibold text-[#5C5046] mb-1.5">Datum a čas začátku</label>
+            <input type="datetime-local" value={banner.dateFrom || ''} onChange={e => update({ dateFrom: e.target.value })} className="w-full px-3.5 py-3 bg-[#FAF8F5] border border-[#E3DACF] rounded-xl" />
+          </div>
+          <div>
+            <label className="block font-semibold text-[#5C5046] mb-1.5">Datum a čas ukončení</label>
+            <input type="datetime-local" value={banner.dateTo || ''} onChange={e => update({ dateTo: e.target.value })} className="w-full px-3.5 py-3 bg-[#FAF8F5] border border-[#E3DACF] rounded-xl" />
           </div>
           <div className="lg:col-span-2">
             <label className="block font-semibold text-[#5C5046] mb-1.5">Nadpis banneru *</label>
@@ -88,7 +102,13 @@ export const MaintenanceBannerManager: React.FC = () => {
           <div className={`border-b px-4 py-4 ${banner.variant === 'closed' ? 'bg-[#4A2424] border-[#6A3636]' : banner.variant === 'warning' ? 'bg-[#6B4D22] border-[#8B6A35]' : banner.variant === 'info' ? 'bg-[#3B4650] border-[#596774]' : 'bg-[#2D2723] border-[#51453D]'}`}>
             <div className="flex gap-3 items-start text-white">
               <Icon className="w-5 h-5 mt-0.5 shrink-0 text-[#E8CFAE]" />
-              <div><div className="text-[9px] uppercase tracking-[0.18em] font-bold text-[#E8CFAE]">{banner.variant === 'closed' ? 'E-shop je dočasně uzavřen' : banner.variant === 'warning' ? 'Důležité upozornění' : banner.variant === 'info' ? 'Informace' : 'Odstávka e-shopu'}</div><div className="font-bold text-sm mt-0.5">{banner.title || 'Nadpis banneru'}</div><div className="text-xs text-white/80 mt-1">{banner.message || 'Text oznámení'}</div>{banner.until && <div className="text-[10px] text-white/65 mt-2">{banner.until}</div>}</div>
+              <div>
+                <div className="text-[9px] uppercase tracking-[0.18em] font-bold text-[#E8CFAE]">{banner.variant === 'closed' ? 'E-shop je dočasně uzavřen' : banner.variant === 'warning' ? 'Důležité upozornění' : banner.variant === 'info' ? 'Informace' : 'Odstávka e-shopu'}</div>
+                <div className="font-bold text-sm mt-0.5">{banner.title || 'Nadpis banneru'}</div>
+                {banner.reason && <div className="text-[10px] text-[#E8CFAE] mt-1 font-semibold">Důvod: {banner.reason}</div>}
+                <div className="text-xs text-white/80 mt-1">{banner.message || 'Text oznámení'}</div>
+                {datePreview && <div className="text-[10px] text-white/65 mt-2 flex items-center gap-1"><CalendarDays className="w-3 h-3" />{datePreview}</div>}
+              </div>
             </div>
           </div>
           <div className="h-16 bg-[#FCFAF7]" />
