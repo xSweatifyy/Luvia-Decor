@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Gift, Plus, Trash2, Power, RefreshCw, WalletCards, Check, X, Shuffle, Download, Palette } from 'lucide-react';
+import { Gift, Plus, Trash2, Power, RefreshCw, WalletCards, Check, X, Shuffle, Download, Palette, Mail } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Coupon } from '../types';
 import { createGiftCardPdf } from '../utils/giftCardPdf';
@@ -100,6 +100,29 @@ export const GiftVoucherManager: React.FC = () => {
     }
   };
 
+  const sendGiftEmail = async (v: Coupon) => {
+    const to = window.prompt(`E-mail příjemce pro ${v.code}:`);
+    if (to === null) return;
+    if (!to.trim()) return addToast('error', 'E-mail', 'E-mail příjemce je povinný.');
+    setBusy(v.id);
+    try {
+      const r = await fetch('/api/coupons?action=send-gift-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: v.code, email: to.trim() }) });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(d?.error || 'E-mail se nepodařilo odeslat.');
+      addToast('success', 'Dárková karta odeslána', to.trim());
+    } catch (e: any) { addToast('error', 'Odeslání e-mailu', e?.message || 'Chyba.'); } finally { setBusy(null); }
+  };
+
+  const sendTopupEmail = async (t: Topup) => {
+    setBusy(t.id);
+    try {
+      const r = await fetch('/api/coupons?action=send-topup-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: t.id }) });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(d?.error || 'E-mail se nepodařilo odeslat.');
+      addToast('success', 'E-mail o dobití odeslán', t.email);
+    } catch (e: any) { addToast('error', 'Odeslání e-mailu', e?.message || 'Chyba.'); } finally { setBusy(null); }
+  };
+
   const recharge = async (v: Coupon) => {
     const raw = window.prompt(`Kolik Kč chcete připsat na ${v.code}? Minimum je ${MIN} Kč.`);
     if (raw === null) return;
@@ -186,9 +209,9 @@ export const GiftVoucherManager: React.FC = () => {
         <button type="button" disabled={busy === 'create' || !paid} onClick={create} className="self-end px-4 py-2.5 rounded-xl bg-[#2D2723] text-white text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-40"><Plus className="w-4 h-4" />Vytvořit kartu + PDF</button>
       </div>
 
-      {vouchers.length > 0 && <div className="space-y-3">{vouchers.map(v => <div key={v.id} className="p-4 rounded-2xl border border-[#E8DFC8] bg-[#FAFAF8]"><div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><b className="text-sm">{v.code}</b><span className={`text-[10px] px-2 py-1 rounded-full font-bold ${v.active ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>{v.active ? 'Aktivní' : 'Neaktivní'}</span></div><p className="text-[11px] text-stone-500 mt-1">Původně {money(Number(v.originalValue ?? v.value))} Kč · <strong className="text-[#8C7355]">Zůstatek {money(Number(v.remainingValue ?? v.value))} Kč</strong></p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => downloadExistingPdf(v)} className="px-3 py-1.5 rounded-lg border text-[11px] font-semibold flex items-center gap-1"><Download className="w-3.5 h-3.5" />PDF</button><button type="button" disabled={busy === v.id} onClick={() => recharge(v)} className="px-3 py-1.5 rounded-lg border text-[11px] font-semibold"><WalletCards className="w-3.5 h-3.5 inline mr-1" />Dobít...</button><button type="button" disabled={busy === v.id} onClick={() => toggle(v)} className="px-3 py-1.5 rounded-lg border text-[11px] font-semibold"><Power className="w-3.5 h-3.5 inline mr-1" />{v.active ? 'Deaktivovat' : 'Aktivovat'}</button><button type="button" disabled={busy === v.id} onClick={() => remove(v)} className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-[11px] font-semibold"><Trash2 className="w-3.5 h-3.5 inline mr-1" />Smazat</button></div></div></div>)}</div>}
+      {vouchers.length > 0 && <div className="space-y-3">{vouchers.map(v => <div key={v.id} className="p-4 rounded-2xl border border-[#E8DFC8] bg-[#FAFAF8]"><div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><b className="text-sm">{v.code}</b><span className={`text-[10px] px-2 py-1 rounded-full font-bold ${v.active ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>{v.active ? 'Aktivní' : 'Neaktivní'}</span></div><p className="text-[11px] text-stone-500 mt-1">Původně {money(Number(v.originalValue ?? v.value))} Kč · <strong className="text-[#8C7355]">Zůstatek {money(Number(v.remainingValue ?? v.value))} Kč</strong></p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => downloadExistingPdf(v)} className="px-3 py-1.5 rounded-lg border text-[11px] font-semibold flex items-center gap-1"><Download className="w-3.5 h-3.5" />PDF</button><button type="button" disabled={busy === v.id} onClick={() => sendGiftEmail(v)} className="px-3 py-1.5 rounded-lg border text-[11px] font-semibold flex items-center gap-1"><Mail className="w-3.5 h-3.5" />Odeslat e-mailem</button><button type="button" disabled={busy === v.id} onClick={() => recharge(v)} className="px-3 py-1.5 rounded-lg border text-[11px] font-semibold"><WalletCards className="w-3.5 h-3.5 inline mr-1" />Dobít...</button><button type="button" disabled={busy === v.id} onClick={() => toggle(v)} className="px-3 py-1.5 rounded-lg border text-[11px] font-semibold"><Power className="w-3.5 h-3.5 inline mr-1" />{v.active ? 'Deaktivovat' : 'Aktivovat'}</button><button type="button" disabled={busy === v.id} onClick={() => remove(v)} className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-[11px] font-semibold"><Trash2 className="w-3.5 h-3.5 inline mr-1" />Smazat</button></div></div></div>)}</div>}
 
-      <div className="pt-2"><h3 className="text-sm font-bold text-[#2D2723]">Čekající žádosti o dobití</h3>{topups.length === 0 ? <p className="text-xs text-stone-500 mt-2">Žádné čekající žádosti.</p> : <div className="mt-3 space-y-2">{topups.map(t => <div key={t.id} className="p-3 rounded-xl border flex items-center justify-between gap-3"><div><b className="text-xs">{t.code}</b><span className="text-xs text-stone-500 ml-2">{money(t.amount)} Kč · {t.email}</span></div><div className="flex gap-2"><button type="button" disabled={busy === t.id} onClick={() => confirmTopup(t)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold"><Check className="w-3.5 h-3.5 inline mr-1" />Potvrdit</button><button type="button" disabled={busy === t.id} onClick={() => cancelTopup(t)} className="px-3 py-1.5 rounded-lg bg-stone-100 text-stone-700 text-[11px] font-bold"><X className="w-3.5 h-3.5 inline mr-1" />Zrušit</button></div></div>)}</div>}</div>
+      <div className="pt-2"><h3 className="text-sm font-bold text-[#2D2723]">Čekající žádosti o dobití</h3>{topups.length === 0 ? <p className="text-xs text-stone-500 mt-2">Žádné čekající žádosti.</p> : <div className="mt-3 space-y-2">{topups.map(t => <div key={t.id} className="p-3 rounded-xl border flex items-center justify-between gap-3"><div><b className="text-xs">{t.code}</b><span className="text-xs text-stone-500 ml-2">{money(t.amount)} Kč · {t.email}</span></div><div className="flex gap-2"><button type="button" disabled={busy === t.id || t.status !== 'confirmed'} onClick={() => sendTopupEmail(t)} className="px-3 py-1.5 rounded-lg bg-[#2D2723] text-white text-[11px] font-bold disabled:opacity-40"><Mail className="w-3.5 h-3.5 inline mr-1" />Odeslat e-mail</button><button type="button" disabled={busy === t.id} onClick={() => confirmTopup(t)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold"><Check className="w-3.5 h-3.5 inline mr-1" />Potvrdit</button><button type="button" disabled={busy === t.id} onClick={() => cancelTopup(t) } className="px-3 py-1.5 rounded-lg bg-stone-100 text-stone-700 text-[11px] font-bold"><X className="w-3.5 h-3.5 inline mr-1" />Zrušit</button></div></div>)}</div>}</div>
     </div>
   </section>;
 };
