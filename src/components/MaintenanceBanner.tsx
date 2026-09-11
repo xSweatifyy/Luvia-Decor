@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Clock3, Info, Wrench } from 'lucide-react';
+import { AlertTriangle, CalendarDays, Clock3, Info, Wrench } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export const MaintenanceBanner: React.FC = () => {
@@ -37,6 +37,9 @@ export const MaintenanceBanner: React.FC = () => {
   }[variant];
 
   const Icon = styles.icon;
+  const dateText = banner.dateFrom || banner.dateTo
+    ? `${banner.dateFrom ? `Od ${banner.dateFrom.replace('T', ' ')}` : ''}${banner.dateFrom && banner.dateTo ? ' · ' : ''}${banner.dateTo ? `do ${banner.dateTo.replace('T', ' ')}` : ''}`
+    : banner.until;
 
   return (
     <div className={`relative z-30 w-full border-b ${styles.wrapper}`} role="status" aria-live="polite">
@@ -50,11 +53,14 @@ export const MaintenanceBanner: React.FC = () => {
               {styles.label}
             </div>
             <h2 className="mt-0.5 text-sm sm:text-base font-bold tracking-tight">{banner.title}</h2>
+            {banner.reason?.trim() && (
+              <p className={`mt-1 text-xs sm:text-sm font-semibold ${styles.accent}`}>Důvod: {banner.reason}</p>
+            )}
             <p className="mt-1 text-xs sm:text-sm leading-relaxed text-white/85">{banner.message}</p>
-            {banner.until?.trim() && (
+            {dateText?.trim() && (
               <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold text-white/75">
-                <Clock3 className="w-3.5 h-3.5" />
-                <span>{banner.until}</span>
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span>{dateText}</span>
               </div>
             )}
           </div>
