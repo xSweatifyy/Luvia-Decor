@@ -1,0 +1,25 @@
+import React from 'react';
+import { ShieldCheck, Clock3, HeartHandshake, AlertTriangle } from 'lucide-react';
+
+export const ConsultationTermsSection: React.FC = () => (
+  <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
+    <div className="bg-white rounded-3xl border border-[#E8DFC8] shadow-sm overflow-hidden">
+      <div className="bg-[#2D2723] text-white p-6 sm:p-8">
+        <div className="flex items-center gap-2 text-[#C5A880] text-xs font-bold uppercase tracking-[0.18em]"><HeartHandshake className="w-4 h-4" /> Konzultace a návštěvy</div>
+        <h2 className="font-editorial text-2xl sm:text-3xl font-bold mt-2">Ceník a podmínky konzultací</h2>
+        <p className="text-sm text-[#D8CEC3] mt-2">Platí pro online konzultace, osobní schůzky i svatební návrhy.</p>
+      </div>
+      <div className="p-6 sm:p-8 space-y-7 text-sm leading-7 text-[#5C5046]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-[#E8DFC8] bg-[#FAF8F5] p-4"><b>Online 30 minut</b><br />400 Kč</div>
+          <div className="rounded-2xl border border-[#E8DFC8] bg-[#FAF8F5] p-4"><b>Online 60 minut</b><br />700 Kč</div>
+          <div className="rounded-2xl border border-[#E8DFC8] bg-[#FAF8F5] p-4"><b>Osobně 90 minut</b><br />1 000 Kč</div>
+          <div className="rounded-2xl border border-[#E8DFC8] bg-[#FAF8F5] p-4"><b>Svatební konzultace + návrh dekorace na míru</b><br />od 1 000 Kč</div>
+        </div>
+        <div><h3 className="font-editorial text-xl font-bold text-[#2D2723] mb-2 flex items-center gap-2"><Clock3 className="w-5 h-5 text-[#8C7355]" /> Průběh a rezervace</h3><p>Termín konzultace se sjednává předem. Cena se hradí podle pokynů prodávajícího. U svatebních a individuálních návrhů může být konečná cena vyšší podle rozsahu práce a náročnosti návrhu; konkrétní cena bude zákazníkovi sdělena před potvrzením objednávky.</p></div>
+        <div><h3 className="font-editorial text-xl font-bold text-[#2D2723] mb-2 flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-[#8C7355]" /> Pravidla návštěvy ateliéru</h3><p>Zákazník je povinen respektovat pokyny personálu, bezpečnostní pravidla a soukromí provozovatele. Bez výslovného souhlasu nesmí otevírat skříně, zásuvky ani jiné úložné prostory, manipulovat s dokumenty nebo vstupovat do neveřejných či diskrétních zón. Nesmí bez svolení manipulovat s elektrickými zařízeními, vzduchotechnikou, pračkou, sprchou, vodovodními prvky ani elektrickými topnými žebříky a jinými technickými zařízeními. Nesmí provádět žádné zásahy do vybavení budovy ani do majetku provozovatele.</p></div>
+        <div><h3 className="font-editorial text-xl font-bold text-[#2D2723] mb-2 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-[#8C7355]" /> Porušení pravidel a bezpečnost</h3><p>Pokud zákazník přes upozornění personálu v jednání pokračuje, může být návštěva ukončena a zákazník může být vyzván k opuštění prostor. Při napadení, vyhrožování, úmyslném ničení majetku, krádeži, přepadení nebo jiném závažném incidentu může provozovatel bezodkladně přivolat Policii ČR a podniknout další právní kroky. Tím nejsou dotčena práva provozovatele na náhradu skutečně vzniklé škody.</p></div>
+      </div>
+    </div>
+  </section>
+);
