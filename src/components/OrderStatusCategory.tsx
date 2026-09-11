@@ -48,18 +48,17 @@ export const OrderStatusCategory: React.FC = () => {
     setSavingId(order.id);
     setDrafts(prev => ({ ...prev, [order.id]: nextStatus }));
     try {
-      const lookup = order.orderNumber || order.id;
-      const response = await fetch(`/api/orders/${encodeURIComponent(lookup)}/status`, {
-        method: 'PUT',
+      const response = await fetch('/api/order-status', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus }),
+        body: JSON.stringify({ orderId: order.id, status: nextStatus }),
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || data?.success !== true) throw new Error(data?.error || `Aktualizace stavu selhala (${response.status}).`);
-      setOrders(prev => prev.map(item => item.id === order.id ? { ...item, ...data, status: nextStatus } : item));
+      const savedOrder = data.order || { ...order, status: nextStatus };
+      setOrders(prev => prev.map(item => item.id === order.id ? { ...item, ...savedOrder, status: nextStatus } : item));
       setDrafts(prev => ({ ...prev, [order.id]: nextStatus }));
-      if (data.statusEmail?.sent === false) addToast('error', 'Stav uložen, e-mail se nepodařilo odeslat', `${order.orderNumber}: ${data.statusEmail.error || 'Zkontrolujte Resend a RESEND_API_KEY.'}`);
-      else addToast('success', 'Stav změněn a e-mail odeslán', `${order.orderNumber}: ${statusLabel(nextStatus)}`);
+      addToast('success', 'Stav objednávky uložen', `${order.orderNumber}: ${statusLabel(nextStatus)}`);
     } catch (error: any) {
       setDrafts(prev => ({ ...prev, [order.id]: previousStatus }));
       addToast('error', 'Chyba při aktualizaci stavu', error?.message || 'Stav objednávky se nepodařilo uložit.');
@@ -94,6 +93,6 @@ export const OrderStatusCategory: React.FC = () => {
         </div>;
       })}</div>}
     </div>
-    <div className="flex items-center justify-center gap-2 text-[11px] text-[#7B6E63]"><Mail className="w-3.5 h-3.5" /> Každá skutečná změna stavu odešle zákazníkovi e-mail.</div>
+    <div className="flex items-center justify-center gap-2 text-[11px] text-[#7B6E63]"><Mail className="w-3.5 h-3.5" /> Každá skutečná změna stavu uloží stav objednávky.</div>
   </div>;
 };
