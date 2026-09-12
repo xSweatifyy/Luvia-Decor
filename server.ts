@@ -4,6 +4,7 @@ import { createServer as createViteServer } from 'vite';
 import { db } from './server/storage';
 import { sendOrderEmails, sendOrderStatusEmail, sendTestEmail } from './server/resendService';
 import { Order } from './src/types';
+import { createCustomer, loginCustomer, getCustomer, logoutCustomer, updateCustomer, changeCustomerPassword } from './server/customerAccounts';
 
 async function startServer() {
   const app = express();
@@ -12,58 +13,29 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
-
   app.get('/api/config', (_req, res) => { try { res.json(db.getConfig()); } catch (err:any) { res.status(500).json({ error:err?.message||'Chyba načtení konfigurace' }); } });
   app.put('/api/config', (req,res) => { try { res.json(db.updateConfig(req.body)); } catch(err:any) { res.status(500).json({error:err?.message||'Chyba uložení konfigurace'}); } });
-
   app.get('/api/products', (_req,res) => { try { res.json(db.getProducts()); } catch(err:any) { res.status(500).json({error:err?.message||'Chyba načtení produktů'}); } });
   app.post('/api/products', (req,res) => { try { const data=req.body; const product=db.addProduct({...data,price:Number(data.price)||0,compareAtPrice:data.compareAtPrice?Number(data.compareAtPrice):undefined,inStock:data.inStock!==false,featured:Boolean(data.featured),isPriceFrom:Boolean(data.isPriceFrom),pricePrefix:data.isPriceFrom?(data.pricePrefix||'Od'):undefined});res.status(201).json(product); } catch(err:any){res.status(500).json({error:err?.message||'Chyba vytvoření produktu'});} });
   app.put('/api/products/:id',(req,res)=>{try{const data=req.body;const updated=db.updateProduct(req.params.id,{...data,...(Object.prototype.hasOwnProperty.call(data,'badge')?{badge:data.badge||undefined}:{}),price:data.price!==undefined?Number(data.price)||0:undefined,compareAtPrice:data.compareAtPrice!==undefined?(data.compareAtPrice?Number(data.compareAtPrice):undefined):undefined,inStock:data.inStock!==undefined?Boolean(data.inStock):undefined,featured:data.featured!==undefined?Boolean(data.featured):undefined,isPriceFrom:data.isPriceFrom!==undefined?Boolean(data.isPriceFrom):undefined,pricePrefix:data.pricePrefix!==undefined?data.pricePrefix:(data.isPriceFrom?'Od':undefined)});if(!updated)return res.status(404).json({error:'Produkt nenalezen'});res.json(updated);}catch(err:any){res.status(500).json({error:err?.message||'Chyba úpravy produktu'});}});
   app.delete('/api/products/:id',(req,res)=>{try{db.deleteProduct(req.params.id);res.json({success:true,message:'Produkt byl úspěšně smazán'});}catch(err:any){res.status(500).json({error:err?.message||'Chyba smazání produktu'});}});
-
   app.get('/api/categories',(_req,res)=>res.json(db.getCategories()));
   app.post('/api/categories',(req,res)=>{const name=String(req.body?.name||'').trim();const id=String(req.body?.id||name.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''));if(!name||!id)return res.status(400).json({error:'Název kategorie je povinný.'});res.status(201).json(db.addCategory({id,name}));});
   app.put('/api/categories/:id',(req,res)=>{const updated=db.updateCategory(req.params.id,String(req.body?.name||'').trim());if(!updated)return res.status(404).json({error:'Kategorie nenalezena.'});res.json(updated);});
   app.delete('/api/categories/:id',(req,res)=>{if(!db.deleteCategory(req.params.id))return res.status(409).json({error:'Nejdříve přesuňte produkty z této kategorie.'});res.json({success:true});});
 
-  // Orders
   app.get('/api/orders',(_req,res)=>{try{res.json(db.getOrders());}catch(err:any){res.status(500).json({error:err?.message||'Chyba načtení objednávek'});}});
+  app.post('/api/orders',async(req,res)=>{try{const {customer,items,customNote,couponCode}=req.body;if(!customer||!customer.fullName||!customer.email||!customer.phone)return res.status(400).json({error:'Chybí povinné kontaktní údaje (jméno, email, telefon).'});if(!items||!Array.isArray(items)||items.length===0)return res.status(400).json({error:'Košík je prázdný.'});let subtotal=0;const orderItems=items.map((it:any)=>{const itemSub=Number(it.price)*Number(it.quantity||1);subtotal+=itemSub;return{productId:it.productId||it.id||'custom',title:it.title,price:Number(it.price),quantity:Number(it.quantity||1),imageUrl:it.imageUrl||'',customNote:it.customNote||'',category:it.category};});let discount=0;let appliedCouponCode:string|undefined;if(couponCode){const coupon=db.validateCoupon(String(couponCode));if(coupon){appliedCouponCode=coupon.code;discount=coupon.type==='percent'?Math.round(subtotal*(coupon.value/100)):Math.min(coupon.value,subtotal);}}const delivery=req.body?.delivery&&typeof req.body.delivery==='object'?req.body.delivery:undefined;const shipping=Number(req.body?.shipping??delivery?.price??delivery?.shippingPrice??delivery?.cost??0);const orderNumber=`LUV-${new Date().getFullYear()}-${Math.floor(1000+Math.random()*9000)}`;const newOrder:Order={id:`ord-${Date.now()}`,orderNumber,createdAt:new Date().toISOString(),customer:{fullName:customer.fullName,email:customer.email,phone:customer.phone,street:customer.street||'',city:customer.city||'',zip:customer.zip||'',country:customer.country||'Česká republika',note:customer.note||customNote||''},items:orderItems,subtotal,shipping,discount:discount||undefined,couponCode:appliedCouponCode,totalPrice:Math.max(0,subtotal-discount+shipping),delivery,status:'nova',resendSent:false};const siteConfig=db.getConfig();const emailResult=await sendOrderEmails(newOrder,siteConfig);newOrder.resendSent=emailResult.success;if(!emailResult.success)newOrder.resendError=emailResult.error;db.addOrder(newOrder);return res.status(201).json({success:true,order:newOrder,message:'Objednávka byla úspěšně přijata. Již brzy Vás budeme kontaktovat.',emailStatus:emailResult.success?'Odesláno na e-mail':`E-mail: ${emailResult.error}`});}catch(err:any){console.error('[Orders] Create order error:',err);return res.status(500).json({error:err?.message||'Nastala chyba při zpracování objednávky.'});}});
+  app.put('/api/orders/:id/status',async(req,res)=>{try{const nextStatus=req.body?.status as Order['status'];const validStatuses=new Set<Order['status']>(['nova','zpracovava_se','zaplaceno','u_prepravce','odeslano','dokonceno','zruseno']);if(!validStatuses.has(nextStatus))return res.status(400).json({error:'Neplatný stav objednávky.'});const lookup=String(req.params.id||'');const current=db.getOrders().find(order=>order.id===lookup||order.orderNumber===lookup);if(!current)return res.status(404).json({error:'Objednávka nenalezena'});if(current.status===nextStatus)return res.json({...current,statusEmail:{sent:true,skipped:true}});const updated=db.updateOrderStatus(current.id,nextStatus);if(!updated)return res.status(404).json({error:'Objednávka nenalezena'});const emailResult=await sendOrderStatusEmail(updated,db.getConfig());res.json({...updated,statusEmail:{sent:emailResult.success,messageId:emailResult.messageId,error:emailResult.error}});}catch(err:any){res.status(500).json({error:err?.message||'Chyba aktualizace stavu'});}});
 
-  app.post('/api/orders',async(req,res)=>{
-    try{
-      const {customer,items,customNote,couponCode}=req.body;
-      if(!customer||!customer.fullName||!customer.email||!customer.phone)return res.status(400).json({error:'Chybí povinné kontaktní údaje (jméno, email, telefon).'});
-      if(!items||!Array.isArray(items)||items.length===0)return res.status(400).json({error:'Košík je prázdný.'});
-      let subtotal=0;
-      const orderItems=items.map((it:any)=>{const itemSub=Number(it.price)*Number(it.quantity||1);subtotal+=itemSub;return{productId:it.productId||it.id||'custom',title:it.title,price:Number(it.price),quantity:Number(it.quantity||1),imageUrl:it.imageUrl||'',customNote:it.customNote||'',category:it.category};});
-      let discount=0;let appliedCouponCode:string|undefined;
-      if(couponCode){const coupon=db.validateCoupon(String(couponCode));if(coupon){appliedCouponCode=coupon.code;discount=coupon.type==='percent'?Math.round(subtotal*(coupon.value/100)):Math.min(coupon.value,subtotal);}}
-      const delivery=req.body?.delivery && typeof req.body.delivery==='object'?req.body.delivery:undefined;
-      const shipping=Number(req.body?.shipping ?? delivery?.price ?? delivery?.shippingPrice ?? delivery?.cost ?? 0);
-      const orderNumber=`LUV-${new Date().getFullYear()}-${Math.floor(1000+Math.random()*9000)}`;
-      const newOrder:Order={id:`ord-${Date.now()}`,orderNumber,createdAt:new Date().toISOString(),customer:{fullName:customer.fullName,email:customer.email,phone:customer.phone,street:customer.street||'',city:customer.city||'',zip:customer.zip||'',country:customer.country||'Česká republika',note:customer.note||customNote||''},items:orderItems,subtotal,shipping,discount:discount||undefined,couponCode:appliedCouponCode,totalPrice:Math.max(0,subtotal-discount+shipping),delivery,status:'nova',resendSent:false};
-      const siteConfig=db.getConfig();
-      const emailResult=await sendOrderEmails(newOrder,siteConfig);newOrder.resendSent=emailResult.success;if(!emailResult.success)newOrder.resendError=emailResult.error;
-      db.addOrder(newOrder);
-      return res.status(201).json({success:true,order:newOrder,message:'Objednávka byla úspěšně přijata. Již brzy Vás budeme kontaktovat.',emailStatus:emailResult.success?'Odesláno na e-mail':`E-mail: ${emailResult.error}`});
-    }catch(err:any){console.error('[Orders] Create order error:',err);return res.status(500).json({error:err?.message||'Nastala chyba při zpracování objednávky.'});}
-  });
-
-  app.put('/api/orders/:id/status',async(req,res)=>{
-    try{
-      const nextStatus=req.body?.status as Order['status'];
-      const validStatuses=new Set<Order['status']>(['nova','zpracovava_se','zaplaceno','u_prepravce','odeslano','dokonceno','zruseno']);
-      if(!validStatuses.has(nextStatus))return res.status(400).json({error:'Neplatný stav objednávky.'});
-      const lookup=String(req.params.id||'');
-      const current=db.getOrders().find(order=>order.id===lookup||order.orderNumber===lookup);
-      if(!current)return res.status(404).json({error:'Objednávka nenalezena'});
-      if(current.status===nextStatus)return res.json({...current,statusEmail:{sent:true,skipped:true}});
-      const updated=db.updateOrderStatus(current.id,nextStatus);
-      if(!updated)return res.status(404).json({error:'Objednávka nenalezena'});
-      const emailResult=await sendOrderStatusEmail(updated,db.getConfig());
-      res.json({...updated,statusEmail:{sent:emailResult.success,messageId:emailResult.messageId,error:emailResult.error}});
-    }catch(err:any){res.status(500).json({error:err?.message||'Chyba aktualizace stavu'});}
-  });
+  // Customer accounts
+  const customerFromRequest=(req:any)=>{const raw=String(req.headers.authorization||'');return raw.startsWith('Bearer ')?getCustomer(raw.slice(7)):null;};
+  app.post('/api/customer/register',(req,res)=>{try{const result=createCustomer({email:String(req.body?.email||''),password:String(req.body?.password||''),name:String(req.body?.name||''),phone:String(req.body?.phone||'')});res.status(201).json(result);}catch(err:any){res.status(400).json({error:err?.message||'Účet se nepodařilo vytvořit.'});}});
+  app.post('/api/customer/login',(req,res)=>{try{const result=loginCustomer(String(req.body?.email||''),String(req.body?.password||''));if(!result)return res.status(401).json({error:'Neplatný e-mail nebo heslo.'});res.json(result);}catch(err:any){res.status(500).json({error:err?.message||'Přihlášení se nepodařilo.'});}});
+  app.post('/api/customer/logout',(req,res)=>{const raw=String(req.headers.authorization||'');logoutCustomer(raw.startsWith('Bearer ')?raw.slice(7):undefined);res.json({success:true});});
+  app.get('/api/customer/me',(req,res)=>{try{const user=customerFromRequest(req);if(!user)return res.status(401).json({error:'Nejste přihlášeni.'});const email=user.email.toLowerCase();const orders=db.getOrders().filter(o=>o.customer.email.toLowerCase()===email);const allCoupons=db.getCoupons();const vouchers=allCoupons.filter((c:any)=>c.active&&c.giftVoucher);const coupons=allCoupons.filter((c:any)=>c.active&&!c.giftVoucher);res.json({user:JSON.parse(JSON.stringify({...user,passwordHash:undefined})),orders,vouchers,coupons});}catch(err:any){res.status(500).json({error:err?.message||'Účet se nepodařilo načíst.'});}});
+  app.put('/api/customer/me',(req,res)=>{try{const user=customerFromRequest(req);if(!user)return res.status(401).json({error:'Nejste přihlášeni.'});const updated=updateCustomer(String(req.headers.authorization).slice(7),req.body||{});res.json({user:updated});}catch(err:any){res.status(400).json({error:err?.message||'Údaje se nepodařilo uložit.'});}});
+  app.post('/api/customer/password',(req,res)=>{try{const raw=String(req.headers.authorization||'');if(!raw.startsWith('Bearer '))return res.status(401).json({error:'Nejste přihlášeni.'});changeCustomerPassword(raw.slice(7),String(req.body?.currentPassword||''),String(req.body?.newPassword||''));res.json({success:true});}catch(err:any){res.status(400).json({error:err?.message||'Heslo se nepodařilo změnit.'});}});
 
   const requireAdminRole=(req:any,res:any):boolean=>{let user=req.body?.adminUser||req.query?.adminUser;if(typeof user==='string'){try{user=JSON.parse(user);}catch{}}if(!user)return true;if(user.role!=='admin'&&user.role!=='editor'){res.status(403).json({error:'Slevové kódy může spravovat pouze správce.'});return false;}return true;};
   app.get('/api/coupons',(_req,res)=>{try{res.json(db.getCoupons());}catch(err:any){res.status(500).json({error:err?.message||'Chyba načtení slevových kódů'});}});
