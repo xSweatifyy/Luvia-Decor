@@ -2,7 +2,6 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-
 import React, { useEffect, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { AppProvider, useApp } from './context/AppContext';
@@ -22,6 +21,7 @@ import { AdminPage } from './pages/AdminPage';
 import { GiftCardPage } from './pages/GiftCardPage';
 import { GiftCardBalancePage } from './pages/GiftCardBalancePage';
 import { ComplaintPage } from './pages/ComplaintPage';
+import { CustomerAccountPage } from './pages/CustomerAccountPage';
 import { GiftCardPaymentEnhancer } from './components/GiftCardPaymentEnhancer';
 import { CookieConsent, getCookieConsent } from './components/CookieConsent';
 import { TermsAgreementEnhancer } from './components/TermsAgreementEnhancer';
@@ -32,6 +32,7 @@ import { TermsSanctionsSection } from './components/TermsSanctionsSection';
 import { MaintenanceBanner } from './components/MaintenanceBanner';
 
 const GiftCardShortcut: React.FC = () => { const { page, setPage } = useApp(); if(page==='admin'||page==='gift-card'||page==='gift-card-balance') return null; return <div className="border-b border-[#E8DFD5] bg-[#FAF6F0]"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-center"><button type="button" onClick={()=>setPage('gift-card')} className="text-[11px] sm:text-xs font-bold tracking-wide text-[#75604B] hover:text-[#2D2723] transition">🎁 Dárková karta · od 200 Kč · doručení e-mailem</button></div></div>; };
+const AccountShortcut: React.FC = () => { const { page, setPage } = useApp(); if(page==='admin'||page==='account') return null; return <button aria-label="Můj Luvia" onClick={()=>setPage('account')} className="fixed right-4 bottom-5 z-30 w-12 h-12 sm:w-auto sm:h-auto sm:px-4 sm:py-3 rounded-full bg-[#241E1A] text-[#FAF8F5] shadow-xl border border-[#4E4035] flex items-center justify-center gap-2 hover:bg-[#352C26] transition"><span className="text-base">♡</span><span className="hidden sm:inline text-xs font-bold tracking-wider uppercase">Můj Luvia</span></button>; };
 
 const AppContent: React.FC = () => {
   const { page, setPage } = useApp();
@@ -44,7 +45,7 @@ const AppContent: React.FC = () => {
     document.addEventListener('click', handleTermsClick, true);
     return () => { window.removeEventListener('open-terms', openTerms); window.removeEventListener('open-privacy', openPrivacy); document.removeEventListener('click', handleTermsClick, true); };
   }, [setPage]);
-  return <div className="min-h-screen bg-[#FCFAF7] text-[#2D2723] flex flex-col font-sans selection:bg-[#8C7355] selection:text-white"><CouponApiCompat/><Navbar/><MaintenanceBanner/><GiftCardShortcut/><main className="flex-1">
+  return <div className="min-h-screen bg-[#FCFAF7] text-[#2D2723] flex flex-col font-sans selection:bg-[#8C7355] selection:text-white"><CouponApiCompat/><Navbar/><MaintenanceBanner/><GiftCardShortcut/><AccountShortcut/><main className="flex-1">
     {page === 'home' && <HomePage/>}
     {page === 'catalog' && <CatalogPage/>}
     {page === 'custom-order' && <><CustomOrderPage/><ConsultationTermsSection/></>}
@@ -56,6 +57,7 @@ const AppContent: React.FC = () => {
     {page === 'terms' && <><TermsPage/><TermsSanctionsSection/><NonPickupTermsSection/></>}
     {page === 'privacy' && <PrivacyPage/>}
     {page === 'complaint' && <ComplaintPage/>}
+    {page === 'account' && <CustomerAccountPage/>}
     {page === 'admin' && <AdminPage/>}
   </main><Footer/><ProductDetailModal/><ToastContainer/><GiftCardPaymentEnhancer/><TermsAgreementEnhancer/>{analyticsConsent&&<Analytics/>}<CookieConsent onConsent={(choice)=>setAnalyticsConsent(choice==='all')}/></div>;
 };
