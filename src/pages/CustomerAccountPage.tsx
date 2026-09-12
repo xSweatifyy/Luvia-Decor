@@ -20,6 +20,8 @@ export const CustomerAccountPage: React.FC = () => {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [verificationNotice, setVerificationNotice] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', currentPassword: '', newPassword: '' });
   const [preferences, setPreferences] = useState({ styles: [] as string[], colors: [] as string[] });
   const [address, setAddress] = useState<Partial<CustomerAddress>>({ label: 'Domů', fullName: '', phone: '', street: '', city: '', zip: '', country: 'Česká republika' });
@@ -36,6 +38,7 @@ export const CustomerAccountPage: React.FC = () => {
       const r = await fetch('/api/customer/me', { headers: { Authorization: `Bearer ${t}` }, cache: 'no-store' });
       if (!r.ok) throw new Error('Účet se nepodařilo načíst.');
       const d = await r.json();
+      if (!d.user) throw new Error('Účet se nepodařilo načíst.');
       persist(d.user); setPreferences(d.user.preferences || { styles: [], colors: [] }); setOrders(d.orders || []); setVouchers(d.vouchers || []); setCoupons(d.coupons || []);
     } catch {
       localStorage.removeItem('luvia_customer'); localStorage.removeItem('luvia_customer_token'); setAccount(null); setToken('');
@@ -50,6 +53,18 @@ export const CustomerAccountPage: React.FC = () => {
     if (storedToken) load(storedToken);
   }, []);
 
+  const resendVerification = async () => {
+    if (!verificationEmail) return;
+    setLoading(true); setMessage('');
+    try {
+      const r = await fetch('/api/customer/resend-verification', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: verificationEmail }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Ověřovací e-mail se nepodařilo odeslat.');
+      setMessage(d.message || 'Nový ověřovací e-mail byl odeslán.');
+    } catch (e: any) { setMessage(e.message || 'Ověřovací e-mail se nepodařilo odeslat.'); }
+    finally { setLoading(false); }
+  };
+
   const auth = async () => {
     setLoading(true); setMessage('');
     try {
@@ -58,6 +73,16 @@ export const CustomerAccountPage: React.FC = () => {
       const r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Operace se nepodařila.');
+
+      if (authMode === 'register' && d.verificationRequired) {
+        setVerificationEmail(d.email || form.email);
+        setVerificationNotice(true);
+        setMessage(d.message || 'Registrace proběhla. Zkontrolujte svůj e-mail a potvrďte adresu.');
+        setForm(prev => ({ ...prev, password: '' }));
+        return;
+      }
+
+      if (!d.user || !d.token) throw new Error('Server vrátil neplatnou odpověď.');
       localStorage.setItem('luvia_customer_token', d.token); setToken(d.token); persist(d.user); setPreferences(d.user.preferences || { styles: [], colors: [] }); await load(d.token);
     } catch (e: any) { setMessage(e.message || 'Operace se nepodařila.'); }
     finally { setLoading(false); }
@@ -117,7 +142,7 @@ export const CustomerAccountPage: React.FC = () => {
     setPreferences(prev => ({ ...prev, [kind]: nextValue }));
   };
 
-  if (!account) return <div className="min-h-[70vh] flex items-center justify-center px-4 py-12 bg-[#FBF8F4]"><div className="w-full max-w-md bg-white rounded-3xl border border-[#E6DDD3] p-6 sm:p-8 shadow-sm"><div className="text-center mb-7"><div className="mx-auto w-14 h-14 rounded-2xl bg-[#F2ECE4] flex items-center justify-center"><User className="w-7 h-7 text-[#8C7355]" /></div><h1 className="font-editorial text-3xl font-bold mt-4">Můj Luvia</h1><p className="text-sm text-[#7D6F64] mt-1">Váš osobní prostor u Luvia Decor</p></div>{authMode === 'register' && <input className="w-full mb-3 rounded-xl border border-[#DED3C7] px-4 py-3 text-sm" placeholder="Jméno a příjmení" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />}{authMode === 'register' && <input className="w-full mb-3 rounded-xl border border-[#DED3C7] px-4 py-3 text-sm" placeholder="Telefon" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />}{authMode === 'register' && <div className="text-xs text-[#897A6E] mb-2">E-mail</div>}<input className="w-full mb-3 rounded-xl border border-[#DED3C7] px-4 py-3 text-sm" type="email" placeholder="vas@email.cz" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /><input className="w-full rounded-xl border border-[#DED3C7] px-4 py-3 text-sm" type="password" placeholder="Heslo (min. 8 znaků)" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') auth(); }} />{message && <p className="text-sm text-red-600 mt-3">{message}</p>}<button disabled={loading} onClick={auth} className="w-full mt-5 rounded-xl bg-[#241E1A] text-white py-3 font-bold disabled:opacity-50">{loading ? 'Pracuji…' : authMode === 'login' ? 'Přihlásit se' : 'Vytvořit účet'}</button><button onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setMessage(''); }} className="w-full mt-3 py-2 text-sm font-semibold text-[#8C7355]">{authMode === 'login' ? 'Ještě nemám účet – registrovat' : 'Už mám účet – přihlásit'}</button></div></div>;
+  if (!account) return <div className="min-h-[70vh] flex items-center justify-center px-4 py-12 bg-[#FBF8F4]"><div className="w-full max-w-md bg-white rounded-3xl border border-[#E6DDD3] p-6 sm:p-8 shadow-sm"><div className="text-center mb-7"><div className="mx-auto w-14 h-14 rounded-2xl bg-[#F2ECE4] flex items-center justify-center"><User className="w-7 h-7 text-[#8C7355]" /></div><h1 className="font-editorial text-3xl font-bold mt-4">Můj Luvia</h1><p className="text-sm text-[#7D6F64] mt-1">Váš osobní prostor u Luvia Decor</p></div>{verificationNotice ? <div className="rounded-2xl border border-[#E6DDD3] bg-[#FBF8F4] p-5 text-center"><div className="mx-auto w-12 h-12 rounded-full bg-white flex items-center justify-center"><Check className="w-6 h-6 text-[#8C7355]" /></div><h2 className="font-bold text-lg mt-3">Potvrďte svůj e-mail</h2><p className="text-sm text-[#6F6258] mt-2">Na adresu <b>{verificationEmail}</b> jsme poslali potvrzovací odkaz. Klikněte na něj a potom se můžete přihlásit.</p>{message && <p className="text-sm text-[#6F6258] mt-3">{message}</p>}<button disabled={loading} onClick={resendVerification} className="w-full mt-4 rounded-xl bg-[#241E1A] text-white py-3 font-bold disabled:opacity-50">{loading ? 'Odesílám…' : 'Poslat potvrzení znovu'}</button><button onClick={() => { setVerificationNotice(false); setMessage(''); setAuthMode('login'); }} className="w-full mt-3 py-2 text-sm font-semibold text-[#8C7355]">Zpět na přihlášení</button></div> : <>{authMode === 'register' && <input className="w-full mb-3 rounded-xl border border-[#DED3C7] px-4 py-3 text-sm" placeholder="Jméno a příjmení" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />}{authMode === 'register' && <input className="w-full mb-3 rounded-xl border border-[#DED3C7] px-4 py-3 text-sm" placeholder="Telefon" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />}{authMode === 'register' && <div className="text-xs text-[#897A6E] mb-2">E-mail</div>}<input className="w-full mb-3 rounded-xl border border-[#DED3C7] px-4 py-3 text-sm" type="email" placeholder="vas@email.cz" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /><input className="w-full rounded-xl border border-[#DED3C7] px-4 py-3 text-sm" type="password" placeholder="Heslo (min. 8 znaků)" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') auth(); }} />{message && <p className="text-sm text-red-600 mt-3">{message}</p>}<button disabled={loading} onClick={auth} className="w-full mt-5 rounded-xl bg-[#241E1A] text-white py-3 font-bold disabled:opacity-50">{loading ? 'Pracuji…' : authMode === 'login' ? 'Přihlásit se' : 'Vytvořit účet'}</button><button onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setMessage(''); }} className="w-full mt-3 py-2 text-sm font-semibold text-[#8C7355]">{authMode === 'login' ? 'Ještě nemám účet – registrovat' : 'Už mám účet – přihlásit'}</button></>}</div></div>;
 
   const tabs: Array<[Tab, string, React.ElementType]> = [['overview', 'Přehled', Sparkles], ['orders', 'Objednávky', Package], ['favorites', 'Oblíbené', Heart], ['collections', 'Moje kolekce', Star], ['addresses', 'Adresy', MapPin], ['benefits', 'Výhody', Ticket], ['profile', 'Profil', User], ['settings', 'Nastavení', Settings]];
 
