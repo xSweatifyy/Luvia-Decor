@@ -1,0 +1,60 @@
+name: apply-luvia-points-rewards
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply Luvia Points rewards
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('api/customer/[action].ts')
+          s = p.read_text()
+          s = s.replace("type CustomerData = { id: string; email: string; name: string; phone: string; createdAt: string; lastLogin?: string; addresses: any[]; favorites: string[]; collections: any[]; preferences: { styles: string[]; colors: string[] } };", "type CustomerData = { id: string; email: string; name: string; phone: string; createdAt: string; lastLogin?: string; addresses: any[]; favorites: string[]; collections: any[]; preferences: { styles: string[]; colors: string[] }; pointsRedeemed?: number };")
+          marker = "    if (action === 'me' && req.method === 'GET') {"
+          redeem = '''    if (action === 'redeem-points' && req.method === 'POST') {\n      const email = user.email.toLowerCase();\n      const orderRows = await sql`SELECT data FROM orders WHERE LOWER(data->'customer'->>'email')=${email}`;\n      const earnedPoints = Math.floor(orderRows.filter((r:any) => r.data?.status !== 'zruseno').reduce((sum:number, r:any) => sum + Number(r.data?.subtotal || 0), 0) / 50);\n      const redeemedPoints = Number(user.pointsRedeemed || 0);\n      const availablePoints = Math.max(0, earnedPoints - redeemedPoints);\n      if (availablePoints < 50) return res.status(400).json({ error: 'Pro tuto poukázku potřebujete alespoň 50 Luvia Points.', availablePoints });\n      const code = `LUVIA40-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;\n      const couponId = `points-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;\n      await sql`INSERT INTO coupons (id,code,type,value,active,note,category_ids) VALUES (${couponId},${code},'percent',40,TRUE,${`points-voucher:${email}:${couponId}`},'[]'::jsonb)`;\n      user.pointsRedeemed = redeemedPoints + 50;\n      await sql`UPDATE customer_accounts SET data=${JSON.stringify(user)}::jsonb,updated_at=NOW() WHERE id=${user.id}`;\n      return res.status(200).json({ success: true, voucher: { id: couponId, code, type: 'percent', value: 40, active: true, createdAt: new Date().toISOString() }, availablePoints: availablePoints - 50 });\n    }\n'''
+          if "action === 'redeem-points'" not in s:
+              s = s.replace(marker, redeem + marker, 1)
+          old = "const customerCoupons=coupons.filter((c:any)=>!String(c.note||'').toLowerCase().includes('gift-voucher')&&c.type!=='shipping'); const vouchers=coupons.filter((c:any)=>String(c.note||'').toLowerCase().includes(email)||String(c.note||'').toLowerCase().includes(`customer:${email}`)); return res.status(200).json({user,orders,coupons:customerCoupons,vouchers});"
+          new = "const earnedPoints=Math.floor(orders.filter((o:any)=>o.status!=='zruseno').reduce((sum:number,o:any)=>sum+Number(o.subtotal||0),0)/50); const redeemedPoints=Number(user.pointsRedeemed||0); const availablePoints=Math.max(0,earnedPoints-redeemedPoints); const customerCoupons=coupons.filter((c:any)=>!String(c.note||'').toLowerCase().includes('gift-voucher')&&!String(c.note||'').toLowerCase().startsWith('points-voucher:')&&c.type!=='shipping'); const vouchers=coupons.filter((c:any)=>String(c.note||'').toLowerCase().includes(email)||String(c.note||'').toLowerCase().includes(`customer:${email}`)); const pointVouchers=coupons.filter((c:any)=>String(c.note||'').toLowerCase().startsWith(`points-voucher:${email}:`)); return res.status(200).json({user,orders,coupons:customerCoupons,vouchers,pointVouchers,earnedPoints,redeemedPoints,availablePoints});"
+          if old not in s: raise SystemExit('Customer API target block not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          p = Path('src/pages/CustomerAccountPage.tsx')
+          s = p.read_text()
+          s = s.replace("  const [coupons, setCoupons] = useState<any[]>([]);", "  const [coupons, setCoupons] = useState<any[]>([]);\n  const [pointVouchers, setPointVouchers] = useState<any[]>([]);\n  const [points, setPoints] = useState(0);\n  const [redeemingPoints, setRedeemingPoints] = useState(false);")
+          s = s.replace("persist(d.user); setPreferences(d.user.preferences || { styles: [], colors: [] }); setOrders(d.orders || []); setVouchers(d.vouchers || []); setCoupons(d.coupons || []);", "persist(d.user); setPreferences(d.user.preferences || { styles: [], colors: [] }); setOrders(d.orders || []); setVouchers(d.vouchers || []); setCoupons(d.coupons || []); setPointVouchers(d.pointVouchers || []); setPoints(Number(d.availablePoints ?? 0));")
+          old_points = "  const points = useMemo(() => Math.floor(orders.filter(o => o.status !== 'zruseno').reduce((sum, o) => sum + Number(o.subtotal || 0), 0) / 50), [orders]);\n  const level = points >= 1000 ? 'Luvia VIP' : points >= 500 ? 'Luvia Lover' : points >= 200 ? 'Luvia Fan' : 'Začínáme';\n  const next = points < 200 ? 200 : points < 500 ? 500 : 1000;"
+          new_points = "  const level = points >= 300 ? 'Luvia VIP' : points >= 150 ? 'Luvia Lover' : points >= 50 ? 'Luvia Fan' : 'Začínáme';\n  const next = points < 50 ? 50 : points < 150 ? 150 : points < 300 ? 300 : 300;"
+          if old_points not in s: raise SystemExit('Customer UI points block not found')
+          s = s.replace(old_points, new_points, 1)
+          insert_marker = "  const logout = async () => {"
+          redeem_fn = '''  const redeemPoints = async () => {\n    if (points < 50 || redeemingPoints) return;\n    setRedeemingPoints(true);\n    try {\n      const r = await fetch('/api/customer/redeem-points', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });\n      const d = await r.json();\n      if (!r.ok) throw new Error(d.error || 'Poukázku se nepodařilo vygenerovat.');\n      await load(token);\n      addToast('success', 'Poukázka vytvořena', `Váš kód ${d.voucher?.code || ''} poskytuje 40% slevu.`);\n    } catch (e: any) { addToast('error', 'Luvia Points', e.message || 'Poukázku se nepodařilo vygenerovat.'); }\n    finally { setRedeemingPoints(false); }\n  };\n\n'''
+          if "const redeemPoints = async" not in s: s = s.replace(insert_marker, redeem_fn + insert_marker, 1)
+          old_benefits = "  const renderBenefits = () => <div className=\"space-y-5\"><Card><p className=\"text-xs uppercase tracking-wider text-[#9A8878] font-bold\">Vaše úroveň</p><h2 className=\"font-editorial text-3xl font-bold mt-1\">{level}</h2><p className=\"text-sm text-[#76685D] mt-1\">{points} Luvia Points</p><div className=\"h-2 bg-[#EEE7DE] rounded-full mt-5\"><div className=\"h-2 bg-[#8C7355] rounded-full\" style={{ width: `${progress}%` }} /></div><p className=\"text-xs text-[#897A6E] mt-2\">1 bod = 50 Kč hodnoty uskutečněných objednávek.</p></Card><Card title=\"🎟️ Slevové kódy\">{coupons.length ? coupons.map(c => <div key={c.id || c.code} className=\"p-3 rounded-xl bg-[#F8F3ED] mb-2 flex justify-between\"><b className=\"font-mono\">{c.code}</b><span>{c.type === 'percent' ? `${c.value} %` : money(c.value)}</span></div>) : <p className=\"text-sm text-[#897A6E]\">Žádný aktivní slevový kód.</p>}</Card></div>;"
+          new_benefits = '''  const renderBenefits = () => <div className="space-y-5"><Card><p className="text-xs uppercase tracking-wider text-[#9A8878] font-bold">Vaše úroveň</p><h2 className="font-editorial text-3xl font-bold mt-1">{level}</h2><p className="text-sm text-[#76685D] mt-1">{points} Luvia Points</p><div className="h-2 bg-[#EEE7DE] rounded-full mt-5"><div className="h-2 bg-[#8C7355] rounded-full" style={{ width: `${progress}%` }} /></div><p className="text-xs text-[#897A6E] mt-2">1 bod = 50 Kč hodnoty uskutečněných objednávek.</p><p className="text-xs text-[#897A6E] mt-1">Každých 50 bodů lze směnit za poukázku na 40% slevu. Po vytvoření poukázky se 50 bodů odečte.</p><button disabled={points < 50 || redeemingPoints} onClick={redeemPoints} className="mt-4 w-full rounded-xl bg-[#241E1A] text-white py-3 text-sm font-bold disabled:opacity-50">{redeemingPoints ? 'Generuji poukázku…' : points >= 50 ? 'Vyměnit 50 bodů za 40% poukázku' : `Chybí ${50 - points} bodů`}</button></Card><Card title="🎟️ Moje 40% poukázky">{pointVouchers.length ? pointVouchers.map(c => <div key={c.id || c.code} className="p-3 rounded-xl bg-[#F8F3ED] mb-2 flex items-center justify-between gap-3"><div><b className="font-mono">{c.code}</b><p className="text-xs text-[#897A6E] mt-1">40% sleva · vytvořeno {new Date(c.createdAt).toLocaleDateString('cs-CZ')}</p></div><span className="text-xs font-bold text-[#8C7355]">40 %</span></div>) : <p className="text-sm text-[#897A6E]">Zatím nemáte žádnou vygenerovanou 40% poukázku.</p>}</Card><Card title="🎟️ Slevové kódy">{coupons.length ? coupons.map(c => <div key={c.id || c.code} className="p-3 rounded-xl bg-[#F8F3ED] mb-2 flex justify-between"><b className="font-mono">{c.code}</b><span>{c.type === 'percent' ? `${c.value} %` : money(c.value)}</span></div>) : <p className="text-sm text-[#897A6E]">Žádný aktivní slevový kód.</p>}</Card></div>;'''
+          if old_benefits not in s: raise SystemExit('Customer UI benefits block not found')
+          s = s.replace(old_benefits, new_benefits, 1)
+          p.write_text(s)
+
+          p = Path('src/components/CustomerAccountTermsSection.tsx')
+          s = p.read_text()
+          old = "Úrovně účtu jsou „Začínáme“, „Luvia Fan“, „Luvia Lover“ a „Luvia VIP“; hranice a případné výhody mohou být Luvia Decor přiměřeně změněny pro budoucí období."
+          new = "Úrovně účtu jsou „Začínáme“ (0–49 bodů), „Luvia Fan“ (50–149 bodů), „Luvia Lover“ (150–299 bodů) a „Luvia VIP“ (300+ bodů). Každých 50 bodů lze směnit za poukázku na 40% slevu z celkové hodnoty nákupu; po vygenerování poukázky se 50 bodů automaticky odečte. Hranice a případné výhody mohou být Luvia Decor přiměřeně změněny pro budoucí období."
+          if old not in s: raise SystemExit('Terms target not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api/customer/'[action]'.ts src/pages/CustomerAccountPage.tsx src/components/CustomerAccountTermsSection.tsx
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat: add Luvia Points 40 percent vouchers"
+          git push
