@@ -22,6 +22,7 @@ import { GiftCardPage } from './pages/GiftCardPage';
 import { GiftCardBalancePage } from './pages/GiftCardBalancePage';
 import { ComplaintPage } from './pages/ComplaintPage';
 import { CustomerAccountPage } from './pages/CustomerAccountPage';
+import { CustomerAccountTermsSection } from './components/CustomerAccountTermsSection';
 import { GiftCardPaymentEnhancer } from './components/GiftCardPaymentEnhancer';
 import { CookieConsent, getCookieConsent } from './components/CookieConsent';
 import { TermsAgreementEnhancer } from './components/TermsAgreementEnhancer';
@@ -54,7 +55,7 @@ const AppContent: React.FC = () => {
     {page === 'cart' && <CheckoutCartPage/>}
     {page === 'gift-card' && <GiftCardPage/>}
     {page === 'gift-card-balance' && <GiftCardBalancePage/>}
-    {page === 'terms' && <><TermsPage/><TermsSanctionsSection/><NonPickupTermsSection/></>}
+    {page === 'terms' && <><TermsPage/><TermsSanctionsSection/><NonPickupTermsSection/><CustomerAccountTermsSection/></>}
     {page === 'privacy' && <PrivacyPage/>}
     {page === 'complaint' && <ComplaintPage/>}
     {page === 'account' && <CustomerAccountPage/>}
