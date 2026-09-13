@@ -56,3 +56,4 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m 'fix: repair admin order status update'
           git push origin main
+          
