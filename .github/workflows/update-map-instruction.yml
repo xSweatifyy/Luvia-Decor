@@ -12,6 +12,46 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore and repair admin order status
+        run: |
+          git show f09c98de14528a2632c6c1506e6fe2b16c54c91d:src/pages/AdminPageLegacy.tsx > src/pages/AdminPageLegacy.tsx
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/AdminPageLegacy.tsx')
+          s = p.read_text()
+          old = '''      const res = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+
+      if (!res.ok) throw new Error('Aktualizace stavu selhala');
+      const updatedOrder = await res.json();
+      setOrders(prev => prev.map(order => order.id === orderId ? updatedOrder : order));'''
+          new = '''      const res = await fetch('/api/order-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status, adminUser })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || `Aktualizace stavu selhala (${res.status})`);
+      const updatedOrder = data.order || data;
+      setOrders(prev => prev.map(order => order.id === orderId ? { ...order, ...updatedOrder, id: orderId } : order));'''
+          if old not in s:
+              raise SystemExit('Expected order status handler was not found')
+          p.write_text(s.replace(old, new))
+          PY
+      - name: Commit admin repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/AdminPageLegacy.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: repair admin order status update'
+          git push
       - name: Replace map instruction
         run: |
           python3 - <<'PY'
@@ -21,11 +61,11 @@ jobs:
           old = 'Kliknout pro otevření mapy'
           new = 'Klikněte na Výdejní místo/box pro otevření mapy.'
           if old not in s:
-              raise SystemExit('Text "Kliknout pro otevření mapy" was not found')
-          s = s.replace(old, new)
-          p.write_text(s)
+              print('Map instruction already updated; skipping.')
+          else:
+              p.write_text(s.replace(old, new))
           PY
-      - name: Commit changes
+      - name: Commit map changes
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
