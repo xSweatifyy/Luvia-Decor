@@ -7,8 +7,37 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+      - name: Restore AdminPageLegacy and repair order status
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import urllib.request
+          raw = 'https://raw.githubusercontent.com/xSweatifyy/Luvia-Decor/f09c98de14528a2632c6c1506e6fe2b16c54c91d/src/pages/AdminPageLegacy.tsx'
+          text = urllib.request.urlopen(raw).read().decode('utf-8')
+          old = "fetch(`/api/orders/${orderId}/status`, {\n        method: 'PUT',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ status })\n      })"
+          new = "fetch('/api/order-status', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ orderId, status, adminUser })\n      })"
+          if old in text:
+              text = text.replace(old, new)
+          Path('src/pages/AdminPageLegacy.tsx').write_text(text, encoding='utf-8')
+          p = Path('api/order-status.ts')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace("from '../src/server/order-status-email';", "from '../src/server/order-status-email.ts';")
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit repaired source
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/AdminPageLegacy.tsx api/order-status.ts
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: restore admin page and order status source'
+          git push origin main
       - uses: actions/setup-node@v4
         with:
           node-version: 24
