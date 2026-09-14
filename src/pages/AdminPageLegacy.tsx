@@ -579,10 +579,10 @@ export const AdminPage: React.FC = () => {
   // --- ORDER STATUS UPDATE ---
   const handleUpdateOrderStatus = async (orderId: string, status: Order['status']) => {
     try {
-      const res = await fetch(`/api/orders/${orderId}/status`, {
-        method: 'PUT',
+      const res = await fetch('/api/order-status', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ orderId, status, adminUser })
       });
 
       if (!res.ok) throw new Error('Aktualizace stavu selhala');
