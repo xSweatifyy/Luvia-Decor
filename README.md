@@ -4,8 +4,4 @@ Luvia Decor e-shop.
 
 Gift card checkout and PDF improvements.
 
-Production build verified after gift card checkout syntax fix.
-
-Production redeploy trigger after GiftCardPaymentEnhancer syntax repair.
-
-Production build trigger after admin restoration and order status repair.
+Production repair deploy trigger.
