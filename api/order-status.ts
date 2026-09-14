@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { sendOrderStatusEmails } from '../src/server/order-status-email';
+import { sendOrderStatusEmails } from '../src/server/order-status-email.ts';
 
 const sql = neon(process.env.DATABASE_URL || '');
 const allowed = new Set(['nova','zpracovava_se','zaplaceno','u_prepravce','odeslano','dokonceno','zruseno']);
