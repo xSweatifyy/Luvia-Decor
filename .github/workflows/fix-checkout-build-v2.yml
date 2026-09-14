@@ -14,8 +14,52 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Remove consecutive duplicate addressLabel declarations
+      - name: Repair checkout and admin order status
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          checkout = Path('src/pages/CheckoutCartPage.tsx')
+          s = checkout.read_text(encoding='utf-8')
+          s = s.replace("ZASILKOVNA:{pickup:72,address:99}", "ZASILKOVNA:{pickup:129,address:179}")
+          checkout.write_text(s, encoding='utf-8')
+
+          admin = Path('src/pages/AdminPageLegacy.tsx')
+          if not admin.exists() or not admin.read_text(encoding='utf-8').strip() or admin.read_text(encoding='utf-8').strip() == '__PLACEHOLDER__':
+              import subprocess
+              restored = subprocess.check_output(['git','show','f09c98de14528a2632c6c1506e6fe2b16c54c91d:src/pages/AdminPageLegacy.tsx'], text=True)
+              admin.write_text(restored, encoding='utf-8')
+          a = admin.read_text(encoding='utf-8')
+          old = '''const res = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+
+      if (!res.ok) throw new Error('Aktualizace stavu selhala');
+      const updatedOrder = await res.json();
+      setOrders(prev => prev.map(order => order.id === orderId ? updatedOrder : order));'''
+          new = '''const res = await fetch('/api/order-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status, adminUser })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || `Aktualizace stavu selhala (${res.status})`);
+      const updatedOrder = data.order || data;
+      setOrders(prev => prev.map(order => order.id === orderId ? { ...order, ...updatedOrder, id: orderId } : order));'''
+          if old in a:
+              a = a.replace(old, new)
+          admin.write_text(a, encoding='utf-8')
+          print('Checkout shipping and admin order status repair applied.')
+          PY
+
+      - name: Remove duplicate addressLabel declarations when present
+        shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -23,29 +67,22 @@ jobs:
           s = p.read_text(encoding='utf-8')
           line = "const addressLabel=destination==='sk'?'Po dohodě':addressFinal!=null?`${displayShipping(addressFinal)} Kč`:null;"
           lines = s.splitlines(keepends=True)
-          out = []
-          seen_in_run = False
-          changed = False
+          out=[]; seen=False
           for raw in lines:
-              if raw.strip() == line:
-                  if seen_in_run:
-                      changed = True
-                      continue
-                  seen_in_run = True
-              else:
-                  seen_in_run = False
+              if raw.strip()==line:
+                  if seen: continue
+                  seen=True
+              else: seen=False
               out.append(raw)
-          s2 = ''.join(out)
-          if not changed:
-              raise SystemExit('No duplicate addressLabel declaration found')
-          p.write_text(s2, encoding='utf-8')
-          print('Removed duplicate addressLabel declarations.')
+          p.write_text(''.join(out), encoding='utf-8')
           PY
 
-      - name: Commit fix
+      - name: Commit repairs
+        shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/pages/CheckoutCartPage.tsx
-          git commit -m 'Fix checkout duplicate addressLabel declarations'
-          git push
+          git add src/pages/CheckoutCartPage.tsx src/pages/AdminPageLegacy.tsx
+          if git diff --cached --quiet; then echo 'No repair changes needed.'; exit 0; fi
+          git commit -m 'fix: repair checkout shipping and admin order status'
+          git push origin main
