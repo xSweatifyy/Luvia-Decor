@@ -91,3 +91,91 @@ body > div[style*="left:-20000px"] .card .details { bottom: 116px !important; pa
 body > div[style*="left:-20000px"] .card .label { margin-bottom: 13px !important; line-height: 1.7 !important; }
 body > div[style*="left:-20000px"] .card .value { line-height: 1.55 !important; }
 body > div[style*="left:-20000px"] .card .footer { bottom: 48px !important; line-height: 1.7 !important; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LUVIA DECOR · AUTUMN 2026
+   Seasonal visual layer: warm foliage, amber light, copper accents and subtle
+   motion. It intentionally avoids changing the admin interface.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.autumn-theme {
+  --autumn-ink: #30231c;
+  --autumn-cream: #fbf5eb;
+  --autumn-paper: #fffaf2;
+  --autumn-copper: #a64b24;
+  --autumn-rust: #8d3f22;
+  --autumn-amber: #c27a25;
+  --autumn-olive: #62663d;
+  --autumn-line: #e7d5c0;
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(194,122,37,.08), transparent 27rem),
+    radial-gradient(circle at 92% 30%, rgba(166,75,36,.065), transparent 30rem),
+    linear-gradient(180deg, #fffaf3 0%, #fbf6ee 46%, #f7efe4 100%) !important;
+}
+.autumn-theme main,
+.autumn-theme footer,
+.autumn-theme header { position: relative; z-index: 2; }
+.autumn-sun-glow {
+  position: fixed; inset: -18vh -10vw auto auto; width: 42vw; height: 42vw;
+  max-width: 620px; max-height: 620px; border-radius: 999px; pointer-events:none;
+  background: radial-gradient(circle, rgba(232,171,83,.16) 0%, rgba(232,171,83,.055) 35%, transparent 70%);
+  filter: blur(5px); z-index: 0; animation: autumnGlow 8s ease-in-out infinite alternate;
+}
+.autumn-leaf-field {
+  position: fixed; inset: 0; overflow: hidden; pointer-events:none; z-index: 20;
+  clip-path: inset(0);
+}
+.autumn-leaf {
+  position: absolute; top: -8vh; opacity: 0; user-select:none;
+  filter: drop-shadow(0 5px 5px rgba(76,39,20,.12));
+  animation-name: autumnFall;
+  animation-timing-function: cubic-bezier(.35,.05,.65,.95);
+  animation-iteration-count: infinite;
+}
+.autumn-season-pill {
+  position: fixed; right: 18px; bottom: 18px; z-index: 25;
+  display: flex; align-items:center; gap: 8px; padding: 9px 13px;
+  border: 1px solid rgba(166,75,36,.18); border-radius: 999px;
+  background: rgba(255,250,242,.82); color: #744027;
+  box-shadow: 0 10px 30px rgba(82,48,25,.09);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  font-size: 11px; font-weight: 800; letter-spacing:.04em;
+}
+.autumn-season-pill span:first-child { font-size: 15px; }
+.autumn-theme ::selection { background:#9b4c25 !important; color:#fff8ed !important; }
+.autumn-theme ::-webkit-scrollbar-track { background:#f3e7d8; }
+.autumn-theme ::-webkit-scrollbar-thumb { background:#c99b70; }
+.autumn-theme ::-webkit-scrollbar-thumb:hover { background:#a9673f; }
+
+/* Warm the most common neutral utility surfaces without touching admin. */
+.autumn-theme:not(:has(.admin-panel)) .bg-white { background-color:#fffaf3 !important; }
+.autumn-theme:not(:has(.admin-panel)) .bg-\[\#FCFAF7\] { background-color:#fbf5eb !important; }
+.autumn-theme:not(:has(.admin-panel)) .bg-\[\#FAF8F5\] { background-color:#fbf5eb !important; }
+.autumn-theme:not(:has(.admin-panel)) .border-\[\#E8DFD5\],
+.autumn-theme:not(:has(.admin-panel)) .border-\[\#E4D9CD\] { border-color:#e7d5c0 !important; }
+
+/* Seasonal accent helpers used by buttons, links and small UI details. */
+.autumn-theme .autumn-accent { color:var(--autumn-copper) !important; }
+.autumn-theme .autumn-accent-bg { background:linear-gradient(135deg,#8d3f22,#c27a25) !important; color:white !important; }
+
+@keyframes autumnFall {
+  0% { transform:translate3d(0,-12vh,0) rotate(0deg); opacity:0; }
+  8% { opacity:.82; }
+  35% { transform:translate3d(calc(var(--leaf-drift) * .35),35vh,0) rotate(calc(var(--leaf-rotate) * .35)); }
+  68% { transform:translate3d(calc(var(--leaf-drift) * -.4),68vh,0) rotate(calc(var(--leaf-rotate) * .7)); }
+  100% { transform:translate3d(var(--leaf-drift),116vh,0) rotate(var(--leaf-rotate)); opacity:.06; }
+}
+@keyframes autumnGlow {
+  from { transform:translate3d(0,0,0) scale(.96); opacity:.65; }
+  to { transform:translate3d(-2vw,2vh,0) scale(1.04); opacity:1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .autumn-leaf, .autumn-sun-glow { animation:none !important; }
+  .autumn-leaf { display:none; }
+}
+@media (max-width: 640px) {
+  .autumn-season-pill { right:10px; bottom:10px; font-size:10px; padding:8px 10px; }
+  .autumn-sun-glow { width:80vw; height:80vw; }
+}
