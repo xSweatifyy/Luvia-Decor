@@ -1,8 +1,11 @@
 import React, { useMemo } from 'react';
+import { useApp } from '../context/AppContext';
 
 const LEAF_TYPES = ['🍂','🍁','🌿','🍃'];
 
 export const AutumnAtmosphere: React.FC = () => {
+  const { page } = useApp();
+  if (page === 'admin') return null;
   const leaves = useMemo(() => Array.from({ length: 22 }, (_, i) => ({
     id: i,
     left: `${(i * 47) % 101}%`,
