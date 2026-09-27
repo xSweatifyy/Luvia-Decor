@@ -290,3 +290,14 @@ input, select, textarea { font-size:16px; } /* prevents iOS Safari auto-zoom */
 @media (max-width: 480px), (prefers-reduced-motion: reduce) {
   .autumn-leaf { opacity:.55; }
 }
+
+
+/* Maintenance banner must stay below the navigation and disappear visually while the mobile drawer is open. */
+.maintenance-banner { position:relative; z-index:10 !important; }
+#main-header { z-index:40 !important; }
+@media (max-width: 1023px) {
+  #main-header.mobile-menu-open ~ .maintenance-banner {
+    visibility:hidden !important;
+    pointer-events:none !important;
+  }
+}
