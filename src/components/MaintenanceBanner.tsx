@@ -42,7 +42,7 @@ export const MaintenanceBanner: React.FC = () => {
     : banner.until;
 
   return (
-    <div className={`relative z-30 w-full border-b ${styles.wrapper}`} role="status" aria-live="polite">
+    <div className={`maintenance-banner relative z-30 w-full border-b ${styles.wrapper}`} role="status" aria-live="polite">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 sm:py-4">
         <div className="flex items-start gap-3 sm:gap-4">
           <div className={`mt-0.5 shrink-0 h-9 w-9 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center ${styles.accent}`}>
