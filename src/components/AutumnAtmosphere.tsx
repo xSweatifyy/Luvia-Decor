@@ -38,10 +38,6 @@ export const AutumnAtmosphere: React.FC = () => {
           </span>
         ))}
       </div>
-      <div className="autumn-season-pill" aria-hidden="true">
-        <span>🍁</span>
-        <span>Podzim v Luvia Decor</span>
-      </div>
     </>
   );
 };
