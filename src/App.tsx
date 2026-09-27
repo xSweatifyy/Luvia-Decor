@@ -2,26 +2,26 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { ProductDetailModal } from './components/ProductDetailModal';
 import { ToastContainer } from './components/Toast';
-import { HomePage } from './pages/HomePage';
-import { CatalogPage } from './pages/CatalogPage';
-import { CustomOrderPage } from './pages/CustomOrderPage';
-import { GalleryPage } from './pages/GalleryPage';
-import { ContactPage } from './pages/ContactPage';
-import { CheckoutCartPage } from './pages/CheckoutCartPage';
-import { TermsPage } from './pages/TermsPage';
-import { PrivacyPage } from './pages/PrivacyPage';
-import { AdminPage } from './pages/AdminPage';
-import { GiftCardPage } from './pages/GiftCardPage';
-import { GiftCardBalancePage } from './pages/GiftCardBalancePage';
-import { ComplaintPage } from './pages/ComplaintPage';
-import { CustomerAccountPage } from './pages/CustomerAccountPage';
+const HomePage = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
+const CatalogPage = lazy(() => import('./pages/CatalogPage').then(m => ({ default: m.CatalogPage })));
+const CustomOrderPage = lazy(() => import('./pages/CustomOrderPage').then(m => ({ default: m.CustomOrderPage })));
+const GalleryPage = lazy(() => import('./pages/GalleryPage').then(m => ({ default: m.GalleryPage })));
+const ContactPage = lazy(() => import('./pages/ContactPage').then(m => ({ default: m.ContactPage })));
+const CheckoutCartPage = lazy(() => import('./pages/CheckoutCartPage').then(m => ({ default: m.CheckoutCartPage })));
+const TermsPage = lazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
+const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
+const GiftCardPage = lazy(() => import('./pages/GiftCardPage').then(m => ({ default: m.GiftCardPage })));
+const GiftCardBalancePage = lazy(() => import('./pages/GiftCardBalancePage').then(m => ({ default: m.GiftCardBalancePage })));
+const ComplaintPage = lazy(() => import('./pages/ComplaintPage').then(m => ({ default: m.ComplaintPage })));
+const CustomerAccountPage = lazy(() => import('./pages/CustomerAccountPage').then(m => ({ default: m.CustomerAccountPage })));
 import { CustomerAccountTermsSection } from './components/CustomerAccountTermsSection';
 import { GiftCardPaymentEnhancer } from './components/GiftCardPaymentEnhancer';
 import { CookieConsent, getCookieConsent } from './components/CookieConsent';
@@ -46,7 +46,7 @@ const AppContent: React.FC = () => {
     document.addEventListener('click', handleTermsClick, true);
     return () => { window.removeEventListener('open-terms', openTerms); window.removeEventListener('open-privacy', openPrivacy); document.removeEventListener('click', handleTermsClick, true); };
   }, [setPage]);
-  return <div className="autumn-theme min-h-screen bg-[#FCFAF7] text-[#2D2723] flex flex-col font-sans selection:bg-[#8C7355] selection:text-white"><AutumnAtmosphere/><CouponApiCompat/><Navbar/><MaintenanceBanner/><GiftCardShortcut/><main className="flex-1">
+  return <Suspense fallback={<div className="min-h-screen bg-[#FCFAF7] flex items-center justify-center"><div className="text-xs text-[#8C7355] font-semibold tracking-widest uppercase">Načítání…</div></div>}><div className="autumn-theme min-h-screen bg-[#FCFAF7] text-[#2D2723] flex flex-col font-sans selection:bg-[#8C7355] selection:text-white"><AutumnAtmosphere/><CouponApiCompat/><Navbar/><MaintenanceBanner/><GiftCardShortcut/><main className="flex-1">
     {page === 'home' && <HomePage/>}
     {page === 'catalog' && <CatalogPage/>}
     {page === 'custom-order' && <><CustomOrderPage/><ConsultationTermsSection/></>}
@@ -60,6 +60,6 @@ const AppContent: React.FC = () => {
     {page === 'complaint' && <ComplaintPage/>}
     {page === 'account' && <CustomerAccountPage/>}
     {page === 'admin' && <AdminPage/>}
-  </main><Footer/><ProductDetailModal/><ToastContainer/><GiftCardPaymentEnhancer/><TermsAgreementEnhancer/>{analyticsConsent&&<Analytics/>}<CookieConsent onConsent={(choice)=>setAnalyticsConsent(choice==='all')}/></div>;
+  </main><Footer/><ProductDetailModal/><ToastContainer/><GiftCardPaymentEnhancer/><TermsAgreementEnhancer/>{analyticsConsent&&<Analytics/>}<CookieConsent onConsent={(choice)=>setAnalyticsConsent(choice==='all')}/></div></Suspense>;
 };
 export default function App(){return <AppProvider><AppContent/></AppProvider>}
