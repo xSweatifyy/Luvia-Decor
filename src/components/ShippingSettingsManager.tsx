@@ -10,11 +10,13 @@ export type ShippingCarrierConfig = {
 };
 
 export type ShippingConfig = {
+  initialized?: boolean;
   carriers: Record<string, ShippingCarrierConfig>;
   personalPickup: { enabled: boolean; price: number; label: string };
 };
 
 const DEFAULT_SHIPPING: ShippingConfig = {
+  initialized: true,
   carriers: {
     DPD: { enabled: true, address: 105, pickup_point: 75, box: 75 },
     'Zásilkovna': { enabled: true, address: 89, pickup_point: 62, box: 62 },
@@ -26,7 +28,7 @@ const DEFAULT_SHIPPING: ShippingConfig = {
 const normalize = (value: unknown): ShippingConfig => {
   const source = value as Partial<ShippingConfig> | null | undefined;
   const rawCarriers = source?.carriers && typeof source.carriers === 'object'
-    ? { ...DEFAULT_SHIPPING.carriers, ...source.carriers }
+    ? (source.initialized === true ? source.carriers : { ...DEFAULT_SHIPPING.carriers, ...source.carriers })
     : DEFAULT_SHIPPING.carriers;
 
   const carriers: Record<string, ShippingCarrierConfig> = {};
@@ -42,6 +44,7 @@ const normalize = (value: unknown): ShippingConfig => {
 
   const pp = source?.personalPickup;
   return {
+    initialized: true,
     carriers,
     personalPickup: {
       enabled: pp?.enabled !== false,
