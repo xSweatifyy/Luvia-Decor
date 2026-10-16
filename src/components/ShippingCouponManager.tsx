@@ -25,7 +25,7 @@ export const ShippingCouponManager: React.FC = () => {
     if (!adminUser) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/coupons/free-shipping');
+      const res = await fetch('/api/coupons?action=free-shipping');
       if (!res.ok) throw new Error('Nepodařilo se načíst kódy.');
       const data = await res.json();
       setCoupons(Array.isArray(data) ? data : []);
@@ -40,7 +40,7 @@ export const ShippingCouponManager: React.FC = () => {
     const clean = code.trim().toUpperCase();
     if (!clean) { addToast('error', 'Chybí kód', 'Zadejte název kódu pro dopravu zdarma.'); return; }
     try {
-      const res = await fetch('/api/coupons/free-shipping', {
+      const res = await fetch('/api/coupons?action=free-shipping', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: clean, shippingScope: scope, shippingCarrier: scope === 'carrier' ? carrier : undefined, adminUser })
       });
@@ -51,7 +51,7 @@ export const ShippingCouponManager: React.FC = () => {
   };
 
   const toggle = async (coupon: ShippingCoupon) => {
-    const res = await fetch(`/api/coupons/free-shipping?id=${encodeURIComponent(coupon.id)}`, {
+    const res = await fetch(`/api/coupons?action=free-shipping&id=${encodeURIComponent(coupon.id)}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ active: !coupon.active, adminUser })
     });
@@ -60,7 +60,7 @@ export const ShippingCouponManager: React.FC = () => {
   };
 
   const remove = async (coupon: ShippingCoupon) => {
-    const res = await fetch(`/api/coupons/free-shipping?id=${encodeURIComponent(coupon.id)}`, {
+    const res = await fetch(`/api/coupons?action=free-shipping?id=${encodeURIComponent(coupon.id)}`, {
       method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminUser })
     });
     if (!res.ok) { addToast('error', 'Chyba', 'Kód se nepodařilo smazat.'); return; }
