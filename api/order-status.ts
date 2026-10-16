@@ -104,8 +104,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try { order.zaslat = await createZaslatShipment(order); }
       catch (zaslatError: any) { order.zaslat = { createdAt: new Date().toISOString(), error: zaslatError?.message || 'Vytvoření zásilky přes Zaslat selhalo.' }; console.error('Zaslat shipment creation error:', zaslatError); }
     }
-    await sql`UPDATE orders SET data = ${JSON.stringify(order)}::jsonb WHERE id = ${orderId}`;
-    return res.status(200).json({ success: true, order: { ...order, id: orderId } });
+    // Update JSONB fields directly in Postgres to avoid driver/serialization edge cases.
+    const updatedRows = await sql`UPDATE orders SET data = jsonb_set(jsonb_set(data, '{status}', to_jsonb(${status}::text), true), '{updatedAt}', to_jsonb(${order.updatedAt}::text), true) WHERE id = ${orderId} RETURNING data`;
+    if (!updatedRows.length) return res.status(404).json({ success: false, error: 'Objednávka při ukládání zmizela z databáze.' });
+    const savedData = typeof updatedRows[0].data === 'string' ? JSON.parse(updatedRows[0].data) : updatedRows[0].data;
+    return res.status(200).json({ success: true, order: { ...savedData, id: orderId } });
   } catch (error: any) {
     console.error('Order status API error:', { message: error?.message, stack: error?.stack });
     return res.status(500).json({ success: false, error: error?.message || 'Chyba serveru.' });
