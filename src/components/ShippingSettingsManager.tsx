@@ -18,6 +18,7 @@ const DEFAULT_SHIPPING: ShippingConfig = {
   carriers: {
     DPD: { enabled: true, address: 105, pickup_point: 75, box: 75 },
     'Zásilkovna': { enabled: true, address: 89, pickup_point: 62, box: 62 },
+    PenguinBox: { enabled: true, address: 59, pickup_point: 59, box: 59 },
   },
   personalPickup: { enabled: true, price: 0, label: 'Osobní odběr – Kroměříž' },
 };
@@ -25,7 +26,7 @@ const DEFAULT_SHIPPING: ShippingConfig = {
 const normalize = (value: unknown): ShippingConfig => {
   const source = value as Partial<ShippingConfig> | null | undefined;
   const rawCarriers = source?.carriers && typeof source.carriers === 'object'
-    ? source.carriers
+    ? { ...DEFAULT_SHIPPING.carriers, ...source.carriers }
     : DEFAULT_SHIPPING.carriers;
 
   const carriers: Record<string, ShippingCarrierConfig> = {};
