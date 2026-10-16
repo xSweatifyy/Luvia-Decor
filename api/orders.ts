@@ -16,10 +16,11 @@ const PPL_ALLOWED = new Set(PPL_ALLOWED_CATEGORIES.map(normalizeCategory));
 const isPplAllowed = (items: any[]) => items.length > 0 && items.every((item:any) => PPL_ALLOWED.has(normalizeCategory(item.category)));
 const finalShipping = (baseExVat: number) => baseExVat * (1 + ZASLAT_FUEL_SURCHARGE) * (1 + VAT_RATE);
 const fixedShipping = (carrier: string, method: string, country: string, items: any[], shippingConfig?: any) => {
-  if (country === 'SK') return carrier === 'ZASILKOVNA' ? 0 : null;
-  if (carrier === 'PPL' && !isPplAllowed(items)) return null;
   const configuredKeys: string[] = Array.isArray(shippingConfig?._configuredCarrierKeys) ? shippingConfig._configuredCarrierKeys : [];
   if (shippingConfig?.carriers?.[carrier]?.enabled === false) return null;
+  if (configuredKeys.length && carrier !== 'PENGUINBOX' && !configuredKeys.includes(carrier)) return null;
+  if (country === 'SK') return carrier === 'ZASILKOVNA' ? 0 : null;
+  if (carrier === 'PPL' && !isPplAllowed(items)) return null;
   if (carrier === 'PENGUINBOX') { if (configuredKeys.length && !configuredKeys.includes('PENGUINBOX')) return null; const amount = shippingConfig?.carriers?.PENGUINBOX?.box; return method === 'box' ? (configuredKeys.includes('PENGUINBOX') && amount != null ? Math.max(0, Number(amount)) : 59) : null; }
   if (carrier === 'ZASILKOVNA' && method === 'address') { const weight = items.reduce((sum:number, item:any) => sum + Math.max(0, Number(item.weight || 0)) * Math.max(1, Math.floor(Number(item.quantity) || 1)), 0); if (weight > 5) return null; }
   if (configuredKeys.includes(carrier)) {
