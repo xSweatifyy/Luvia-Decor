@@ -60,7 +60,7 @@ export const ShippingCouponManager: React.FC = () => {
   };
 
   const remove = async (coupon: ShippingCoupon) => {
-    const res = await fetch(`/api/coupons?action=free-shipping?id=${encodeURIComponent(coupon.id)}`, {
+    const res = await fetch(`/api/coupons?action=free-shipping&id=${encodeURIComponent(coupon.id)}`, {
       method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminUser })
     });
     if (!res.ok) { addToast('error', 'Chyba', 'Kód se nepodařilo smazat.'); return; }
