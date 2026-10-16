@@ -38,7 +38,7 @@ export const CheckoutCartPage: React.FC = () => {
   const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [phone, setPhone] = useState(''); const [street, setStreet] = useState(''); const [city, setCity] = useState(''); const [zip, setZip] = useState(''); const [billingStreet, setBillingStreet] = useState(''); const [billingCity, setBillingCity] = useState(''); const [billingZip, setBillingZip] = useState(''); const [note, setNote] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false); const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false); const [sending, setSending] = useState(false); const [done, setDone] = useState<any>(null);
   const [couponInput, setCouponInput] = useState(''); const [couponSecurityInput, setCouponSecurityInput] = useState(''); const [couponChecking, setCouponChecking] = useState(false); const [appliedCoupon, setAppliedCoupon] = useState<{code:string;type:'percent'|'fixed'|'shipping';value:number;categoryIds:string[];giftVoucher?:boolean;securityCode?:string;shippingScope?:'all'|'carrier';shippingCarrier?:string}|null>(null);
-  const shippingConfig: any = { ...DEFAULT, ...rawShipping, carriers: { ...(rawShipping.carriers || {}) }, personalPickup: { ...DEFAULT.personalPickup, ...(rawShipping.personalPickup || {}) } }; const carrierAliases: Record<string,string> = { ZASILKOVNA: 'Zásilkovna', BALIKOVNA: 'Balíkovna ČR', WEDO: 'One by Allegro' }; const getCarrierConfig = (name: string): Shipping => shippingConfig.carriers?.[name] || shippingConfig.carriers?.[carrierAliases[name]] || {};
+  const shippingConfig: any = { ...DEFAULT, ...rawShipping, carriers: { ...(rawShipping.carriers || {}) }, personalPickup: { ...DEFAULT.personalPickup, ...(rawShipping.personalPickup || {}) } }; const carrierAliases: Record<string,string> = { ZASILKOVNA: 'Zásilkovna', BALIKOVNA: 'Balíkovna ČR', WEDO: 'One by Allegro', PENGUINBOX: 'PenguinBox' }; const hasSavedCarrierConfig = Object.keys(rawShipping?.carriers || {}).length > 0; const getCarrierConfig = (name: string): Shipping => shippingConfig.carriers?.[name] || shippingConfig.carriers?.[carrierAliases[name]] || {};
   const onlyGiftCards = cart.length > 0 && cart.every(i => normalizeCategory(i.product.category) === 'darkove-karty');
   const pplAllowed = cart.length > 0 && cart.every(i => PPL_ALLOWED.has(normalizeCategory(i.product.category)));
   const totalWeight = cart.reduce((sum,i)=>sum + Math.max(0,Number((i.product as any).weight || 0))*i.quantity,0);
@@ -46,8 +46,9 @@ export const CheckoutCartPage: React.FC = () => {
   const zasilkovnaWeight = totalWeight;
   const zasilkovnaAddressAllowed = zasilkovnaWeight <= 5;
   const carrierNames = onlyGiftCards ? ['EMAIL'] : destination === 'sk' ? ['ZASILKOVNA'] : ['BALIKOVNA','DPD','GLS','WEDO','PPL','ZASILKOVNA',...(upsAllowed ? ['UPS'] : [])];
-  const entries: [string,Shipping][] = carrierNames.filter(n => n !== 'PPL' || pplAllowed).filter(n => getCarrierConfig(n)?.enabled !== false).map(n=>[n,getCarrierConfig(n)] as [string,Shipping]);
-  if (!onlyGiftCards && destination === 'cz') entries.push(['PenguinBox',{enabled:true}]);
+  const entries: [string,Shipping][] = carrierNames.filter(n => n !== 'PPL' || pplAllowed).filter(n => { const carrierConfig = getCarrierConfig(n); return carrierConfig?.enabled !== false && (!hasSavedCarrierConfig || Object.keys(carrierConfig).length > 0); }).map(n=>[n,getCarrierConfig(n)] as [string,Shipping]);
+  const penguinConfig = getCarrierConfig('PenguinBox');
+  if (!onlyGiftCards && destination === 'cz' && penguinConfig?.enabled !== false && (!hasSavedCarrierConfig || Object.keys(penguinConfig).length > 0)) entries.push(['PenguinBox',penguinConfig]);
   const cfg: Shipping = getCarrierConfig(carrier);
   const configuredPrice = method === 'address' ? cfg.address : method === 'box' ? cfg.box : cfg.pickup_point;
   const hasConfiguredPrice = configuredPrice !== undefined && configuredPrice !== null && Number.isFinite(Number(configuredPrice));
