@@ -73,10 +73,11 @@ async function createZaslatShipment(order: any) {
     reference: String(order.orderNumber || order.id || '').slice(0, 255),
   };
   if (order?.delivery?.serviceId) shipment.service_id = Number(order.delivery.serviceId);
-  if (order?.delivery?.pickupPointCode) shipment.delivery_branch = String(order.delivery.pickupPointCode);
+  const deliveryBranch = order?.delivery?.zaslatPickupBranch || order?.delivery?.pickupPointCode || order?.delivery?.pickupPointId;
+  if (deliveryBranch) shipment.delivery_branch = String(deliveryBranch);
   const response = await zaslatRequest('/shipments/create', { method: 'POST', body: JSON.stringify({ currency: 'CZK', payment_type: 'CREDIT', shipments: [shipment] }) });
   const result = response?.data || {};
-  return { createdAt: new Date().toISOString(), order: result.order || null, orderNumber: result.order_number || null, shipments: Array.isArray(result.shipments) ? result.shipments : [], carrier, serviceId: order?.delivery?.serviceId || null, pickupPointCode: order?.delivery?.pickupPointCode || null };
+  return { createdAt: new Date().toISOString(), order: result.order || null, orderNumber: result.order_number || null, shipments: Array.isArray(result.shipments) ? result.shipments : [], carrier, serviceId: order?.delivery?.serviceId || null, pickupPointCode: deliveryBranch || null };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
