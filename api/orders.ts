@@ -18,10 +18,10 @@ const finalShipping = (baseExVat: number) => baseExVat * (1 + ZASLAT_FUEL_SURCHA
 const fixedShipping = (carrier: string, method: string, country: string, items: any[], shippingConfig?: any) => {
   if (country === 'SK') return carrier === 'ZASILKOVNA' ? 0 : null;
   if (carrier === 'PPL' && !isPplAllowed(items)) return null;
-  if (carrier === 'PENGUINBOX') return method === 'box' ? 59 : null;
-  if (shippingConfig?.carriers?.[carrier]?.enabled === false) return null;
-  if (carrier === 'ZASILKOVNA' && method === 'address') { const weight = items.reduce((sum:number, item:any) => sum + Math.max(0, Number(item.weight || 0)) * Math.max(1, Math.floor(Number(item.quantity) || 1)), 0); if (weight > 5) return null; }
   const configuredKeys: string[] = Array.isArray(shippingConfig?._configuredCarrierKeys) ? shippingConfig._configuredCarrierKeys : [];
+  if (shippingConfig?.carriers?.[carrier]?.enabled === false) return null;
+  if (carrier === 'PENGUINBOX') { if (configuredKeys.length && !configuredKeys.includes('PENGUINBOX')) return null; const amount = shippingConfig?.carriers?.PENGUINBOX?.box; return method === 'box' ? (configuredKeys.includes('PENGUINBOX') && amount != null ? Math.max(0, Number(amount)) : 59) : null; }
+  if (carrier === 'ZASILKOVNA' && method === 'address') { const weight = items.reduce((sum:number, item:any) => sum + Math.max(0, Number(item.weight || 0)) * Math.max(1, Math.floor(Number(item.quantity) || 1)), 0); if (weight > 5) return null; }
   if (configuredKeys.includes(carrier)) {
     const carrierConfig = shippingConfig.carriers?.[carrier];
     const key = method === 'address' ? 'address' : method === 'box' ? 'box' : 'pickup_point';
