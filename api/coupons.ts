@@ -32,7 +32,7 @@ async function validateCode(rawCode:unknown,rawSecurity:unknown,rawItems:unknown
  }
  const categoryIds=parseCategoryIds(r.category_ids);
  if(categoryIds.length&&items.length){
-  const normalize=(v:unknown)=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  const normalize=(v:unknown)=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
   const allowed=new Set(categoryIds.map(normalize));
   if(!items.some((item:any)=>allowed.has(normalize(item?.category))))return{status:400,body:{valid:false,error:'Tento slevový kód neplatí pro žádnou kategorii v košíku.'}};
  }
