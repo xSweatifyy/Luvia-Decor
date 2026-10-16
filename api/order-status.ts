@@ -87,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const action = String(req.query?.action || '').trim();
     const orderId = String(req.body?.orderId || '').trim();
     const status = String(req.body?.status || '').trim();
-    if (!orderId || !allowed.has(status)) return res.status(400).json({ success: false, error: 'Neplatný stav objednávky.' });
+    if (!orderId) return res.status(400).json({ success: false, error: 'Chybí ID objednávky.' });
     await sql`CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
     const rows = await sql`SELECT data FROM orders WHERE id = ${orderId} LIMIT 1`;
     if (!rows.length) return res.status(404).json({ success: false, error: 'Objednávka nenalezena.' });
@@ -96,6 +96,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!storedData || typeof storedData !== 'object' || Array.isArray(storedData)) {
       throw new Error('Data objednávky mají neočekávaný formát.');
     }
+    if (action === 'tracking') {
+      if (!rows.length) return res.status(404).json({ success: false, error: 'Objednávka nenalezena.' });
+      const storedData = typeof rows[0].data === 'string' ? JSON.parse(rows[0].data) : rows[0].data;
+      if (!storedData || typeof storedData !== 'object' || Array.isArray(storedData)) throw new Error('Data objednávky mají neočekávaný formát.');
+      if (req.body?.remove === true) {
+        const updated = { ...(storedData as Record<string, unknown>), updatedAt: new Date().toISOString() } as Record<string, unknown>;
+        delete updated.tracking;
+        const saved = await sql`UPDATE orders SET data = ${JSON.stringify(updated)}::jsonb WHERE id = ${orderId} RETURNING data`;
+        const data = typeof saved[0]?.data === 'string' ? JSON.parse(saved[0].data) : saved[0]?.data;
+        return res.status(200).json({ ...(data || updated), id: orderId });
+      }
+      const trackingNumber = String(req.body?.trackingNumber || '').trim();
+      const carrier = String(req.body?.carrier || '').trim();
+      if (!trackingNumber) return res.status(400).json({ success: false, error: 'Zadejte číslo zásilky.' });
+      if (!['PPL', 'DPD', 'Zásilkovna'].includes(carrier)) return res.status(400).json({ success: false, error: 'Vyberte podporovaného přepravce.' });
+      const trackingUrl = carrier === 'PPL'
+        ? `https://www.ppl.cz/vyhledat-zasilku?shipmentId=${encodeURIComponent(trackingNumber)}`
+        : carrier === 'DPD'
+          ? `https://www.dpd.com/cz/cs/receiving/track/?parcelNumber=${encodeURIComponent(trackingNumber)}`
+          : `https://tracking.packeta.com/cs/?id=${encodeURIComponent(trackingNumber)}`;
+      const currentTracking = (storedData as any).tracking || {};
+      const tracking = { ...currentTracking, carrier, trackingNumber, status: String(req.body?.status || currentTracking.status || 'Zásilka evidována'), trackingUrl, updatedAt: new Date().toISOString(), ...(req.body?.refresh ? { lastCheckedAt: new Date().toISOString() } : {}) };
+      const updated = { ...(storedData as Record<string, unknown>), tracking, updatedAt: new Date().toISOString() };
+      const saved = await sql`UPDATE orders SET data = ${JSON.stringify(updated)}::jsonb WHERE id = ${orderId} RETURNING data`;
+      const data = typeof saved[0]?.data === 'string' ? JSON.parse(saved[0].data) : saved[0]?.data;
+      return res.status(200).json({ ...(data || updated), id: orderId });
+    }
+    if (!allowed.has(status)) return res.status(400).json({ success: false, error: 'Neplatný stav objednávky.' });
     if (action === 'email') {
       const result = await sendOrderStatusEmails(storedData, orderId, status);
       return res.status(200).json({ success: true, ...result });
