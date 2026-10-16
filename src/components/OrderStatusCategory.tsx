@@ -59,6 +59,14 @@ export const OrderStatusCategory: React.FC = () => {
       setOrders(prev => prev.map(item => item.id === order.id ? { ...item, ...savedOrder, status: nextStatus } : item));
       setDrafts(prev => ({ ...prev, [order.id]: nextStatus }));
       addToast('success', 'Stav objednávky uložen', `${order.orderNumber}: ${statusLabel(nextStatus)}`);
+      try {
+        const emailResponse = await fetch('/api/order-status?action=email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.id, status: nextStatus }) });
+        const emailData = await emailResponse.json().catch(() => null);
+        if (!emailResponse.ok || emailData?.success !== true) addToast('error', 'E-mail odeslán nebyl', emailData?.error || 'Stav je uložen, ale oznámení se nepodařilo odeslat.');
+        else addToast('success', 'Oznámení odesláno', 'Zákazník i e-mail obchodu byli informováni o změně stavu.');
+      } catch (emailError: any) {
+        addToast('error', 'E-mail odeslán nebyl', emailError?.message || 'Stav je uložen, ale oznámení se nepodařilo odeslat.');
+      }
     } catch (error: any) {
       setDrafts(prev => ({ ...prev, [order.id]: previousStatus }));
       addToast('error', 'Chyba při aktualizaci stavu', error?.message || 'Stav objednávky se nepodařilo uložit.');
