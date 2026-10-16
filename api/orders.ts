@@ -8,23 +8,63 @@ const ZASLAT_PACKAGE = { weight: 5, width: 20, height: 20, length: 20 };
 const ZASLAT_FUEL_SURCHARGE = 0.105;
 const VAT_RATE = 0.21;
 const FIXED_SHIPPING: Record<string, { pickup: number; address?: number }> = {
-  BALIKOVNA: { pickup: 52, address: 88 }, DPD: { pickup: 85, address: 98 }, GLS: { pickup: 52 }, WEDO: { pickup: 57, address: 92 }, PPL: { pickup: 68 }, ZASILKOVNA: { pickup: 62, address: 89 }
+  BALIKOVNA: { pickup: 52, address: 88 }, DPD: { pickup: 85, address: 98 }, GLS: { pickup: 52 }, WEDO: { pickup: 57, address: 92 }, PPL: { pickup: 68 }, ZASILKOVNA: { pickup: 72, address: 99 }
 };
 const PPL_ALLOWED_CATEGORIES = ['doplňky & ostatní','vánoce','svíčky','umělé květiny & ostatní umělé','věnce','vázy & keramika & květináče'];
 const normalizeCategory = (value: unknown) => String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const PPL_ALLOWED = new Set(PPL_ALLOWED_CATEGORIES.map(normalizeCategory));
 const isPplAllowed = (items: any[]) => items.length > 0 && items.every((item:any) => PPL_ALLOWED.has(normalizeCategory(item.category)));
 const finalShipping = (baseExVat: number) => baseExVat * (1 + ZASLAT_FUEL_SURCHARGE) * (1 + VAT_RATE);
-const fixedShipping = (carrier: string, method: string, country: string, items: any[]) => {
+const fixedShipping = (carrier: string, method: string, country: string, items: any[], shippingConfig?: any) => {
   if (country === 'SK') return carrier === 'ZASILKOVNA' ? 0 : null;
   if (carrier === 'PPL' && !isPplAllowed(items)) return null;
-  const cfg = FIXED_SHIPPING[carrier]; if (!cfg) return null;
+  if (carrier === 'PENGUINBOX') return method === 'box' ? 59 : null;
+  if (shippingConfig?.carriers?.[carrier]?.enabled === false) return null;
   if (carrier === 'ZASILKOVNA' && method === 'address') { const weight = items.reduce((sum:number, item:any) => sum + Math.max(0, Number(item.weight || 0)) * Math.max(1, Math.floor(Number(item.quantity) || 1)), 0); if (weight > 5) return null; }
-  const base = method === 'address' ? cfg.address : cfg.pickup; return base == null ? null : finalShipping(base);
+  const configuredKeys: string[] = Array.isArray(shippingConfig?._configuredCarrierKeys) ? shippingConfig._configuredCarrierKeys : [];
+  if (configuredKeys.includes(carrier)) {
+    const carrierConfig = shippingConfig.carriers?.[carrier];
+    const key = method === 'address' ? 'address' : method === 'box' ? 'box' : 'pickup_point';
+    const amount = carrierConfig?.[key];
+    return amount == null || !Number.isFinite(Number(amount)) ? null : Math.max(0, Number(amount));
+  }
+  const cfg = FIXED_SHIPPING[carrier]; if (!cfg) return null;
+  const base = method === 'address' ? cfg.address : cfg.pickup;
+  if (base == null) return null;
+  return carrier === 'ZASILKOVNA' ? base : finalShipping(base);
 };
-const DEFAULT_SHIPPING = { carriers: { ...Object.fromEntries(ZASLAT_CARRIERS.map(c => [c, { enabled: true, address: FIXED_SHIPPING[c]?.address ?? 0, pickup_point: FIXED_SHIPPING[c]?.pickup ?? 0, box: FIXED_SHIPPING[c]?.pickup ?? 0 }])), EMAIL: { enabled: true, address: 0, pickup_point: 0, box: 0 } } as any, personalPickup: { enabled: true, price: 0, label: 'Osobní odběr – Kroměříž' } };
+const DEFAULT_SHIPPING = { carriers: { ...Object.fromEntries(ZASLAT_CARRIERS.map(c => [c, { enabled: true, address: FIXED_SHIPPING[c]?.address ?? 0, pickup_point: FIXED_SHIPPING[c]?.pickup ?? 0, box: FIXED_SHIPPING[c]?.pickup ?? 0 }])), EMAIL: { enabled: true, address: 0, pickup_point: 0, box: 0 }, PENGUINBOX: { enabled: true, address: 59, pickup_point: 59, box: 59 } } as any, personalPickup: { enabled: true, price: 0, label: 'Osobní odběr – Kroměříž' }, _configuredCarrierKeys: [] as string[] };
 async function ensureTables() { await sql`CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`; await sql`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, type TEXT NOT NULL, value NUMERIC NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), note TEXT, category_ids JSONB NOT NULL DEFAULT '[]'::jsonb, remaining_value NUMERIC)`; await sql`ALTER TABLE coupons ADD COLUMN IF NOT EXISTS category_ids JSONB NOT NULL DEFAULT '[]'::jsonb`; await sql`ALTER TABLE coupons ADD COLUMN IF NOT EXISTS remaining_value NUMERIC`; await sql`ALTER TABLE coupons ADD COLUMN IF NOT EXISTS security_code TEXT`; await sql`UPDATE coupons SET category_ids = '[]'::jsonb WHERE category_ids IS NULL`; await sql`UPDATE coupons SET remaining_value = value WHERE note = 'gift-voucher' AND remaining_value IS NULL`; }
-async function getShippingConfig() { try { await sql`CREATE TABLE IF NOT EXISTS app_state (id INT PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`; const rows = await sql`SELECT data FROM app_state WHERE id = 1 LIMIT 1`; const saved = rows[0]?.data?.shipping; if (!saved) return DEFAULT_SHIPPING; const carriers = Object.fromEntries(Object.entries({ ...DEFAULT_SHIPPING.carriers, ...(saved.carriers || {}) }).map(([name, cfg]: [string, any]) => [name, { enabled: cfg?.enabled !== false, address: Math.max(0, Number(cfg?.address ?? DEFAULT_SHIPPING.carriers[name]?.address ?? 0)), pickup_point: Math.max(0, Number(cfg?.pickup_point ?? cfg?.pickupPoint ?? DEFAULT_SHIPPING.carriers[name]?.pickup_point ?? 0)), box: Math.max(0, Number(cfg?.box ?? cfg?.pickup_point ?? cfg?.pickupPoint ?? DEFAULT_SHIPPING.carriers[name]?.box ?? 0)) }])); return { carriers, personalPickup: { enabled: saved.personalPickup?.enabled !== false, price: Math.max(0, Number(saved.personalPickup?.price ?? 0)), label: String(saved.personalPickup?.label || DEFAULT_SHIPPING.personalPickup.label) } }; } catch { return DEFAULT_SHIPPING; } }
+async function getShippingConfig() {
+  try {
+    await sql`CREATE TABLE IF NOT EXISTS app_state (id INT PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
+    const rows = await sql`SELECT data FROM app_state WHERE id = 1 LIMIT 1`;
+    const saved = rows[0]?.data?.shipping;
+    if (!saved) return DEFAULT_SHIPPING;
+    const canonical = (name: string) => {
+      const key = normalizeCategory(name);
+      if (key === 'zasilkovna') return 'ZASILKOVNA';
+      if (key === 'balikovna' || key === 'balikovna-cr') return 'BALIKOVNA';
+      if (key === 'one-by-allegro' || key === 'wedo') return 'WEDO';
+      if (key === 'penguinbox') return 'PENGUINBOX';
+      return String(name).toUpperCase();
+    };
+    const merged: Record<string, any> = { ...DEFAULT_SHIPPING.carriers };
+    const configuredKeys: string[] = [];
+    Object.entries(saved.carriers || {}).forEach(([name, cfg]: [string, any]) => {
+      const key = canonical(name);
+      configuredKeys.push(key);
+      merged[key] = cfg;
+    });
+    const carriers = Object.fromEntries(Object.entries(merged).map(([name, cfg]: [string, any]) => [name, {
+      enabled: cfg?.enabled !== false,
+      address: Math.max(0, Number(cfg?.address ?? DEFAULT_SHIPPING.carriers[name]?.address ?? 0)),
+      pickup_point: Math.max(0, Number(cfg?.pickup_point ?? cfg?.pickupPoint ?? DEFAULT_SHIPPING.carriers[name]?.pickup_point ?? 0)),
+      box: Math.max(0, Number(cfg?.box ?? cfg?.pickup_point ?? cfg?.pickupPoint ?? DEFAULT_SHIPPING.carriers[name]?.box ?? 0)),
+    }]));
+    return { carriers, _configuredCarrierKeys: [...new Set(configuredKeys)], personalPickup: { enabled: saved.personalPickup?.enabled !== false, price: Math.max(0, Number(saved.personalPickup?.price ?? 0)), label: String(saved.personalPickup?.label || DEFAULT_SHIPPING.personalPickup.label) } };
+  } catch { return DEFAULT_SHIPPING; }
+}
 function variableSymbol(orderNumber: string): string { return String(orderNumber || '').replace(/\D/g, ''); }
 function escapeHtml(value: unknown): string { return String(value ?? '').replace(/[&<>\"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;' }[char] || char)); }
 function money(value: unknown): string { return Number(value || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -53,7 +93,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     let subtotal = 0;
     const orderItems = items.map((item: any) => { const price = Math.max(0, Number(item.price) || 0); const quantity = Math.max(1, Math.floor(Number(item.quantity) || 1)); subtotal += price * quantity; return { productId: item.productId || item.id || 'custom', title: String(item.title || ''), price, quantity, imageUrl: item.imageUrl || '', customNote: item.customNote || '', category: String(item.category || ''), weight: Number(item.weight || 0) }; });
     let shipping = deliveryMethod === 'personal_pickup' || isEmailDelivery ? 0 : 0;
-    if (deliveryMethod !== 'personal_pickup' && !isEmailDelivery) { const country = String(customer.country || '').toLowerCase().includes('slov') ? 'SK' : 'CZ'; const fixed = fixedShipping(carrier, deliveryMethod, country, orderItems); if (fixed == null) return res.status(400).json({ error: carrier === 'PPL' ? 'PPL je dostupné pouze pro vybrané kategorie.' : carrier === 'ZASILKOVNA' && deliveryMethod === 'address' ? 'Zásilkovna na adresu je dostupná pouze do 5 kg.' : 'Zvolený způsob dopravy není pro tuto objednávku dostupný.' }); shipping = fixed; }
+    if (deliveryMethod !== 'personal_pickup' && !isEmailDelivery) { const country = String(customer.country || '').toLowerCase().includes('slov') ? 'SK' : 'CZ'; const fixed = fixedShipping(carrier, deliveryMethod, country, orderItems, shippingConfig); if (fixed == null) return res.status(400).json({ error: carrier === 'PPL' ? 'PPL je dostupné pouze pro vybrané kategorie.' : carrier === 'ZASILKOVNA' && deliveryMethod === 'address' ? 'Zásilkovna na adresu je dostupná pouze do 5 kg.' : 'Zvolený způsob dopravy není pro tuto objednávku dostupný.' }); shipping = fixed; }
     let discount = 0; let appliedCouponCode: string | undefined; let voucherConsumed = 0; let voucherId: string | undefined; let shippingDiscount = 0;
     if (couponCode) { const code = String(couponCode).trim().toUpperCase(); const rows = await sql`SELECT id, code, type, value, active, note, category_ids, remaining_value, security_code FROM coupons WHERE UPPER(TRIM(code)) = ${code} AND active = TRUE LIMIT 1`; if (!rows.length) return res.status(400).json({ error: 'Slevový kód je neplatný nebo deaktivovaný.' }); const coupon = rows[0]; appliedCouponCode = coupon.code; if (String(coupon.note || '').startsWith('free-shipping:') || coupon.type === 'shipping') { const bits = String(coupon.note || 'free-shipping:all').split(':'); const scope = bits[1] === 'carrier' ? 'carrier' : 'all'; const allowedCarrier = String(bits[2] || '').toUpperCase(); if (scope === 'carrier' && allowedCarrier !== carrier) return res.status(400).json({ error: `Tento kód platí pouze pro dopravce ${allowedCarrier}.` }); shippingDiscount = shipping; shipping = 0; } else { const categoryIds = Array.isArray(coupon.category_ids) ? coupon.category_ids.map(String) : []; const allowed = new Set(categoryIds.map(normalizeCategory)); const eligibleItems = allowed.size ? orderItems.filter((item: any) => allowed.has(normalizeCategory(item.category))) : orderItems; if (allowed.size && !eligibleItems.length) return res.status(400).json({ error: 'Tento slevový kód nelze použít na žádný produkt v košíku.' }); const eligibleSubtotal = eligibleItems.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0); if (coupon.note === 'gift-voucher') { const suppliedSecurity = String(couponSecurityCode || '').trim().toUpperCase(); if (!suppliedSecurity || !coupon.security_code || String(coupon.security_code).trim().toUpperCase() !== suppliedSecurity) return res.status(403).json({ error: 'Bezpečnostní kód dárkové karty není správný.' }); const remaining = Number(coupon.remaining_value ?? coupon.value); if (remaining <= 0) return res.status(400).json({ error: 'Dárkový poukaz je již vyčerpán.' }); discount = Math.min(remaining, eligibleSubtotal); voucherConsumed = discount; voucherId = coupon.id; } else if (coupon.type === 'percent') discount = Math.min(eligibleSubtotal, Math.round(eligibleSubtotal * Number(coupon.value) / 100)); else discount = Math.min(eligibleSubtotal, Number(coupon.value) || 0); } }
     if (voucherId && voucherConsumed > 0) { const updated = await sql`UPDATE coupons SET remaining_value = GREATEST(0, COALESCE(remaining_value, value) - ${voucherConsumed}), active = CASE WHEN COALESCE(remaining_value, value) - ${voucherConsumed} <= 0 THEN FALSE ELSE active END WHERE id = ${voucherId} AND active = TRUE AND COALESCE(remaining_value, value) >= ${voucherConsumed} RETURNING remaining_value`; if (!updated.length) return res.status(409).json({ error: 'Dárkový poukaz byl mezitím použit. Zkontrolujte jeho zbývající hodnotu.' }); }
