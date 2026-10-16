@@ -8,6 +8,22 @@ export const CouponApiCompat = () => {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
 
+      const trackingMatch = url.match(/\/api\/orders\/([^/?]+)\/tracking(?:\?.*)?$/);
+      if (trackingMatch) {
+        const method = String(init?.method || 'GET').toUpperCase();
+        const orderId = decodeURIComponent(trackingMatch[1]);
+        let payload: any = {};
+        if (method !== 'DELETE') {
+          try { payload = JSON.parse(String(init?.body || '{}')); } catch {}
+          payload = { ...payload, orderId };
+        } else {
+          payload = { orderId, remove: true };
+        }
+        const headers = new Headers(init?.headers || {});
+        headers.set('Content-Type', 'application/json');
+        return originalFetch('/api/order-status?action=tracking', { ...init, method: 'POST', headers, body: JSON.stringify(payload) });
+      }
+
       if (url.includes('/api/coupons/validate')) {
         const target = `/api/coupons?action=validate${url.includes('?') ? `&${url.split('?')[1].replace(/^.*?&/, '')}` : ''}`;
         return originalFetch(target, init);
