@@ -90,11 +90,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await sql`CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
     const rows = await sql`SELECT data FROM orders WHERE id = ${orderId} LIMIT 1`;
     if (!rows.length) return res.status(404).json({ success: false, error: 'Objednávka nenalezena.' });
+    // Neon normally decodes JSONB automatically, but tolerate deployments/drivers returning it as text.
+    const storedData = typeof rows[0].data === 'string' ? JSON.parse(rows[0].data) : rows[0].data;
+    if (!storedData || typeof storedData !== 'object' || Array.isArray(storedData)) {
+      throw new Error('Data objednávky mají neočekávaný formát.');
+    }
     if (action === 'email') {
-      const result = await sendOrderStatusEmails(rows[0].data || {}, orderId, status);
+      const result = await sendOrderStatusEmails(storedData, orderId, status);
       return res.status(200).json({ success: true, ...result });
     }
-    let order: any = { ...(rows[0].data as Record<string, unknown>), status, updatedAt: new Date().toISOString() };
+    let order: any = { ...(storedData as Record<string, unknown>), status, updatedAt: new Date().toISOString() };
     if (status === 'u_prepravce' && !order.zaslat?.shipments?.length && process.env.ZASLAT_API_KEY) {
       try { order.zaslat = await createZaslatShipment(order); }
       catch (zaslatError: any) { order.zaslat = { createdAt: new Date().toISOString(), error: zaslatError?.message || 'Vytvoření zásilky přes Zaslat selhalo.' }; console.error('Zaslat shipment creation error:', zaslatError); }
@@ -102,7 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await sql`UPDATE orders SET data = ${JSON.stringify(order)}::jsonb WHERE id = ${orderId}`;
     return res.status(200).json({ success: true, order: { ...order, id: orderId } });
   } catch (error: any) {
-    console.error('Order status API error:', error);
+    console.error('Order status API error:', { message: error?.message, stack: error?.stack });
     return res.status(500).json({ success: false, error: error?.message || 'Chyba serveru.' });
   }
 }
