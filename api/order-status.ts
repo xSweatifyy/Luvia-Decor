@@ -5,7 +5,7 @@ import { Resend } from 'resend';
 const sql = neon(process.env.DATABASE_URL || '');
 
 // Inline the mail helper in this serverless function so Vercel Node ESM does not fail resolving an external TS module.
-const sql = neon(process.env.DATABASE_URL || '');
+
 const labels: Record<string, string> = { nova:'Nová objednávka',zpracovava_se:'Objednávka se zpracovává',zaplaceno:'Objednávka zaplacena',u_prepravce:'Objednávka je u přepravce',odeslano:'Objednávka odeslána',dokonceno:'Objednávka dokončena',zruseno:'Objednávka zrušena' };
 function esc(v: any) { return String(v ?? '').replace(/[&<>\"']/g, (c: string) => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c] || c)); }
 function formatMoney(v: any) { return Number(v ?? 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
