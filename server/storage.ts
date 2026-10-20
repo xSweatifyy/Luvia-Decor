@@ -180,10 +180,11 @@ class DatabaseStorage {
     return category;
   }
 
-  updateCategory(id: string, name: string): { id: string; name: string } | null {
+  updateCategory(id: string, name: string, hiddenFromCatalog?: boolean): { id: string; name: string; hiddenFromCatalog?: boolean } | null {
     const category = this.data.categories.find(item => item.id === id);
     if (!category) return null;
     category.name = name;
+    if (typeof hiddenFromCatalog === 'boolean') category.hiddenFromCatalog = hiddenFromCatalog;
     this.saveData(this.data);
     return category;
   }
