@@ -11,6 +11,8 @@ const UPS_LOGO = new URL('../../1920px-United_Parcel_Service_logo_2014.svg.png',
 export const Footer: React.FC = () => {
   const { config, setPage, adminUser } = useApp();
   const [showFullMap, setShowFullMap] = useState(false);
+  const [newsletterBusy, setNewsletterBusy] = useState(false);
+  const [newsletterStatus, setNewsletterStatus] = useState<{text:string;error:boolean}|null>(null);
   const currentYear = new Date().getFullYear();
   const handleNav = (p: PageRoute) => setPage(p);
   return (
@@ -24,7 +26,46 @@ export const Footer: React.FC = () => {
         </div>
         <div className="py-8 border-b border-[#382F28] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"><a href={`https://wa.me/${config.whatsapp ? config.whatsapp.replace(/[^0-9]/g, '') : '420702345999'}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-[#28211C] hover:bg-[#322923] border border-[#3E332A] hover:border-[#25D366] transition group text-xs"><div className="w-9 h-9 rounded-lg bg-[#25D366]/20 text-[#25D366] flex items-center justify-center shrink-0"><MessageCircle className="w-5 h-5" /></div><div className="overflow-hidden"><span className="block text-[10px] uppercase text-[#8F8174] font-semibold">WhatsApp chat</span><span className="text-[#FAF6F0] font-bold truncate block group-hover:text-[#25D366] transition">{config.whatsappDisplay || '+420 702 345 999'}</span></div></a><a href={config.instagramUrl || 'https://www.instagram.com/luvia_decor_'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-[#28211C] hover:bg-[#322923] border border-[#3E332A] hover:border-[#E1306C] transition group text-xs"><div className="w-9 h-9 rounded-lg bg-[#E1306C]/20 text-[#E1306C] flex items-center justify-center shrink-0"><Instagram className="w-5 h-5" /></div><div className="overflow-hidden"><span className="block text-[10px] uppercase text-[#8F8174] font-semibold">Instagram profil</span><span className="text-[#FAF6F0] font-bold truncate block group-hover:text-[#E1306C] transition">@luvia_decor_</span></div></a><a href={config.facebookUrl || 'https://www.facebook.com/profile.php?id=61571617343463'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-[#28211C] hover:bg-[#322923] border border-[#3E332A] hover:border-[#1877F2] transition group text-xs"><div className="w-9 h-9 rounded-lg bg-[#1877F2]/20 text-[#1877F2] flex items-center gap-2 justify-center shrink-0"><Facebook className="w-5 h-5" /></div><div className="overflow-hidden"><span className="block text-[10px] uppercase text-[#8F8174] font-semibold">Facebook stránka</span><span className="text-[#FAF6F0] font-bold truncate block group-hover:text-[#1877F2] transition">Luvia Decor</span></div></a><a href="https://www.trustpilot.com/evaluate/luvia-decor.cz" target="_blank" rel="noopener noreferrer" aria-label="Trustpilot hodnocení Luvia Decor" className="flex items-center gap-3 p-3 rounded-xl bg-[#28211C] hover:bg-[#322923] border border-[#3E332A] hover:border-[#00B67A] transition group text-xs"><div className="w-9 h-9 rounded-lg bg-[#00B67A]/20 text-[#00B67A] flex items-center justify-center shrink-0 font-black text-lg">★</div><div className="overflow-hidden flex-1"><span className="block text-[10px] uppercase text-[#8F8174] font-semibold">Hodnocení od zákazníků</span><span className="text-[#FAF6F0] font-bold truncate block group-hover:text-[#00B67A] transition">Trustpilot hodnocení</span></div><ExternalLink className="w-4 h-4 text-[#00B67A] shrink-0" /></a><a href={config.consultationUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-[#2D241E] hover:bg-[#3B3028] border border-[#C5A880]/50 hover:border-[#C5A880] transition group text-xs"><div className="w-9 h-9 rounded-lg bg-[#C5A880]/20 text-[#C5A880] flex items-center justify-center shrink-0"><CalendarCheck className="w-5 h-5" /></div><div className="overflow-hidden"><span className="block text-[10px] uppercase text-[#C5A880] font-semibold">Rezervace termínu</span></div></a></div>
 
-        <div className="my-8 rounded-2xl border border-[#5A493B] bg-[#28211C] p-5 sm:p-7"><div className="max-w-2xl mx-auto"><h4 className="font-editorial text-xl font-bold text-[#FAF6F0]">Inspirace od Luvia Decor</h4><p className="text-xs text-[#B8ACA0] mt-2 mb-4">Přihlaste se k newsletteru a dostávejte novinky e-mailem.</p><form onSubmit={async (event)=>{event.preventDefault();const form=event.currentTarget;const data=new FormData(form);const message=form.querySelector('[data-newsletter-message]') as HTMLElement;try{const response=await fetch('/api/newsletter/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({firstName:data.get('firstName'),lastName:data.get('lastName'),email:data.get('email')})});const result=await response.json();if(!response.ok)throw new Error(result.error||'Registrace se nezdařila.');message.textContent=result.message||'Děkujeme za přihlášení.';form.reset();}catch(error:any){message.textContent=error.message||'Registrace se nezdařila.';}}} className="grid grid-cols-1 sm:grid-cols-2 gap-3"><input required name="firstName" placeholder="Jméno" aria-label="Jméno" className="rounded-xl bg-[#211C18] border border-[#514337] px-3 py-3 text-sm text-white"/><input required name="lastName" placeholder="Příjmení" aria-label="Příjmení" className="rounded-xl bg-[#211C18] border border-[#514337] px-3 py-3 text-sm text-white"/><input required type="email" name="email" placeholder="E-mail" aria-label="E-mail" className="sm:col-span-2 rounded-xl bg-[#211C18] border border-[#514337] px-3 py-3 text-sm text-white"/><button className="sm:col-span-2 rounded-xl bg-[#C5A880] text-[#211C18] font-bold text-sm py-3">Přihlásit se k newsletteru</button></form><p data-newsletter-message role="status" className="text-xs mt-3 text-[#E5DCD2]"></p><p className="text-[10px] text-[#8F8174] mt-3">Odběr můžete kdykoliv ukončit kontaktováním Luvia Decor.</p></div></div>
+        <section aria-labelledby="footer-newsletter-title" className="my-7 border-y border-[#493C31] py-5 sm:py-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-8">
+            <div className="max-w-sm shrink-0">
+              <h4 id="footer-newsletter-title" className="text-sm font-semibold tracking-wide text-[#FAF6F0]">Novinky od Luvia Decor</h4>
+              <p className="text-[11px] leading-relaxed text-[#B8ACA0] mt-1">Nové kolekce, inspirace a sezónní nabídky přímo do e-mailu.</p>
+            </div>
+            <form onSubmit={async (event) => {
+              event.preventDefault();
+              if (newsletterBusy) return;
+              const form = event.currentTarget;
+              const data = new FormData(form);
+              setNewsletterBusy(true);
+              setNewsletterStatus(null);
+              try {
+                const response = await fetch('/api/newsletter/subscribe', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ firstName: data.get('firstName'), lastName: data.get('lastName'), email: data.get('email') })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Registrace se nezdařila. Zkuste to prosím znovu.');
+                setNewsletterStatus({ text: result.message || 'Děkujeme za přihlášení k newsletteru.', error: false });
+                form.reset();
+              } catch (error: any) {
+                setNewsletterStatus({ text: error.message || 'Registraci se nepodařilo dokončit.', error: true });
+              } finally {
+                setNewsletterBusy(false);
+              }
+            }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.4fr_auto] gap-2 w-full lg:max-w-3xl">
+              <input required name="firstName" autoComplete="given-name" placeholder="Jméno" aria-label="Jméno" className="min-w-0 rounded-lg bg-[#211C18] border border-[#514337] px-3 py-2.5 text-xs text-white placeholder:text-[#9E9083] focus:outline-none focus:border-[#C5A880]" />
+              <input required name="lastName" autoComplete="family-name" placeholder="Příjmení" aria-label="Příjmení" className="min-w-0 rounded-lg bg-[#211C18] border border-[#514337] px-3 py-2.5 text-xs text-white placeholder:text-[#9E9083] focus:outline-none focus:border-[#C5A880]" />
+              <input required type="email" name="email" autoComplete="email" placeholder="Váš e-mail" aria-label="E-mail" className="min-w-0 rounded-lg bg-[#211C18] border border-[#514337] px-3 py-2.5 text-xs text-white placeholder:text-[#9E9083] focus:outline-none focus:border-[#C5A880] sm:col-span-2 lg:col-span-1" />
+              <button type="submit" disabled={newsletterBusy} className="rounded-lg bg-[#C5A880] hover:bg-[#D6BB94] disabled:opacity-60 text-[#211C18] font-semibold text-xs px-4 py-2.5 transition whitespace-nowrap">
+                {newsletterBusy ? 'Odesílám…' : 'Přihlásit se'}
+              </button>
+              <p className="sm:col-span-2 lg:col-span-4 text-[10px] text-[#8F8174]">Z odběru se můžete kdykoliv odhlásit kontaktováním Luvia Decor.</p>
+            </form>
+          </div>
+          {newsletterStatus && <p role="status" aria-live="polite" className={`mt-3 text-xs ${newsletterStatus.error ? 'text-rose-300' : 'text-emerald-300'}`}>{newsletterStatus.text}</p>}
+        </section>
 
         {showFullMap && <div className="py-8 border-b border-[#382F28] animate-in fade-in duration-300"><h4 className="font-editorial text-xl font-bold text-[#FAF6F0] mb-4 flex items-center gap-2"><MapPin className="w-5 h-5 text-[#C5A880]" />Interaktivní mapa sídla Luvia Decor v Kroměříži</h4><MapEmbed height="h-96" /></div>}
         <div className="py-6 border-b border-[#382F28] flex flex-wrap items-center justify-between gap-4 text-xs text-[#A89C90]"><div className="flex flex-wrap items-center gap-x-6 gap-y-2"><div><span className="text-[#7B6F63]">Odpovědná osoba:</span>{' '}<strong className="text-[#E5DCD2]">{config.responsiblePerson}</strong></div><div className="hidden sm:inline text-[#4E4238]">•</div><div><span className="text-[#7B6F63]">Sídlo:</span>{' '}<strong className="text-[#E5DCD2]">{config.registeredOffice}</strong></div><div className="hidden sm:inline text-[#4E4238]">•</div><div><span className="text-[#7B6F63]">IČO:</span>{' '}<strong className="text-[#E5DCD2]">{config.ico}</strong></div></div><div className="flex items-center gap-2 text-xs text-[#8E8074]"><ShieldCheck className="w-4 h-4 text-[#C5A880]" /><span>Zapsáno v živnostenském rejstříku ČR</span></div></div>
