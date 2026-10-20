@@ -198,7 +198,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // COUPONS
-    if (pathParts[0] === 'coupons') {
+    if (pathParts[0] === 'coupons' && pathParts[1] !== 'validate') {
       await ensureCouponsTable();
       if (method === 'GET' && pathParts.length === 1) {
         const rows = await sql`SELECT id, code, type, value, active, created_at, note, expires_at FROM coupons ORDER BY created_at DESC`;
@@ -228,7 +228,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const rows = await sql`UPDATE coupons SET active = COALESCE(${activeUpdate}, active), value = COALESCE(${valueUpdate}, value), expires_at = CASE WHEN ${expiryProvided} THEN ${expiresAt}::timestamptz ELSE expires_at END WHERE id = ${pathParts[1]} RETURNING id, code, type, value, active, created_at, note, expires_at`;
         if (!rows.length) return res.status(404).json({ error: 'Slevový kód nenalezen.' });
         const r = rows[0];
-        return res.status(200).json({ id: r.id, code: r.code, type: r.type, value: Number(r.value), active: r.active, createdAt: r.created_at, note: r.note || '' });
+        return res.status(200).json({ id: r.id, code: r.code, type: r.type, value: Number(r.value), active: r.active, createdAt: r.created_at, note: r.note || '', expiresAt: r.expires_at || null });
       }
       if (method === 'DELETE' && pathParts.length === 2) {
         await sql`DELETE FROM coupons WHERE id = ${pathParts[1]}`;
