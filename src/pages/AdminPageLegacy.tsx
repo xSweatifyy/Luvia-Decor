@@ -915,8 +915,6 @@ export const AdminPage: React.FC = () => {
             <div className="flex flex-wrap gap-2 mb-4">
               {categories.map(category => (
                 <div key={category.id} className="flex items-center gap-1 rounded-lg border border-[#E3DACF] bg-[#FAF8F5] px-2 py-1">
-                  <label className="inline-flex items-center gap-1 text-[10px] text-[#8C7355]" title="Skrýt kategorii z veřejného katalogu"><input type="checkbox" checked={!!category.hiddenFromCatalog} onChange={async e => { try { await updateCategory(category.id, category.name, { hiddenFromCatalog: e.target.checked }); addToast('success', e.target.checked ? 'Kategorie skryta' : 'Kategorie zobrazena'); } catch (err:any) { addToast('error','Chyba',err.message); } }} className="w-3 h-3"/>Skrýt</label>
-                  <label className="inline-flex items-center gap-1 text-[10px] text-[#8C7355]" title="Skrýt kategorii z veřejného katalogu"><input type="checkbox" checked={!!category.hiddenFromCatalog} onChange={async e => { try { await updateCategory(category.id, category.name, { hiddenFromCatalog: e.target.checked }); addToast('success', e.target.checked ? 'Kategorie skryta' : 'Kategorie zobrazena'); } catch (err:any) { addToast('error','Chyba',err.message); } }} className="w-3 h-3"/>Skrýt</label>
                   {editingCategoryId === category.id ? (
                     <input autoFocus value={editingCategoryName} onChange={e => setEditingCategoryName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleRenameCategory(category.id); }} className="w-36 bg-white px-1.5 py-1 text-xs border border-[#D8C9B7] rounded" />
                   ) : <span className="text-xs text-[#5C5046]">{category.name}</span>}
@@ -1378,15 +1376,6 @@ export const AdminPage: React.FC = () => {
                         className="w-4 h-4 rounded text-[#8C7355]"
                       />
                       <span>Zobrazit mezi doporučenými na homepage</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer font-semibold text-rose-700">
-                      <input
-                        type="checkbox"
-                        checked={editingProduct.hiddenFromCatalog || false}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, hiddenFromCatalog: e.target.checked })}
-                        className="w-4 h-4 rounded text-[#8C7355]"
-                      />
-                      <span>Skrýt produkt z katalogu (zůstane uložený v administraci)</span>
                     </label>
                   </div>
 
