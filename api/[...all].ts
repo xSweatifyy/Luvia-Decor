@@ -80,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? queryPath.split('/').filter(Boolean)
       : [];
   if (pathParts.length === 0) {
-    const pathname = (req.url || '/').split('?')[0].replace(/^\\/api\\/?/, '');
+    const pathname = (req.url || '/').split('?')[0].replace(/^\/api\/?/, '');
     pathParts = pathname.split('/').filter(Boolean).map((part) => {
       try { return decodeURIComponent(part); } catch { return part; }
     });
