@@ -16,6 +16,7 @@ const emptyBanner: MaintenanceBannerConfig = {
 
 export const MaintenanceBannerManager: React.FC = () => {
   const { config, updateConfigState, addToast } = useApp();
+  const [maintenanceMode, setMaintenanceMode] = useState(!!config.maintenanceMode);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<MaintenanceBannerConfig>(() => ({ ...emptyBanner, ...(config.maintenanceBanner || {}) }));
   const banner = useMemo(() => draft, [draft]);
@@ -25,7 +26,7 @@ export const MaintenanceBannerManager: React.FC = () => {
   const save = async () => {
     setSaving(true);
     try {
-      await updateConfigState({ maintenanceBanner: draft });
+      await updateConfigState({ maintenanceBanner: draft, maintenanceMode });
       addToast('success', draft.enabled ? 'Banner aktivován' : 'Banner vypnut', draft.enabled ? 'Odstávkový banner se nyní zobrazuje na celém e-shopu.' : 'Odstávkový banner byl skryt.');
     } catch (error: any) {
       addToast('error', 'Banner se nepodařilo uložit', error?.message || 'Zkuste to prosím znovu.');
@@ -41,6 +42,7 @@ export const MaintenanceBannerManager: React.FC = () => {
 
   return (
     <div className="space-y-5">
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-amber-200 shadow-sm"><div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><div><span className="text-[10px] uppercase tracking-[0.2em] font-bold text-amber-700">Režim údržby</span><h2 className="font-editorial text-2xl font-bold mt-1">Dočasně vypnout veřejný web</h2><p className="text-sm text-stone-600 mt-2 max-w-2xl">Při zapnutí návštěvníci uvidí pouze logo Luvia Decor a zprávu o údržbě. Administrátoři mohou web dál používat.</p></div><label className={"inline-flex items-center gap-2 rounded-xl border px-4 py-3 font-bold text-sm cursor-pointer "+(maintenanceMode?"bg-amber-50 border-amber-300 text-amber-900":"bg-stone-50 border-stone-200 text-stone-700")}><input type="checkbox" checked={maintenanceMode} onChange={e=>setMaintenanceMode(e.target.checked)} className="w-4 h-4"/>{maintenanceMode?"Údržba zapnutá":"Údržba vypnutá"}</label></div><div className="mt-4 rounded-xl bg-stone-50 border p-4 text-sm">Probíhá údržba systému, děkujeme za pochopení.</div></div>
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E8DFC8] shadow-sm">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 border-b border-[#F2ECE4] pb-5">
           <div>
