@@ -304,7 +304,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const firstName = String(req.body?.firstName || '').trim().slice(0, 100);
       const lastName = String(req.body?.lastName || '').trim().slice(0, 100);
       const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 254);
-      if (!firstName || !lastName || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      if (!firstName || !lastName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return res.status(400).json({ error: 'Vyplňte prosím jméno, příjmení a platný e-mail.' });
       }
       const rows = await sql`INSERT INTO newsletter_subscribers (id, email, first_name, last_name, active)
@@ -347,8 +347,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const resend = new Resend(process.env.RESEND_API_KEY);
       const from = process.env.RESEND_FROM_EMAIL || 'Luvia Decor <newsletter@luvia-decor.cz>';
       const safeTitle = escapeNewsletterHtml(title);
-      const safeText = escapeNewsletterHtml(bodyText).replace(/\\r?\\n/g, '<br>');
-      const safeImage = /^https:\\/\\//i.test(imageUrl) ? '<img src="' + escapeNewsletterHtml(imageUrl) + '" alt="" style="max-width:100%;height:auto;border-radius:12px;margin:20px 0">' : '';
+      const safeText = escapeNewsletterHtml(bodyText).replace(/\r?\n/g, '<br>');
+      const safeImage = imageUrl.startsWith('https://') ? '<img src="' + escapeNewsletterHtml(imageUrl) + '" alt="" style="max-width:100%;height:auto;border-radius:12px;margin:20px 0">' : '';
       let sent = 0;
       const failures: string[] = [];
       for (const subscriber of subscribers as any[]) {
