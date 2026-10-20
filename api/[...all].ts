@@ -212,7 +212,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (value <= 0) return res.status(400).json({ error: 'Hodnota slevy musí být kladná.' });
         if (type === 'percent' && value > 100) return res.status(400).json({ error: 'Procentní sleva může být nejvýše 100 %.' });
         const expiresAt = req.body?.expiresAt ? new Date(String(req.body.expiresAt)).toISOString() : null;
-        if (req.body?.expiresAt && Number.isNaN(Date.parse(String(req.body.expiresAt)))) return res.status(400).json({ error: 'Datum expirace není platné.' });\n        const rows = await sql`INSERT INTO coupons (id, code, type, value, active, note, expires_at) VALUES (${`cup-${Date.now()}`}, ${code}, ${type}, ${value}, ${req.body?.active !== false}, ${req.body?.note || ''}, ${expiresAt}) ON CONFLICT (code) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, active = EXCLUDED.active, note = EXCLUDED.note, expires_at = EXCLUDED.expires_at RETURNING id, code, type, value, active, created_at, note, expires_at`;
+        if (req.body?.expiresAt && Number.isNaN(Date.parse(String(req.body.expiresAt)))) return res.status(400).json({ error: 'Datum expirace není platné.' });
+        const rows = await sql`INSERT INTO coupons (id, code, type, value, active, note, expires_at) VALUES (${`cup-${Date.now()}`}, ${code}, ${type}, ${value}, ${req.body?.active !== false}, ${req.body?.note || ''}, ${expiresAt}) ON CONFLICT (code) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, active = EXCLUDED.active, note = EXCLUDED.note, expires_at = EXCLUDED.expires_at RETURNING id, code, type, value, active, created_at, note, expires_at`;
         const r = rows[0];
         return res.status(201).json({ id: r.id, code: r.code, type: r.type, value: Number(r.value), active: r.active, createdAt: r.created_at, note: r.note || '', expiresAt: r.expires_at || null });
       }
