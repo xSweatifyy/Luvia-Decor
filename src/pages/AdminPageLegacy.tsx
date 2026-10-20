@@ -1185,7 +1185,6 @@ export const AdminPage: React.FC = () => {
                         <option value="Oblíbené">Oblíbené</option>
                         <option value="Limitovaná edice">Limitovaná edice</option>
                         <option value="Na zakázku">Na zakázku</option>
-                        <option value="Na objednání">Na objednání</option>
                       </select>
                     </div>
                   </div>
