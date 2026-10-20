@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CalendarDays, Check, Eye, EyeOff, Info, Save, Wrench } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { MaintenanceBannerConfig } from '../types';
