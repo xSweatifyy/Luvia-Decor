@@ -41,7 +41,7 @@ export const CatalogPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'newest'>('featured');
   const [onlyInStock, setOnlyInStock] = useState(false);
-  const categories = [{ id: 'all', name: 'Všechny produkty' }, GIFT_CARD_CATEGORY, ...getFullCategoryList(productCategories, products).filter(c => c.id !== GIFT_CARD_CATEGORY.id)];
+  const categories = [{ id: 'all', name: 'Všechny produkty' }, GIFT_CARD_CATEGORY, ...getFullCategoryList(productCategories.filter(c => !c.hiddenFromCatalog), products).filter(c => c.id !== GIFT_CARD_CATEGORY.id && !productCategories.find(pc => pc.id === c.id)?.hiddenFromCatalog)];
   const filteredProducts = useMemo(() => {
     return products.filter(product => { if (product.hiddenFromCatalog) return false; if (selectedCategory !== 'all' && product.category !== selectedCategory) return false; if (onlyInStock && !product.inStock) return false; if (searchQuery.trim()) { const q=searchQuery.toLowerCase().trim(); if (!(product.id?.toLowerCase().includes(q)||product.title.toLowerCase().includes(q)||product.description.toLowerCase().includes(q)||product.materials?.toLowerCase().includes(q))) return false; } return true; }).sort((a,b) => sortBy==='price-asc'?a.price-b.price:sortBy==='price-desc'?b.price-a.price:sortBy==='newest'?(b.badge==='Novinka'?1:0)-(a.badge==='Novinka'?1:0):(b.featured?1:0)-(a.featured?1:0));
   }, [products, selectedCategory, searchQuery, sortBy, onlyInStock]);
