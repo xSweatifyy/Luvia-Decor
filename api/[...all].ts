@@ -17,7 +17,7 @@ async function ensureConfigTable() {
 }
 
 async function ensureCouponsTable() {
-  await sql`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, type TEXT NOT NULL, value NUMERIC NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), note TEXT)`;
+  await sql`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, type TEXT NOT NULL, value NUMERIC NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), note TEXT, expires_at TIMESTAMPTZ)`;\n  await sql`ALTER TABLE coupons ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`;
 }
 
 
@@ -170,7 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let appliedCouponCode: string | undefined;
         if (couponCode) {
           await ensureCouponsTable();
-          const couponRows = await sql`SELECT code, type, value, active FROM coupons WHERE code = ${String(couponCode).trim().toUpperCase()} AND active = TRUE LIMIT 1`;
+          const couponRows = await sql`SELECT code, type, value, active FROM coupons WHERE code = ${String(couponCode).trim().toUpperCase()} AND active = TRUE AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1`;
           if (couponRows.length) {
             appliedCouponCode = couponRows[0].code;
             discount = couponRows[0].type === 'percent' ? Math.round(subtotal * (Number(couponRows[0].value) / 100)) : Math.min(Number(couponRows[0].value), subtotal);
@@ -200,8 +200,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (pathParts[0] === 'coupons') {
       await ensureCouponsTable();
       if (method === 'GET' && pathParts.length === 1) {
-        const rows = await sql`SELECT id, code, type, value, active, created_at, note FROM coupons ORDER BY created_at DESC`;
-        return res.status(200).json(rows.map((r: any) => ({ id: r.id, code: r.code, type: r.type, value: Number(r.value), active: r.active, createdAt: r.created_at, note: r.note || '' })));
+        const rows = await sql`SELECT id, code, type, value, active, created_at, note, expires_at FROM coupons ORDER BY created_at DESC`;
+        return res.status(200).json(rows.map((r: any) => ({ id: r.id, code: r.code, type: r.type, value: Number(r.value), active: r.active, createdAt: r.created_at, note: r.note || '', expiresAt: r.expires_at || null })));
       }
       if (method === 'POST' && pathParts.length === 1) {
         const code = String(req.body?.code || '').trim().toUpperCase();
@@ -210,20 +210,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!code) return res.status(400).json({ error: 'Zadejte kód slevy.' });
         if (value <= 0) return res.status(400).json({ error: 'Hodnota slevy musí být kladná.' });
         if (type === 'percent' && value > 100) return res.status(400).json({ error: 'Procentní sleva může být nejvýše 100 %.' });
-        const rows = await sql`INSERT INTO coupons (id, code, type, value, active, note) VALUES (${`cup-${Date.now()}`}, ${code}, ${type}, ${value}, ${req.body?.active !== false}, ${req.body?.note || ''}) ON CONFLICT (code) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, active = EXCLUDED.active, note = EXCLUDED.note RETURNING id, code, type, value, active, created_at, note`;
+        const expiresAt = req.body?.expiresAt ? new Date(String(req.body.expiresAt)).toISOString() : null;\n        if (req.body?.expiresAt && Number.isNaN(Date.parse(String(req.body.expiresAt)))) return res.status(400).json({ error: 'Datum expirace není platné.' });\n        const rows = await sql`INSERT INTO coupons (id, code, type, value, active, note, expires_at) VALUES (${`cup-${Date.now()}`}, ${code}, ${type}, ${value}, ${req.body?.active !== false}, ${req.body?.note || ''}, ${expiresAt}) ON CONFLICT (code) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, active = EXCLUDED.active, note = EXCLUDED.note, expires_at = EXCLUDED.expires_at RETURNING id, code, type, value, active, created_at, note, expires_at`;
         const r = rows[0];
-        return res.status(201).json({ id: r.id, code: r.code, type: r.type, value: Number(r.value), active: r.active, createdAt: r.created_at, note: r.note || '' });
+        return res.status(201).json({ id: r.id, code: r.code, type: r.type, value: Number(r.value), active: r.active, createdAt: r.created_at, note: r.note || '', expiresAt: r.expires_at || null });
       }
       if (method === 'PUT' && pathParts.length === 2) {
         const updates: any = {};
-        if (typeof (req.body as any)?.active === 'boolean') updates.active = (req.body as any).active;
+        if (typeof (req.body as any)?.active === 'boolean') updates.active = (req.body as any).active;\n        if ((req.body as any)?.expiresAt !== undefined) { const rawExpiry = (req.body as any).expiresAt; if (rawExpiry && Number.isNaN(Date.parse(String(rawExpiry)))) return res.status(400).json({ error: 'Datum expirace není platné.' }); updates.expires_at = rawExpiry ? new Date(String(rawExpiry)).toISOString() : null; }
         if ((req.body as any)?.value !== undefined) {
           const value = Number((req.body as any).value) || 0;
           if (value <= 0) return res.status(400).json({ error: 'Hodnota slevy musí být kladná.' });
           updates.value = value;
         }
         if (!Object.keys(updates).length) return res.status(400).json({ error: 'Chybí data k aktualizaci.' });
-        const rows = await sql`UPDATE coupons SET ${Object.keys(updates).map((k, i) => `${k} = $${i + 1}`).join(', ')} WHERE id = $${Object.keys(updates).length + 1} RETURNING id, code, type, value, active, created_at, note`;
+        const rows = await sql`UPDATE coupons SET ${Object.keys(updates).map((k, i) => `${k} = $${i + 1}`).join(', ')} WHERE id = $${Object.keys(updates).length + 1} RETURNING id, code, type, value, active, created_at, note, expires_at`;
         if (!rows.length) return res.status(404).json({ error: 'Slevový kód nenalezen.' });
         const r = rows[0];
         return res.status(200).json({ id: r.id, code: r.code, type: r.type, value: Number(r.value), active: r.active, createdAt: r.created_at, note: r.note || '' });
@@ -239,7 +239,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (pathParts[0] === 'coupons' && pathParts[1] === 'validate' && method === 'POST') {
       await ensureCouponsTable();
       const inputCode = String(req.body?.code || '').trim();
-      const rows = await sql`SELECT code, type, value, active FROM coupons WHERE code = ${inputCode.toUpperCase()} AND active = TRUE LIMIT 1`;
+      const rows = await sql`SELECT code, type, value, active FROM coupons WHERE code = ${inputCode.toUpperCase()} AND active = TRUE AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1`;
       if (rows.length === 0) return res.status(404).json({ valid: false, error: 'Slevový kód je neplatný nebo vypršel.' });
       const c = rows[0];
       return res.status(200).json({ valid: true, code: c.code, type: c.type, value: Number(c.value) });
