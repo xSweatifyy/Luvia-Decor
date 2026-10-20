@@ -45,8 +45,10 @@ export const Footer: React.FC = () => {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ firstName: data.get('firstName'), lastName: data.get('lastName'), email: data.get('email') })
                 });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.error || 'Registrace se nezdařila. Zkuste to prosím znovu.');
+                const responseText = await response.text();
+                let result: any = null;
+                try { result = responseText ? JSON.parse(responseText) : null; } catch { throw new Error('Server newsletteru nevrátil JSON. Zkontrolujte nasazení API na Vercelu a zkuste to znovu.'); }
+                if (!response.ok) throw new Error(result?.error || `Registrace se nezdařila (HTTP ${response.status}).`);
                 setNewsletterStatus({ text: result.message || 'Děkujeme za přihlášení k newsletteru.', error: false });
                 form.reset();
               } catch (error: any) {
