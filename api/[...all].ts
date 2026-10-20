@@ -320,6 +320,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (pathParts[0] === 'newsletter' && pathParts[1] === 'subscribers' && method === 'GET') {
       if (!getNewsletterAdmin(req)) return res.status(403).json({ error: 'Pro zobrazení odběratelů se přihlaste jako administrátor.' });
       await ensureNewsletterTables();
+      // Sync existing verified customer accounts only when they explicitly opted in.
+      // This also repairs missing subscriber rows for previously consenting accounts.
+      const accountTable = await sql`SELECT to_regclass('public.customer_accounts') AS table_name`;
+      if (accountTable[0]?.table_name) {
+        await sql`INSERT INTO newsletter_subscribers (id, email, first_name, last_name, active)
+          SELECT 'sub-account-' || ca.id, LOWER(ca.email),
+            COALESCE(NULLIF(SPLIT_PART(TRIM(ca.data->>'name'), ' ', 1), ''), ''),
+            COALESCE(NULLIF(TRIM(SUBSTRING(TRIM(ca.data->>'name') FROM POSITION(' ' IN TRIM(ca.data->>'name')) + 1)), ''), ''),
+            TRUE
+          FROM customer_accounts ca
+          WHERE ca.email_verified = TRUE AND ca.newsletter_opt_in = TRUE
+          ON CONFLICT (email) DO UPDATE SET
+            first_name = EXCLUDED.first_name,
+            last_name = EXCLUDED.last_name,
+            active = TRUE`;
+      }
       const rows = await sql`SELECT id, email, first_name, last_name, created_at, active FROM newsletter_subscribers ORDER BY created_at DESC`;
       return res.status(200).json(rows.map((row: any) => ({
         id: row.id, email: row.email, firstName: row.first_name, lastName: row.last_name,
