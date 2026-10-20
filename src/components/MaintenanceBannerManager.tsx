@@ -20,6 +20,8 @@ export const MaintenanceBannerManager: React.FC = () => {
   useEffect(() => setMaintenanceMode(!!config.maintenanceMode), [config.maintenanceMode]);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<MaintenanceBannerConfig>(() => ({ ...emptyBanner, ...(config.maintenanceBanner || {}) }));
+  // Site config loads asynchronously; keep this panel in sync when Firestore finishes loading it.
+  useEffect(() => { setDraft({ ...emptyBanner, ...(config.maintenanceBanner || {}) }); }, [config.maintenanceBanner]);
   const banner = useMemo(() => draft, [draft]);
 
   const update = (patch: Partial<MaintenanceBannerConfig>) => setDraft(prev => ({ ...prev, ...patch }));
