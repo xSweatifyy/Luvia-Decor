@@ -42,18 +42,10 @@ function fixCarrierLogoPaths() {
   carrierRow.dataset.carrierFooterEnhanced = 'true';
 }
 
-let pointsRefreshTimer: number | undefined;
-
-// Non-critical account enhancements are deferred so they never block first paint.
-function schedulePointsEnhancement() {
-  if (pointsRefreshTimer) window.clearTimeout(pointsRefreshTimer);
-  pointsRefreshTimer = window.setTimeout(() => { void enhanceLuviaPoints(); }, 1800);
-}
-
 createRoot(root).render(
   <StrictMode>
     <App />
   </StrictMode>,
 );
 
-window.setTimeout(() => { fixCarrierLogoPaths(); schedulePointsEnhancement(); }, 900);
+window.setTimeout(fixCarrierLogoPaths, 900);
