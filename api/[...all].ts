@@ -17,7 +17,8 @@ async function ensureConfigTable() {
 }
 
 async function ensureCouponsTable() {
-  await sql`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, type TEXT NOT NULL, value NUMERIC NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), note TEXT, expires_at TIMESTAMPTZ)`;\n  await sql`ALTER TABLE coupons ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`;
+  await sql`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, code TEXT UNIQUE NOT NULL, type TEXT NOT NULL, value NUMERIC NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), note TEXT, expires_at TIMESTAMPTZ)`;
+  await sql`ALTER TABLE coupons ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`;
 }
 
 
@@ -210,20 +211,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!code) return res.status(400).json({ error: 'Zadejte kód slevy.' });
         if (value <= 0) return res.status(400).json({ error: 'Hodnota slevy musí být kladná.' });
         if (type === 'percent' && value > 100) return res.status(400).json({ error: 'Procentní sleva může být nejvýše 100 %.' });
-        const expiresAt = req.body?.expiresAt ? new Date(String(req.body.expiresAt)).toISOString() : null;\n        if (req.body?.expiresAt && Number.isNaN(Date.parse(String(req.body.expiresAt)))) return res.status(400).json({ error: 'Datum expirace není platné.' });\n        const rows = await sql`INSERT INTO coupons (id, code, type, value, active, note, expires_at) VALUES (${`cup-${Date.now()}`}, ${code}, ${type}, ${value}, ${req.body?.active !== false}, ${req.body?.note || ''}, ${expiresAt}) ON CONFLICT (code) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, active = EXCLUDED.active, note = EXCLUDED.note, expires_at = EXCLUDED.expires_at RETURNING id, code, type, value, active, created_at, note, expires_at`;
+        const expiresAt = req.body?.expiresAt ? new Date(String(req.body.expiresAt)).toISOString() : null;
+        if (req.body?.expiresAt && Number.isNaN(Date.parse(String(req.body.expiresAt)))) return res.status(400).json({ error: 'Datum expirace není platné.' });\n        const rows = await sql`INSERT INTO coupons (id, code, type, value, active, note, expires_at) VALUES (${`cup-${Date.now()}`}, ${code}, ${type}, ${value}, ${req.body?.active !== false}, ${req.body?.note || ''}, ${expiresAt}) ON CONFLICT (code) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, active = EXCLUDED.active, note = EXCLUDED.note, expires_at = EXCLUDED.expires_at RETURNING id, code, type, value, active, created_at, note, expires_at`;
         const r = rows[0];
         return res.status(201).json({ id: r.id, code: r.code, type: r.type, value: Number(r.value), active: r.active, createdAt: r.created_at, note: r.note || '', expiresAt: r.expires_at || null });
       }
       if (method === 'PUT' && pathParts.length === 2) {
-        const updates: any = {};
-        if (typeof (req.body as any)?.active === 'boolean') updates.active = (req.body as any).active;\n        if ((req.body as any)?.expiresAt !== undefined) { const rawExpiry = (req.body as any).expiresAt; if (rawExpiry && Number.isNaN(Date.parse(String(rawExpiry)))) return res.status(400).json({ error: 'Datum expirace není platné.' }); updates.expires_at = rawExpiry ? new Date(String(rawExpiry)).toISOString() : null; }
-        if ((req.body as any)?.value !== undefined) {
-          const value = Number((req.body as any).value) || 0;
-          if (value <= 0) return res.status(400).json({ error: 'Hodnota slevy musí být kladná.' });
-          updates.value = value;
-        }
-        if (!Object.keys(updates).length) return res.status(400).json({ error: 'Chybí data k aktualizaci.' });
-        const rows = await sql`UPDATE coupons SET ${Object.keys(updates).map((k, i) => `${k} = $${i + 1}`).join(', ')} WHERE id = $${Object.keys(updates).length + 1} RETURNING id, code, type, value, active, created_at, note, expires_at`;
+        const activeUpdate = typeof (req.body as any)?.active === 'boolean' ? (req.body as any).active : null;
+        const valueUpdate = (req.body as any)?.value !== undefined ? Number((req.body as any).value) : null;
+        if (valueUpdate !== null && (!Number.isFinite(valueUpdate) || valueUpdate <= 0)) return res.status(400).json({ error: 'Hodnota slevy musí být kladná.' });
+        const rawExpiry = (req.body as any)?.expiresAt;
+        const expiryProvided = rawExpiry !== undefined;
+        if (expiryProvided && rawExpiry && Number.isNaN(Date.parse(String(rawExpiry)))) return res.status(400).json({ error: 'Datum expirace není platné.' });
+        const expiresAt = expiryProvided && rawExpiry ? new Date(String(rawExpiry)).toISOString() : null;
+        if (activeUpdate === null && valueUpdate === null && !expiryProvided) return res.status(400).json({ error: 'Chybí data k aktualizaci.' });
+        const rows = await sql`UPDATE coupons SET active = COALESCE(${activeUpdate}, active), value = COALESCE(${valueUpdate}, value), expires_at = CASE WHEN ${expiryProvided} THEN ${expiresAt}::timestamptz ELSE expires_at END WHERE id = ${pathParts[1]} RETURNING id, code, type, value, active, created_at, note, expires_at`;
         if (!rows.length) return res.status(404).json({ error: 'Slevový kód nenalezen.' });
         const r = rows[0];
         return res.status(200).json({ id: r.id, code: r.code, type: r.type, value: Number(r.value), active: r.active, createdAt: r.created_at, note: r.note || '' });
