@@ -122,6 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // CATEGORIES
     if (pathParts[0] === 'categories') {
+      await sql`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
       if (method === 'GET' && pathParts.length === 1) {
         const rows = await sql`SELECT id, name FROM categories ORDER BY name ASC`;
         return res.status(200).json(rows);
