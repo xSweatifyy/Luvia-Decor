@@ -17,6 +17,7 @@ const emptyBanner: MaintenanceBannerConfig = {
 export const MaintenanceBannerManager: React.FC = () => {
   const { config, updateConfigState, addToast } = useApp();
   const [maintenanceMode, setMaintenanceMode] = useState(!!config.maintenanceMode);
+  useEffect(() => setMaintenanceMode(!!config.maintenanceMode), [config.maintenanceMode]);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<MaintenanceBannerConfig>(() => ({ ...emptyBanner, ...(config.maintenanceBanner || {}) }));
   const banner = useMemo(() => draft, [draft]);
