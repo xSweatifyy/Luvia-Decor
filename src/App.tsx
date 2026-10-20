@@ -37,7 +37,7 @@ import { MaintenancePage } from './components/MaintenancePage';
 const GiftCardShortcut: React.FC = () => { const { page, setPage, config, adminUser } = useApp(); if(page==='admin'||page==='gift-card'||page==='gift-card-balance') return null; return <div className="border-b border-[#E8DFD5] bg-[#FAF6F0]"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-center"><button type="button" onClick={()=>setPage('gift-card')} className="text-[11px] sm:text-xs font-bold tracking-wide text-[#75604B] hover:text-[#2D2723] transition">🎁 Dárková karta · od 200 Kč · doručení e-mailem</button></div></div>; };
 
 const AppContent: React.FC = () => {
-  const { page, setPage } = useApp();
+  const { page, setPage, config, adminUser } = useApp();
   const [analyticsConsent, setAnalyticsConsent] = useState(getCookieConsent() === 'all');
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [page]);
   useEffect(() => {
