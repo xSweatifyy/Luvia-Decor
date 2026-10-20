@@ -1377,6 +1377,15 @@ export const AdminPage: React.FC = () => {
                       />
                       <span>Zobrazit mezi doporučenými na homepage</span>
                     </label>
+                    <label className="flex items-center gap-2 cursor-pointer font-semibold text-rose-700">
+                      <input
+                        type="checkbox"
+                        checked={editingProduct.hiddenFromCatalog || false}
+                        onChange={(e) => setEditingProduct({ ...editingProduct, hiddenFromCatalog: e.target.checked })}
+                        className="w-4 h-4 rounded text-[#8C7355]"
+                      />
+                      <span>Skrýt produkt z katalogu (zůstane uložený v administraci)</span>
+                    </label>
                   </div>
 
                   {/* Submit & Cancel */}
