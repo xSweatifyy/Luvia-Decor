@@ -5,7 +5,7 @@ import { PageRoute } from '../types';
 import { MapEmbed } from './MapEmbed';
 import { SafeImage } from './SafeImage';
 
-const PPL_LOGO = '/ppl-logo.jpg';
+const PPL_LOGO = new URL('../../ppl-logo.jpg', import.meta.url).href;
 const UPS_LOGO = new URL('../../1920px-United_Parcel_Service_logo_2014.svg.png', import.meta.url).href;
 
 export const Footer: React.FC = () => {
