@@ -11,6 +11,8 @@ interface StoreData {
   orders: Order[];
   gallery: GalleryItem[];
   coupons?: Coupon[];
+  newsletterSubscribers?: { id:string; email:string; firstName:string; lastName:string; createdAt:string; active:boolean }[];
+  newsletters?: { id:string; title:string; text:string; imageUrl?:string; createdAt:string; sentCount:number }[];
   reviews: Review[];
   adminUsers: AdminUser[];
   adminPasswords: Record<string, string>; // email -> password
@@ -66,6 +68,8 @@ const defaultStore: StoreData = {
   ],
   gallery: initialGallery,
   coupons: [],
+  newsletterSubscribers: [],
+  newsletters: [],
   reviews: initialReviews,
   adminUsers: initialAdminUsers,
   adminPasswords: {
@@ -238,6 +242,22 @@ class DatabaseStorage {
     this.data.products = this.data.products.filter(p => p.id !== id);
     this.saveData(this.data);
     return true;
+  }
+
+  getNewsletterSubscribers() { return this.data.newsletterSubscribers || []; }
+  subscribeNewsletter(input: { email:string; firstName:string; lastName:string }) {
+    this.data.newsletterSubscribers = this.data.newsletterSubscribers || [];
+    const email = input.email.trim().toLowerCase();
+    const existing = this.data.newsletterSubscribers.find(s => s.email.toLowerCase() === email);
+    if (existing) { existing.firstName = input.firstName.trim(); existing.lastName = input.lastName.trim(); existing.active = true; this.saveData(this.data); return existing; }
+    const subscriber = { id: 'nl-' + Date.now(), email, firstName: input.firstName.trim(), lastName: input.lastName.trim(), createdAt: new Date().toISOString(), active: true };
+    this.data.newsletterSubscribers.unshift(subscriber); this.saveData(this.data); return subscriber;
+  }
+  getNewsletters() { return this.data.newsletters || []; }
+  addNewsletter(item: { title:string; text:string; imageUrl?:string; sentCount:number }) {
+    this.data.newsletters = this.data.newsletters || [];
+    const campaign = { ...item, id: 'news-' + Date.now(), createdAt: new Date().toISOString() };
+    this.data.newsletters.unshift(campaign); this.saveData(this.data); return campaign;
   }
 
   // Orders
