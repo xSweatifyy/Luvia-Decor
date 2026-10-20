@@ -71,7 +71,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const pathParts = (req.query.all as string[]) || [];
+  // Vercel catch-all routes normally populate req.query.all. Derive the path from
+  // req.url as a fallback so rewritten requests still reach the correct handler.
+  const queryPath = req.query.all;
+  let pathParts: string[] = Array.isArray(queryPath)
+    ? queryPath
+    : typeof queryPath === 'string'
+      ? queryPath.split('/').filter(Boolean)
+      : [];
+  if (pathParts.length === 0) {
+    const pathname = (req.url || '/').split('?')[0].replace(/^\\/api\\/?/, '');
+    pathParts = pathname.split('/').filter(Boolean).map((part) => {
+      try { return decodeURIComponent(part); } catch { return part; }
+    });
+  }
   const method = req.method || 'GET';
 
   try {
