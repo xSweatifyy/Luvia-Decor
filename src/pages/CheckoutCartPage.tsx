@@ -47,9 +47,9 @@ export const CheckoutCartPage: React.FC = () => {
   const zasilkovnaWeight = totalWeight;
   const zasilkovnaAddressAllowed = zasilkovnaWeight <= 5;
   const carrierNames = onlyGiftCards ? ['EMAIL'] : destination === 'sk' ? ['PACKETA_SK'] : ['BALIKOVNA','GLS','WEDO','PPL','ZASILKOVNA'];
-  const entries: [string,Shipping][] = carrierNames.filter(n => n !== 'PPL' || pplAllowed).filter(n => { const carrierConfig = getCarrierConfig(n); return carrierConfig?.enabled !== false && (!hasSavedCarrierConfig || Object.keys(carrierConfig).length > 0); }).map(n=>[n,getCarrierConfig(n)] as [string,Shipping]);
+  const entries: [string,Shipping][] = carrierNames.filter(n => n !== 'PPL' || pplAllowed).filter(n => { const carrierConfig = getCarrierConfig(n); return carrierConfig?.enabled !== false; }).map(n=>[n,getCarrierConfig(n)] as [string,Shipping]);
   const penguinConfig = getCarrierConfig('PenguinBox');
-  if (!onlyGiftCards && destination === 'cz' && penguinConfig?.enabled !== false && (!hasSavedCarrierConfig || Object.keys(penguinConfig).length > 0)) entries.push(['PenguinBox',penguinConfig]);
+  if (!onlyGiftCards && destination === 'cz' && penguinConfig?.enabled !== false) entries.push(['PenguinBox',penguinConfig]);
   const cfg: Shipping = getCarrierConfig(carrier);
   const configuredPrice = method === 'address' ? cfg.address : method === 'box' ? cfg.box : cfg.pickup_point;
   const hasConfiguredPrice = configuredPrice !== undefined && configuredPrice !== null && Number.isFinite(Number(configuredPrice));
