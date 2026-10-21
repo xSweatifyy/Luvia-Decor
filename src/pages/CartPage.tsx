@@ -57,7 +57,8 @@ export const CartPage: React.FC = () => {
   const configuredShipping = (config as any)?.shipping || {};
   const shippingConfig = { ...DEFAULT_SHIPPING, ...configuredShipping, carriers: { ...DEFAULT_SHIPPING.carriers, ...(configuredShipping.carriers || {}) }, personalPickup: { ...DEFAULT_SHIPPING.personalPickup, ...(configuredShipping.personalPickup || {}) } };
   const carrierEntries = Object.entries(shippingConfig.carriers) as Array<[string, any]>;
-  const activeCarriers = carrierEntries.filter(([name, value]) => value?.enabled !== false && (destinationCountry === 'SK' ? name === 'Packeta SK' : name !== 'Packeta SK')).filter(([name]) => name !== 'Osobní odběr – Kroměříž').sort((a, b) => Number(a[1]?.pickup_point ?? 0) - Number(b[1]?.pickup_point ?? 0));
+  const allowedCarrierNames = destinationCountry === 'SK' ? ['Packeta SK'] : ['Penguin Box', 'Balíkovna', 'GLS', 'One by Allegro', 'PPL', 'Zásilkovna'];
+  const activeCarriers = carrierEntries.filter(([name, value]) => allowedCarrierNames.includes(name) && value?.enabled !== false).sort((a, b) => Number(a[1]?.pickup_point ?? 0) - Number(b[1]?.pickup_point ?? 0));
   const getCarrierConfig = (name: string) => shippingConfig.carriers?.[name] || DEFAULT_SHIPPING.carriers[name as keyof typeof DEFAULT_SHIPPING.carriers];
   const formatPrice = (amount: number) => (currency === 'EUR' ? (amount / 25).toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €' : amount.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Kč');
   const carrierConfig = getCarrierConfig(carrier) || {};
