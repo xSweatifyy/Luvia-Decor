@@ -132,3 +132,22 @@ export function subscribeCoupons(callback:(coupons:Coupon[])=>void):()=>void{ret
 export async function saveCouponToFirestore(coupon:Coupon):Promise<Coupon>{const id=coupon.id||`cup-${Date.now()}`;const data=removeUndefined({...coupon,id});await setDoc(doc(db,COUPONS_COL,id),data,{merge:true});return data;}
 export async function deleteCouponFromFirestore(id:string):Promise<boolean>{try{await deleteDoc(doc(db,COUPONS_COL,id));return true;}catch(err){console.error('Failed to delete coupon in firestore:',err);return false;}}
 export async function findCouponByCodeInFirestore(code:string):Promise<Coupon|null>{try{const clean=String(code||'').trim().toUpperCase();if(!clean)return null;const snap=await getDocs(collection(db,COUPONS_COL));let found:Coupon|null=null;snap.forEach(d=>{const data=d.data() as Coupon;if(!found&&String(data.code||'').trim().toUpperCase()===clean&&data.active!==false)found={...data,id:d.id};});return found;}catch(err){console.error('Failed to find coupon in firestore:',err);return null;}}
+
+
+export interface ChangelogEntry { id: string; title: string; category: string; description: string; createdAt: string; updatedAt?: string; authorName: string; authorEmail: string; }
+const CHANGELOG_COL = 'admin_changelog';
+export function subscribeChangelog(callback: (entries: ChangelogEntry[]) => void): () => void {
+  return onSnapshot(collection(db, CHANGELOG_COL), snapshot => {
+    const entries: ChangelogEntry[] = [];
+    snapshot.forEach(d => entries.push({ ...(d.data() as ChangelogEntry), id: d.id }));
+    entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    callback(entries);
+  }, err => { console.error('Admin changelog subscription error:', err); callback([]); });
+}
+export async function saveChangelogEntry(entry: ChangelogEntry): Promise<ChangelogEntry> {
+  const id = entry.id || `log-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const data = removeUndefined({ ...entry, id, updatedAt: new Date().toISOString() });
+  await setDoc(doc(db, CHANGELOG_COL, id), data, { merge: true });
+  return data;
+}
+export async function deleteChangelogEntry(id: string): Promise<void> { await deleteDoc(doc(db, CHANGELOG_COL, id)); }
