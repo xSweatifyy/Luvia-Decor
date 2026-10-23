@@ -18,7 +18,18 @@ export const AuditLogManager: React.FC<{ adminUser: AdminUser }> = ({ adminUser 
       let data: any = null;
       try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
       if (!response.ok) {
-        const serverMessage = data?.error || data?.message || (raw && !raw.trimStart().startsWith('<') ? raw.slice(0, 220) : 'Server vrátil neplatnou odpověď.');
+        const describe = (value: unknown): string => {
+          if (typeof value === 'string') return value;
+          if (value instanceof Error) return value.message;
+          if (value && typeof value === 'object') {
+            const obj = value as Record<string, unknown>;
+            const nested = obj.error ?? obj.message ?? obj.details;
+            if (typeof nested === 'string') return nested;
+            try { return JSON.stringify(value); } catch { return 'Neznámá chyba serveru.'; }
+          }
+          return value == null ? '' : String(value);
+        };
+        const serverMessage = describe(data?.error ?? data?.message) || (raw && !raw.trimStart().startsWith('<') ? raw.slice(0, 220) : 'Server vrátil neplatnou odpověď.');
         throw new Error(`Protokol se nepodařilo načíst (HTTP ${response.status}): ${serverMessage}`);
       }
       if (!data || !Array.isArray(data)) throw new Error('API protokolu nevrátilo seznam záznamů. Server mohl vrátit chybovou stránku místo JSON. Zkontroluj nasazení API na Vercelu.');
