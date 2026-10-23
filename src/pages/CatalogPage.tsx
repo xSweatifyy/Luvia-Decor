@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProductCard } from '../components/ProductCard';
 import { getFullCategoryList } from '../utils/categories';
@@ -38,13 +38,16 @@ const GiftCardProduct: React.FC = () => {
 
 export const CatalogPage: React.FC = () => {
   const { products, categories: productCategories, selectedCategory, setSelectedCategory } = useApp();
+  const [scheduleClock, setScheduleClock] = useState(Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setScheduleClock(Date.now()), 30000); return () => window.clearInterval(timer); }, []);
+  const isCategoryActive = (category: any) => (!category?.visibleFrom || new Date(category.visibleFrom).getTime() <= scheduleClock) && (!category?.visibleUntil || new Date(category.visibleUntil).getTime() > scheduleClock);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'newest'>('featured');
   const [onlyInStock, setOnlyInStock] = useState(false);
-  const categories = [{ id: 'all', name: 'Všechny produkty' }, GIFT_CARD_CATEGORY, ...getFullCategoryList(productCategories.filter(c => !c.hiddenFromCatalog), products).filter(c => c.id !== GIFT_CARD_CATEGORY.id && !productCategories.find(pc => pc.id === c.id)?.hiddenFromCatalog)];
+  const categories = [{ id: 'all', name: 'Všechny produkty' }, GIFT_CARD_CATEGORY, ...getFullCategoryList(productCategories.filter(c => !c.hiddenFromCatalog && isCategoryActive(c)), products).filter(c => c.id !== GIFT_CARD_CATEGORY.id && !productCategories.find(pc => pc.id === c.id)?.hiddenFromCatalog && isCategoryActive(productCategories.find(pc => pc.id === c.id)))];
   const filteredProducts = useMemo(() => {
-    return products.filter(product => { if (product.hiddenFromCatalog) return false; if (selectedCategory !== 'all' && product.category !== selectedCategory) return false; if (onlyInStock && !product.inStock) return false; if (searchQuery.trim()) { const q=searchQuery.toLowerCase().trim(); if (!(product.id?.toLowerCase().includes(q)||product.title.toLowerCase().includes(q)||product.description.toLowerCase().includes(q)||product.materials?.toLowerCase().includes(q))) return false; } return true; }).sort((a,b) => sortBy==='price-asc'?a.price-b.price:sortBy==='price-desc'?b.price-a.price:sortBy==='newest'?(b.badge==='Novinka'?1:0)-(a.badge==='Novinka'?1:0):(b.featured?1:0)-(a.featured?1:0));
-  }, [products, selectedCategory, searchQuery, sortBy, onlyInStock]);
+    return products.filter(product => { if (product.hiddenFromCatalog) return false; const assignedCategory = productCategories.find(category => category.id === product.category || category.name.toLowerCase() === String(product.category || '').toLowerCase()); if (assignedCategory && !isCategoryActive(assignedCategory)) return false; if (selectedCategory !== 'all' && product.category !== selectedCategory) return false; if (onlyInStock && !product.inStock) return false; if (searchQuery.trim()) { const q=searchQuery.toLowerCase().trim(); if (!(product.id?.toLowerCase().includes(q)||product.title.toLowerCase().includes(q)||product.description.toLowerCase().includes(q)||product.materials?.toLowerCase().includes(q))) return false; } return true; }).sort((a,b) => sortBy==='price-asc'?a.price-b.price:sortBy==='price-desc'?b.price-a.price:sortBy==='newest'?(b.badge==='Novinka'?1:0)-(a.badge==='Novinka'?1:0):(b.featured?1:0)-(a.featured?1:0));
+  }, [products, productCategories, selectedCategory, searchQuery, sortBy, onlyInStock, scheduleClock]);
   const resetFilters=()=>{setSelectedCategory('all');setSearchQuery('');setSortBy('featured');setOnlyInStock(false)};
   const showGiftCard=selectedCategory==='all'||selectedCategory===GIFT_CARD_CATEGORY.id;
   return <div id="catalog-page" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">
