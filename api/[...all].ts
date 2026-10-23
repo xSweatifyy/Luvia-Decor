@@ -198,7 +198,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const previous = await sql\`SELECT id, name, visible_from, visible_until FROM categories WHERE id = \${id} LIMIT 1\`;
         await sql\`INSERT INTO categories (id, name, visible_from, visible_until) VALUES (\${id}, \${name}, \${visibleFrom ? visibleFrom.toISOString() : null}, \${visibleUntil ? visibleUntil.toISOString() : null}) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, visible_from = EXCLUDED.visible_from, visible_until = EXCLUDED.visible_until, updated_at = NOW()\`;
         const saved = { id, name, visibleFrom: visibleFrom?.toISOString() || null, visibleUntil: visibleUntil?.toISOString() || null };
-        await writeAuditDiff(req, previous.length ? 'Úprava' : 'Přidání', 'Kategorie', previous[0] || {}, saved, name);
+        try { await writeAuditDiff(req, previous.length ? 'Úprava' : 'Přidání', 'Kategorie', previous[0] || {}, saved, name); }
+        catch (auditError) { console.error('Category audit write failed:', auditError); }
         return res.status(201).json(saved);
       }
       if (method === 'PUT' && pathParts.length === 2) {
@@ -212,7 +213,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const previous = await sql\`SELECT id, name, visible_from, visible_until FROM categories WHERE id = \${categoryId} LIMIT 1\`;
         const rows = await sql\`INSERT INTO categories (id, name, visible_from, visible_until) VALUES (\${categoryId}, \${name}, \${visibleFrom ? visibleFrom.toISOString() : null}, \${visibleUntil ? visibleUntil.toISOString() : null}) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, visible_from = EXCLUDED.visible_from, visible_until = EXCLUDED.visible_until, updated_at = NOW() RETURNING id, name, visible_from, visible_until\`;
         const saved = { id: rows[0].id, name: rows[0].name, visibleFrom: rows[0].visible_from || null, visibleUntil: rows[0].visible_until || null };
-        await writeAuditDiff(req, previous.length ? 'Úprava' : 'Nastavení plánu', 'Kategorie', previous[0] || {}, saved, name);
+        try { await writeAuditDiff(req, previous.length ? 'Úprava' : 'Nastavení plánu', 'Kategorie', previous[0] || {}, saved, name); }
+        catch (auditError) { console.error('Category schedule audit write failed:', auditError); }
         return res.status(200).json(saved);
       }
       if (method === 'DELETE' && pathParts.length === 2) {
