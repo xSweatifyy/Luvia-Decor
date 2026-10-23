@@ -55,6 +55,34 @@ function escapeNewsletterHtml(value: string) {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+async function ensureAuditTable() {
+  await sql`CREATE TABLE IF NOT EXISTS admin_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    actor_email TEXT NOT NULL DEFAULT '',
+    actor_name TEXT NOT NULL DEFAULT '',
+    action TEXT NOT NULL,
+    details TEXT NOT NULL DEFAULT '',
+    ip_address TEXT NOT NULL DEFAULT '',
+    user_agent TEXT NOT NULL DEFAULT ''
+  )`;
+}
+function auditAdmin(req: VercelRequest) {
+  const raw = typeof req.query.adminUser === 'string' ? req.query.adminUser : '';
+  try {
+    const user = raw ? JSON.parse(raw) : req.body?.adminUser;
+    return user?.role === 'admin' && user?.email ? user : null;
+  } catch { return null; }
+}
+async function writeAudit(user: any, action: string, details: string, req: VercelRequest) {
+  await ensureAuditTable();
+  const forwarded = req.headers['x-forwarded-for'];
+  const ip = (Array.isArray(forwarded) ? forwarded[0] : String(forwarded || '')).split(',')[0].trim().slice(0, 100);
+  const agent = String(req.headers['user-agent'] || '').slice(0, 500);
+  await sql`INSERT INTO admin_audit_log (actor_email, actor_name, action, details, ip_address, user_agent)
+    VALUES (${String(user?.email || '').slice(0, 254)}, ${String(user?.name || '').slice(0, 150)}, ${action.slice(0, 100)}, ${details.slice(0, 1000)}, ${ip}, ${agent})`;
+}
+
 function corsHeaders() {
   return {
     'Access-Control-Allow-Origin': '*',
@@ -281,6 +309,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(405).json({ error: 'Metoda není podporovaná.' });
     }
 
+    // ADMIN AUDIT LOG
+    if (pathParts[0] === 'audit') {
+      const actor = auditAdmin(req);
+      if (!actor) return res.status(403).json({ error: 'Protokol auditu je dostupný pouze přihlášenému administrátorovi.' });
+      await ensureAuditTable();
+      if (method === 'GET' && pathParts.length === 1) {
+        const rows = await sql`SELECT id, created_at, actor_email, actor_name, action, details, ip_address, user_agent FROM admin_audit_log ORDER BY created_at DESC LIMIT 2000`;
+        return res.status(200).json(rows.map((row: any) => ({ id: Number(row.id), createdAt: row.created_at, actorEmail: row.actor_email, actorName: row.actor_name, action: row.action, details: row.details, ipAddress: row.ip_address, userAgent: row.user_agent })));
+      }
+      if (method === 'POST' && pathParts.length === 1) {
+        const action = String(req.body?.action || '').trim();
+        const details = String(req.body?.details || '').trim();
+        if (!action) return res.status(400).json({ error: 'Chybí typ akce.' });
+        await writeAudit(actor, action, details, req);
+        return res.status(201).json({ success: true });
+      }
+      return res.status(405).json({ error: 'Metoda není podporovaná.' });
+    }
+
     // AUTH
     if (pathParts[0] === 'auth') {
       if (pathParts[1] === 'login' && method === 'POST') {
@@ -289,9 +336,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const adminPasswords: Record<string, string> = { "ondrej.andel@email.cz": "Luvia2025!" };
         const normalizedEmail = email.toLowerCase().trim();
         const storedPass = adminPasswords[normalizedEmail];
-        if (storedPass && (storedPass === password || password === 'Luvia2025!' || password === 'admin123')) {
+        if (storedPass && storedPass === password) {
+          const user = { id: `usr-${Date.now()}`, email: normalizedEmail, name: normalizedEmail.split('@')[0], role: 'admin', createdAt: new Date().toISOString() };
+          await writeAudit(user, 'Přihlášení', 'Úspěšné přihlášení do administrace.', req);
           const token = `luvia_tok_${Buffer.from(`${normalizedEmail}:${Date.now()}`).toString('base64')}`;
-          return res.status(200).json({ success: true, user: { id: `usr-${Date.now()}`, email: normalizedEmail, name: normalizedEmail.split('@')[0], role: 'admin', createdAt: new Date().toISOString() }, token });
+          return res.status(200).json({ success: true, user, token });
         }
         return res.status(401).json({ error: 'Neplatný e-mail nebo heslo.' });
       }
