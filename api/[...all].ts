@@ -342,6 +342,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const token = `luvia_tok_${Buffer.from(`${normalizedEmail}:${Date.now()}`).toString('base64')}`;
           return res.status(200).json({ success: true, user, token });
         }
+        await writeAudit({ email: normalizedEmail || String(email).slice(0, 254), name: normalizedEmail ? normalizedEmail.split('@')[0] : 'Neznámý účet' }, 'Neúspěšné přihlášení', 'Pokus o přihlášení do administrace nebyl úspěšný.', req);
         return res.status(401).json({ error: 'Neplatný e-mail nebo heslo.' });
       }
       if (pathParts[1] === 'users' && method === 'GET') {
