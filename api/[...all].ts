@@ -180,31 +180,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // CATEGORIES
     if (pathParts[0] === 'categories') {
-      await sql`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
+      await sql\`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, visible_from TIMESTAMPTZ NULL, visible_until TIMESTAMPTZ NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())\`;
+      await sql\`ALTER TABLE categories ADD COLUMN IF NOT EXISTS visible_from TIMESTAMPTZ NULL\`;
+      await sql\`ALTER TABLE categories ADD COLUMN IF NOT EXISTS visible_until TIMESTAMPTZ NULL\`;
       if (method === 'GET' && pathParts.length === 1) {
-        const rows = await sql`SELECT id, name FROM categories ORDER BY name ASC`;
-        return res.status(200).json(rows);
+        const rows = await sql\`SELECT id, name, visible_from, visible_until FROM categories ORDER BY name ASC\`;
+        return res.status(200).json(rows.map((row: any) => ({ id: row.id, name: row.name, visibleFrom: row.visible_from || null, visibleUntil: row.visible_until || null })));
       }
       if (method === 'POST' && pathParts.length === 1) {
         const name = String(req.body?.name || '').trim();
         const id = String(req.body?.id || name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
         if (!name || !id) return res.status(400).json({ error: 'Název kategorie je povinný.' });
-        const previous = await sql`SELECT id, name FROM categories WHERE id = ${id} LIMIT 1`;
-        await sql`INSERT INTO categories (id, name) VALUES (${id}, ${name}) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`;
-        await writeAuditDiff(req, previous.length ? 'Úprava' : 'Přidání', 'Kategorie', previous[0] || {}, { id, name }, name);
-        return res.status(201).json({ id, name });
+        const visibleFrom = req.body?.visibleFrom ? new Date(req.body.visibleFrom) : null;
+        const visibleUntil = req.body?.visibleUntil ? new Date(req.body.visibleUntil) : null;
+        if ((visibleFrom && Number.isNaN(visibleFrom.getTime())) || (visibleUntil && Number.isNaN(visibleUntil.getTime()))) return res.status(400).json({ error: 'Neplatné datum viditelnosti.' });
+        if (visibleFrom && visibleUntil && visibleUntil <= visibleFrom) return res.status(400).json({ error: 'Konec zobrazení musí být později než začátek.' });
+        const previous = await sql\`SELECT id, name, visible_from, visible_until FROM categories WHERE id = \${id} LIMIT 1\`;
+        await sql\`INSERT INTO categories (id, name, visible_from, visible_until) VALUES (\${id}, \${name}, \${visibleFrom ? visibleFrom.toISOString() : null}, \${visibleUntil ? visibleUntil.toISOString() : null}) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, visible_from = EXCLUDED.visible_from, visible_until = EXCLUDED.visible_until, updated_at = NOW()\`;
+        const saved = { id, name, visibleFrom: visibleFrom?.toISOString() || null, visibleUntil: visibleUntil?.toISOString() || null };
+        await writeAuditDiff(req, previous.length ? 'Úprava' : 'Přidání', 'Kategorie', previous[0] || {}, saved, name);
+        return res.status(201).json(saved);
       }
       if (method === 'PUT' && pathParts.length === 2) {
         const name = String(req.body?.name || '').trim();
-        const previous = await sql`SELECT id, name FROM categories WHERE id = ${pathParts[1]} LIMIT 1`;
-        const rows = await sql`UPDATE categories SET name = ${name} WHERE id = ${pathParts[1]} RETURNING id, name`;
+        const visibleFrom = req.body?.visibleFrom ? new Date(req.body.visibleFrom) : null;
+        const visibleUntil = req.body?.visibleUntil ? new Date(req.body.visibleUntil) : null;
+        if (!name) return res.status(400).json({ error: 'Název kategorie je povinný.' });
+        if ((visibleFrom && Number.isNaN(visibleFrom.getTime())) || (visibleUntil && Number.isNaN(visibleUntil.getTime()))) return res.status(400).json({ error: 'Neplatné datum viditelnosti.' });
+        if (visibleFrom && visibleUntil && visibleUntil <= visibleFrom) return res.status(400).json({ error: 'Konec zobrazení musí být později než začátek.' });
+        const previous = await sql\`SELECT id, name, visible_from, visible_until FROM categories WHERE id = \${pathParts[1]} LIMIT 1\`;
+        const rows = await sql\`UPDATE categories SET name = \${name}, visible_from = \${visibleFrom ? visibleFrom.toISOString() : null}, visible_until = \${visibleUntil ? visibleUntil.toISOString() : null}, updated_at = NOW() WHERE id = \${pathParts[1]} RETURNING id, name, visible_from, visible_until\`;
         if (!rows.length) return res.status(404).json({ error: 'Kategorie nenalezena.' });
-        await writeAuditDiff(req, 'Úprava', 'Kategorie', previous[0] || {}, rows[0], name);
-        return res.status(200).json(rows[0]);
+        const saved = { id: rows[0].id, name: rows[0].name, visibleFrom: rows[0].visible_from || null, visibleUntil: rows[0].visible_until || null };
+        await writeAuditDiff(req, 'Úprava', 'Kategorie', previous[0] || {}, saved, name);
+        return res.status(200).json(saved);
       }
       if (method === 'DELETE' && pathParts.length === 2) {
-        const previous = await sql`SELECT id, name FROM categories WHERE id = ${pathParts[1]} LIMIT 1`;
-        await sql`DELETE FROM categories WHERE id = ${pathParts[1]}`;
+        const previous = await sql\`SELECT id, name, visible_from, visible_until FROM categories WHERE id = \${pathParts[1]} LIMIT 1\`;
+        await sql\`DELETE FROM categories WHERE id = \${pathParts[1]}\`;
         if (previous.length) await writeAuditDiff(req, 'Smazání', 'Kategorie', previous[0], {}, previous[0].name);
         return res.status(200).json({ success: true });
       }
