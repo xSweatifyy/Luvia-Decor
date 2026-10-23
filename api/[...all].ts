@@ -83,6 +83,31 @@ async function writeAudit(user: any, action: string, details: string, req: Verce
     VALUES (${String(user?.email || '').slice(0, 254)}, ${String(user?.name || '').slice(0, 150)}, ${action.slice(0, 100)}, ${details.slice(0, 1000)}, ${ip}, ${agent})`;
 }
 
+async function writeAuditDiff(req: VercelRequest, action: string, entity: string, before: any, after: any, label = '') {
+  const actor = auditAdmin(req) || { email: 'admin-neznámý', name: 'Administrátor (identita neověřena)' };
+  const sensitive = /password|token|secret|authorization|email|phone|address|customer|first.?name|last.?name|fullname|useragent/i;
+  const clean = (value: any): any => {
+    if (Array.isArray(value)) return value.map(clean);
+    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([key]) => !sensitive.test(key)).map(([key, child]) => [key, clean(child)]));
+    if (typeof value === 'string') return value.length > 180 ? value.slice(0, 180) + '…' : value;
+    return value;
+  };
+  const a = clean(before || {});
+  const b = clean(after || {});
+  const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+  const changes: string[] = [];
+  for (const key of keys) {
+    const oldValue = (a || {})[key];
+    const newValue = (b || {})[key];
+    if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+      const fmt = (v: any) => v === undefined ? '(neexistovalo)' : v === null ? '(prázdné)' : typeof v === 'object' ? JSON.stringify(v).slice(0, 180) : String(v).slice(0, 180);
+      changes.push(key + ': ' + fmt(oldValue) + ' → ' + fmt(newValue));
+    }
+  }
+  const details = [label, changes.length ? 'Skutečné změny: ' + changes.slice(0, 25).join('; ') : 'Bez rozdílu v porovnávaných polích'].filter(Boolean).join(' · ');
+  await writeAudit(actor, action + ': ' + entity, details, req);
+}
+
 function corsHeaders() {
   return {
     'Access-Control-Allow-Origin': '*',
@@ -126,7 +151,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (method === 'POST' && pathParts.length === 1) {
         const product = req.body;
         if (!product?.id || !product?.title) return res.status(400).json({ error: 'Produkt nemá povinné údaje.' });
+        const previousRows = await sql`SELECT data FROM products WHERE id = ${product.id} LIMIT 1`;
         await sql`INSERT INTO products (id, data) VALUES (${product.id}, ${JSON.stringify(product)}::jsonb) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`;
+        await writeAuditDiff(req, previousRows.length ? 'Úprava' : 'Přidání', 'Produkt', previousRows[0]?.data || {}, product, String(product.title || product.id));
         return res.status(201).json(product);
       }
       if (method === 'GET' && pathParts.length === 2) {
@@ -139,10 +166,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const current = rows.length ? rows[0].data : {};
         const merged = { ...current, ...data };
         await sql`UPDATE products SET data = ${JSON.stringify(merged)}::jsonb, updated_at = NOW() WHERE id = ${pathParts[1]}`;
+        await writeAuditDiff(req, 'Úprava', 'Produkt', current, merged, String(merged.title || pathParts[1]));
         return res.status(200).json(merged);
       }
       if (method === 'DELETE' && pathParts.length === 2) {
+        const previous = await sql`SELECT data FROM products WHERE id = ${pathParts[1]} LIMIT 1`;
         await sql`DELETE FROM products WHERE id = ${pathParts[1]}`;
+        if (previous.length) await writeAuditDiff(req, 'Smazání', 'Produkt', previous[0].data, {}, String(previous[0].data?.title || pathParts[1]));
         return res.status(200).json({ success: true });
       }
       return res.status(405).json({ error: 'Metoda není podporovaná.' });
@@ -159,17 +189,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const name = String(req.body?.name || '').trim();
         const id = String(req.body?.id || name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
         if (!name || !id) return res.status(400).json({ error: 'Název kategorie je povinný.' });
+        const previous = await sql`SELECT id, name FROM categories WHERE id = ${id} LIMIT 1`;
         await sql`INSERT INTO categories (id, name) VALUES (${id}, ${name}) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`;
+        await writeAuditDiff(req, previous.length ? 'Úprava' : 'Přidání', 'Kategorie', previous[0] || {}, { id, name }, name);
         return res.status(201).json({ id, name });
       }
       if (method === 'PUT' && pathParts.length === 2) {
         const name = String(req.body?.name || '').trim();
+        const previous = await sql`SELECT id, name FROM categories WHERE id = ${pathParts[1]} LIMIT 1`;
         const rows = await sql`UPDATE categories SET name = ${name} WHERE id = ${pathParts[1]} RETURNING id, name`;
         if (!rows.length) return res.status(404).json({ error: 'Kategorie nenalezena.' });
+        await writeAuditDiff(req, 'Úprava', 'Kategorie', previous[0] || {}, rows[0], name);
         return res.status(200).json(rows[0]);
       }
       if (method === 'DELETE' && pathParts.length === 2) {
+        const previous = await sql`SELECT id, name FROM categories WHERE id = ${pathParts[1]} LIMIT 1`;
         await sql`DELETE FROM categories WHERE id = ${pathParts[1]}`;
+        if (previous.length) await writeAuditDiff(req, 'Smazání', 'Kategorie', previous[0], {}, previous[0].name);
         return res.status(200).json({ success: true });
       }
       return res.status(405).json({ error: 'Metoda není podporovaná.' });
@@ -188,6 +224,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const current = (rows[0]?.data as Record<string, unknown>) || {};
         const merged = { ...current, ...body };
         await sql`UPDATE app_state SET data = ${JSON.stringify(merged)}::jsonb, updated_at = NOW() WHERE id = 1`;
+        await writeAuditDiff(req, 'Úprava', 'Nastavení webu', current, merged);
         return res.status(200).json(merged);
       }
       return res.status(405).json({ error: 'Metoda není podporovaná.' });
@@ -234,6 +271,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!rows.length) return res.status(404).json({ error: 'Objednávka nenalezena' });
         const updated = { ...rows[0].data, status };
         await sql`UPDATE orders SET data = ${JSON.stringify(updated)}::jsonb WHERE id = ${pathParts[1]}`;
+        await writeAuditDiff(req, 'Změna stavu', 'Objednávka', { status: rows[0].data.status }, { status: updated.status }, String(updated.orderNumber || pathParts[1]));
         return res.status(200).json(updated);
       }
       return res.status(405).json({ error: 'Metoda není podporovaná.' });
@@ -257,6 +295,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const expiresAt = req.body?.expiresAt ? new Date(String(req.body.expiresAt)).toISOString() : null;
         const rows = await sql`INSERT INTO coupons (id, code, type, value, active, note, expires_at) VALUES (${`cup-${Date.now()}`}, ${code}, ${type}, ${value}, ${req.body?.active !== false}, ${req.body?.note || ''}, ${expiresAt}) ON CONFLICT (code) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, active = EXCLUDED.active, note = EXCLUDED.note, expires_at = EXCLUDED.expires_at RETURNING id, code, type, value, active, created_at, note, expires_at`;
         const r = rows[0];
+        await writeAuditDiff(req, 'Uložení', 'Slevový kód', {}, { code: r.code, type: r.type, value: Number(r.value), active: r.active, note: r.note || '', expiresAt: r.expires_at || null }, String(r.code));
         return res.status(201).json({ id: r.id, code: r.code, type: r.type, value: Number(r.value), active: r.active, createdAt: r.created_at, note: r.note || '', expiresAt: r.expires_at || null });
       }
       if (method === 'PUT' && pathParts.length === 2) {
@@ -299,11 +338,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (method === 'POST') {
         const item = req.body;
         const id = item.id || `gal-${Date.now()}`;
+        const previous = await sql`SELECT data FROM gallery WHERE id = ${id} LIMIT 1`;
         await sql`INSERT INTO gallery (id, data) VALUES (${id}, ${JSON.stringify(item)}::jsonb) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`;
+        await writeAuditDiff(req, previous.length ? 'Úprava' : 'Přidání', 'Galerie', previous[0]?.data || {}, item, String(item.title || item.name || id));
         return res.status(201).json({ ...item, id });
       }
       if (method === 'DELETE' && pathParts.length === 2) {
+        const previous = await sql`SELECT data FROM gallery WHERE id = ${pathParts[1]} LIMIT 1`;
         await sql`DELETE FROM gallery WHERE id = ${pathParts[1]}`;
+        if (previous.length) await writeAuditDiff(req, 'Smazání', 'Galerie', previous[0].data, {}, String(previous[0].data?.title || pathParts[1]));
         return res.status(200).json({ success: true });
       }
       return res.status(405).json({ error: 'Metoda není podporovaná.' });
