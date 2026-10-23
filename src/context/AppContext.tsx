@@ -20,7 +20,29 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({children}) =
          const labels: Record<string,string> = { '/api/products':'Produkty', '/api/categories':'Kategorie', '/api/config':'Nastavení webu', '/api/orders':'Objednávky', '/api/coupons':'Slevové kódy', '/api/gallery':'Galerie', '/api/gift-card':'Dárkové karty', '/api/gift-card-shipping':'Doprava dárkových karet', '/api/order-status':'Stavy objednávek', '/api/newsletter/send':'Newsletter', '/api/newsletter/campaigns':'Newsletter kampaně', '/api/newsletter/subscribers':'Odběratelé newsletteru' };
          const entity = labels[route] || route.replace(/^\\/api\\//, '').replace(/[-_]/g, ' ');
          const action = method === 'POST' ? 'Vytvoření / akce' : method === 'DELETE' ? 'Smazání' : 'Úprava';
-         await originalFetch('/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true, body: JSON.stringify({ adminUser: actor, action: action + ': ' + entity, details: status + ' · ' + method + ' ' + route }) });
+         let changeNote = '';
+         try {
+           const rawBody = typeof init?.body === 'string' ? init.body : '';
+           const payload = rawBody ? JSON.parse(rawBody) : null;
+           const ignored = new Set(['adminUser','password','token','authorization','secret','email','phone','address','customerEmail','customerPhone']);
+           const fields = (value: any, prefix = ''): string[] => {
+             if (!value || typeof value !== 'object' || Array.isArray(value)) return prefix ? [prefix] : [];
+             return Object.entries(value).flatMap(([key, child]) => {
+               if (ignored.has(key.toLowerCase())) return [];
+               const path = prefix ? prefix + ' → ' + key : key;
+               return child && typeof child === 'object' && !Array.isArray(child) ? fields(child, path) : [path];
+             });
+           };
+           const changedFields = fields(payload).slice(0, 30);
+           if (changedFields.length) changeNote = ' · Pole/údaje v požadavku: ' + changedFields.join(', ');
+           if (payload && typeof payload === 'object') {
+             const label = payload.title || payload.name || payload.code || payload.id || payload.orderNumber;
+             if (label && typeof label !== 'object') changeNote += ' · Záznam: ' + String(label).slice(0, 100);
+             if (Array.isArray(payload)) changeNote += ' · Počet položek: ' + payload.length;
+           }
+         } catch { if (init?.body) changeNote = ' · Tělo požadavku nebylo možné bezpečně rozebrat'; }
+         const detail = status + ' · ' + method + ' ' + route + changeNote;
+         await originalFetch('/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true, body: JSON.stringify({ adminUser: actor, action: action + ': ' + entity, details: detail }) });
        } catch { /* Audit logging must never break the admin operation. */ }
      };
      if (!isAdminMutation) return originalFetch(input, init);
