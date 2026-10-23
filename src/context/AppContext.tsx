@@ -17,14 +17,15 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({children}) =
        try {
          const actor = JSON.parse(localStorage.getItem('luvia_admin_user') || 'null');
          if (!actor || actor.role !== 'admin' || !actor.email) return;
-         const labels: Record<string,string> = { '/api/products':'Produkty', '/api/categories':'Kategorie', '/api/config':'Nastavení webu', '/api/orders':'Objednávky', '/api/coupons':'Slevové kódy', '/api/gallery':'Galerie', '/api/gift-card':'Dárkové karty', '/api/gift-card-shipping':'Doprava dárkových karet', '/api/order-status':'Stavy objednávek', '/api/newsletter/send':'Newsletter', '/api/newsletter/campaigns':'Newsletter kampaně', '/api/newsletter/subscribers':'Odběratelé newsletteru' };
+         const labels: Record<string,string> = { '/api/products':'Produkt', '/api/categories':'Kategorie', '/api/config':'Nastavení webu', '/api/orders':'Objednávka', '/api/coupons':'Slevový kód', '/api/gallery':'Položka galerie', '/api/gift-card':'Dárková karta', '/api/gift-card-shipping':'Doprava dárkových karet', '/api/order-status':'Stav objednávky', '/api/newsletter/send':'Odeslání newsletteru', '/api/newsletter/campaigns':'Kampaň newsletteru', '/api/newsletter/subscribers':'Odběratel newsletteru', '/api/auth/login':'Přihlášení', '/api/auth/logout':'Odhlášení' };
          const entity = labels[route] || route.replace(/^\\/api\\//, '').replace(/[-_]/g, ' ');
-         const action = method === 'POST' ? 'Vytvoření / akce' : method === 'DELETE' ? 'Smazání' : 'Úprava';
+         const isCollection = ['/api/products','/api/categories','/api/orders','/api/coupons','/api/gallery','/api/newsletter/campaigns','/api/newsletter/subscribers'].includes(route);
+         const action = method === 'DELETE' ? 'Smazání' : method === 'POST' ? (isCollection ? 'Přidání / vytvoření' : route === '/api/newsletter/send' ? 'Odeslání' : 'Provedení akce') : method === 'PUT' || method === 'PATCH' ? 'Úprava' : 'Změna';
          let changeNote = '';
          try {
            const rawBody = typeof init?.body === 'string' ? init.body : '';
            const payload = rawBody ? JSON.parse(rawBody) : null;
-           const ignored = new Set(['adminUser','password','token','authorization','secret','email','phone','address','customerEmail','customerPhone']);
+           const ignored = new Set(['adminUser','password','token','authorization','secret','email','phone','address','customerEmail','customerPhone','customername','firstname','lastname','name','first_name','last_name']);
            const fields = (value: any, prefix = ''): string[] => {
              if (!value || typeof value !== 'object' || Array.isArray(value)) return prefix ? [prefix] : [];
              return Object.entries(value).flatMap(([key, child]) => {
@@ -34,12 +35,14 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({children}) =
              });
            };
            const changedFields = fields(payload).slice(0, 30);
-           if (changedFields.length) changeNote = ' · Pole/údaje v požadavku: ' + changedFields.join(', ');
-           if (payload && typeof payload === 'object') {
-             const label = payload.title || payload.name || payload.code || payload.id || payload.orderNumber;
-             if (label && typeof label !== 'object') changeNote += ' · Záznam: ' + String(label).slice(0, 100);
-             if (Array.isArray(payload)) changeNote += ' · Počet položek: ' + payload.length;
-           }
+           if (changedFields.length) changeNote = ' · Dotčená pole: ' + changedFields.join(', ');
+           if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+             const safeLabel = payload.title || payload.code || payload.orderNumber || payload.productId || payload.couponId;
+             if (safeLabel && typeof safeLabel !== 'object') changeNote += ' · Identifikace záznamu: ' + String(safeLabel).slice(0, 100);
+             const safeValues = Object.entries(payload).filter(([key, value]) => !ignored.has(key.toLowerCase()) && value !== null && ['string','number','boolean'].includes(typeof value) && !['id','createdat','updatedat'].includes(key.toLowerCase())).slice(0, 12).map(([key, value]) => key + '=' + String(value).slice(0, 100));
+             if (safeValues.length) changeNote += ' · Odeslané hodnoty: ' + safeValues.join('; ');
+             if (Array.isArray(payload.items)) changeNote += ' · Počet položek: ' + payload.items.length;
+           } else if (Array.isArray(payload)) changeNote = ' · Počet položek v dávce: ' + payload.length;
          } catch { if (init?.body) changeNote = ' · Tělo požadavku nebylo možné bezpečně rozebrat'; }
          const detail = status + ' · ' + method + ' ' + route + changeNote;
          await originalFetch('/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true, body: JSON.stringify({ adminUser: actor, action: action + ': ' + entity, details: detail }) });
