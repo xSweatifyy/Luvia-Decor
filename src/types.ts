@@ -1,6 +1,6 @@
 export type PageRoute = 'home' | 'catalog' | 'custom-order' | 'gallery' | 'contact' | 'cart' | 'terms' | 'privacy' | 'admin' | 'gift-card' | 'gift-card-balance' | 'complaint' | 'account';
 
-export interface ProductCategory { id: string; name: string; hiddenFromCatalog?: boolean; }
+export interface ProductCategory { id: string; name: string; hiddenFromCatalog?: boolean; visibleFrom?: string | null; visibleUntil?: string | null; }
 export interface Product { id:string; title:string; category:string; price:number; isPriceFrom?:boolean; pricePrefix?:string; compareAtPrice?:number; description:string; shortDescription?:string; details?:string[]; imageUrl:string; gallery?:string[]; badge?:'Bestseller'|'Novinka'|'Limitovaná edice'|'Na zakázku'|'Na objednání'|'Oblíbené'; inStock:boolean; featured?:boolean; hiddenFromCatalog?:boolean; dimensions?:string; materials?:string; estimatedDelivery?:string; }
 export interface CartItem { product:Product; quantity:number; customNote?:string; }
 export interface OrderItem { productId:string; title:string; price:number; quantity:number; imageUrl:string; customNote?:string; category?:string; }
