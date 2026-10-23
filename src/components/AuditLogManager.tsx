@@ -13,10 +13,16 @@ export const AuditLogManager: React.FC<{ adminUser: AdminUser }> = ({ adminUser 
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const response = await fetch('/api/audit?adminUser=' + encodeURIComponent(JSON.stringify(adminUser)), { cache: 'no-store' });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || 'Protokol se nepodařilo načíst.');
-      setEvents(Array.isArray(data) ? data : []);
+      const response = await fetch('/api/audit?adminUser=' + encodeURIComponent(JSON.stringify(adminUser)), { cache: 'no-store', headers: { Accept: 'application/json' } });
+      const raw = await response.text();
+      let data: any = null;
+      try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
+      if (!response.ok) {
+        const serverMessage = data?.error || data?.message || (raw && !raw.trimStart().startsWith('<') ? raw.slice(0, 220) : 'Server vrátil neplatnou odpověď.');
+        throw new Error(`Protokol se nepodařilo načíst (HTTP ${response.status}): ${serverMessage}`);
+      }
+      if (!data || !Array.isArray(data)) throw new Error('API protokolu nevrátilo seznam záznamů. Server mohl vrátit chybovou stránku místo JSON. Zkontroluj nasazení API na Vercelu.');
+      setEvents(data);
     } catch (e: any) { setError(e?.message || 'Chyba při načítání protokolu.'); }
     finally { setLoading(false); }
   }, [adminUser]);
