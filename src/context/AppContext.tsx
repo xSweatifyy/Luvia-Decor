@@ -18,7 +18,7 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({children}) =
          const actor = JSON.parse(localStorage.getItem('luvia_admin_user') || 'null');
          if (!actor || actor.role !== 'admin' || !actor.email) return;
          const labels: Record<string,string> = { '/api/products':'Produkt', '/api/categories':'Kategorie', '/api/config':'Nastavení webu', '/api/orders':'Objednávka', '/api/coupons':'Slevový kód', '/api/gallery':'Položka galerie', '/api/gift-card':'Dárková karta', '/api/gift-card-shipping':'Doprava dárkových karet', '/api/order-status':'Stav objednávky', '/api/newsletter/send':'Odeslání newsletteru', '/api/newsletter/campaigns':'Kampaň newsletteru', '/api/newsletter/subscribers':'Odběratel newsletteru', '/api/auth/login':'Přihlášení', '/api/auth/logout':'Odhlášení' };
-         const entity = labels[route] || route.replace(/^\\/api\\//, '').replace(/[-_]/g, ' ');
+         const entity = labels[route] || route.replace(/^\/api\//, '').replace(/[-_]/g, ' ');
          const isCollection = ['/api/products','/api/categories','/api/orders','/api/coupons','/api/gallery','/api/newsletter/campaigns','/api/newsletter/subscribers'].includes(route);
          const action = method === 'DELETE' ? 'Smazání' : method === 'POST' ? (isCollection ? 'Přidání / vytvoření' : route === '/api/newsletter/send' ? 'Odeslání' : 'Provedení akce') : method === 'PUT' || method === 'PATCH' ? 'Úprava' : 'Změna';
          let changeNote = '';
