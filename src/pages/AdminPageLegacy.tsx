@@ -486,6 +486,33 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  const handleSaveCategorySchedule = async (id: string, name: string, event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const toIso = (value: FormDataEntryValue | null) => value ? new Date(String(value)).toISOString() : null;
+    const visibleFrom = toIso(form.get('visibleFrom'));
+    const visibleUntil = toIso(form.get('visibleUntil'));
+    if (visibleFrom && visibleUntil && new Date(visibleUntil) <= new Date(visibleFrom)) {
+      addToast('error', 'Neplatné období', 'Konec zobrazení musí být později než začátek.');
+      return;
+    }
+    try {
+      await updateCategory(id, name, { visibleFrom, visibleUntil });
+      await refreshData();
+      addToast('success', 'Plán zobrazení uložen', 'Kategorie se bude zobrazovat pouze v nastaveném období.');
+    } catch (err: any) {
+      addToast('error', 'Chyba při ukládání plánu', err.message);
+    }
+  };
+
+  const toDateTimeLocal = (value?: string | null) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 16);
+  };
+
   const handleDeleteCategory = async (id: string) => {
     try {
       await deleteCategory(id);
@@ -914,16 +941,23 @@ export const AdminPage: React.FC = () => {
             </div>
             <div className="flex flex-wrap gap-2 mb-4">
               {categories.map(category => (
-                <div key={category.id} className="flex items-center gap-1 rounded-lg border border-[#E3DACF] bg-[#FAF8F5] px-2 py-1">
-                  {editingCategoryId === category.id ? (
-                    <input autoFocus value={editingCategoryName} onChange={e => setEditingCategoryName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleRenameCategory(category.id); }} className="w-36 bg-white px-1.5 py-1 text-xs border border-[#D8C9B7] rounded" />
-                  ) : <span className="text-xs text-[#5C5046]">{category.name}</span>}
-                  {editingCategoryId === category.id ? (
-                    <button type="button" onClick={() => handleRenameCategory(category.id)} className="p-1 text-emerald-700" title="Uložit název"><Check className="w-3.5 h-3.5" /></button>
-                  ) : (
-                    <button type="button" onClick={() => { setEditingCategoryId(category.id); setEditingCategoryName(category.name); }} className="p-1 text-[#8C7355]" title="Přejmenovat"><Edit2 className="w-3.5 h-3.5" /></button>
-                  )}
-                  <button type="button" onClick={() => handleDeleteCategory(category.id)} className="p-1 text-rose-600" title="Smazat kategorii"><Trash2 className="w-3.5 h-3.5" /></button>
+                <div key={category.id} className="w-full rounded-xl border border-[#E3DACF] bg-[#FAF8F5] p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {editingCategoryId === category.id ? (
+                      <input autoFocus value={editingCategoryName} onChange={e => setEditingCategoryName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleRenameCategory(category.id); }} className="w-36 bg-white px-1.5 py-1 text-xs border border-[#D8C9B7] rounded" />
+                    ) : <span className="text-sm font-semibold text-[#5C5046]">{category.name}</span>}
+                    {editingCategoryId === category.id ? (
+                      <button type="button" onClick={() => handleRenameCategory(category.id)} className="p-1 text-emerald-700" title="Uložit název"><Check className="w-3.5 h-3.5" /></button>
+                    ) : (
+                      <button type="button" onClick={() => { setEditingCategoryId(category.id); setEditingCategoryName(category.name); }} className="p-1 text-[#8C7355]" title="Přejmenovat"><Edit2 className="w-3.5 h-3.5" /></button>
+                    )}
+                    <button type="button" onClick={() => handleDeleteCategory(category.id)} className="p-1 text-rose-600" title="Smazat kategorii"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                  <form onSubmit={e => handleSaveCategorySchedule(category.id, category.name, e)} className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label className="text-[11px] text-[#7B6E63]">Zobrazit od (volitelné)<input type="datetime-local" name="visibleFrom" defaultValue={toDateTimeLocal(category.visibleFrom)} className="mt-1 block w-full min-w-0 rounded-lg border border-[#E3DACF] bg-white p-2 text-xs text-[#2D2723]" /></label>
+                    <label className="text-[11px] text-[#7B6E63]">Skrýt od (volitelné)<input type="datetime-local" name="visibleUntil" defaultValue={toDateTimeLocal(category.visibleUntil)} className="mt-1 block w-full min-w-0 rounded-lg border border-[#E3DACF] bg-white p-2 text-xs text-[#2D2723]" /></label>
+                    <div className="sm:col-span-2"><button type="submit" className="rounded-lg bg-[#2D2723] px-3 py-2 text-xs font-semibold text-white">Uložit plán zobrazení</button><p className="mt-1 text-[10px] text-[#8C7355]">Bez data se omezení nepoužije. Kategorie se sama zobrazí/skryje podle nastaveného času.</p></div>
+                  </form>
                 </div>
               ))}
             </div>
