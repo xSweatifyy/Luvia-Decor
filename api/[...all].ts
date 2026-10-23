@@ -183,6 +183,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await sql`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, visible_from TIMESTAMPTZ NULL, visible_until TIMESTAMPTZ NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
       await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS visible_from TIMESTAMPTZ NULL`;
       await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS visible_until TIMESTAMPTZ NULL`;
+      // Upgrade existing categories tables created by older versions before upserts use updated_at.
+      await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`;
+      await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`;
       if (method === 'GET' && pathParts.length === 1) {
         const rows = await sql`SELECT id, name, visible_from, visible_until FROM categories ORDER BY name ASC`;
         return res.status(200).json(rows.map((row: any) => ({ id: row.id, name: row.name, visibleFrom: row.visible_from || null, visibleUntil: row.visible_until || null })));
