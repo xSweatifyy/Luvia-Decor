@@ -373,6 +373,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // AUTH
     if (pathParts[0] === 'auth') {
+      if (pathParts[1] === 'visit' && method === 'POST') {
+        const actor = auditAdmin(req);
+        if (!actor) return res.status(403).json({ error: 'Administrátor není ověřen.' });
+        await writeAudit(actor, 'Návštěva administrace', 'Administrátor otevřel administraci nebo se vrátil na její hlavní obrazovku.', req);
+        return res.status(201).json({ success: true });
+      }
+      if (pathParts[1] === 'logout' && method === 'POST') {
+        const actor = auditAdmin(req);
+        if (actor) await writeAudit(actor, 'Odhlášení', 'Administrátor se odhlásil z administrace.', req);
+        return res.status(200).json({ success: true });
+      }
       if (pathParts[1] === 'login' && method === 'POST') {
         const { email, password } = req.body;
         if (!email || !password) return res.status(400).json({ error: 'Zadejte e-mail a heslo.' });
