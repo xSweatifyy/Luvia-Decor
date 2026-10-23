@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PackageSearch, ShoppingBag, Truck, Sparkles, LayoutDashboard, Images, FileText, ShieldCheck, Megaphone, Tag, Gift } from 'lucide-react';
 import { AdminPage as LegacyAdminPage } from './AdminPageLegacy';
 import { GiftVoucherManager } from '../components/GiftVoucherManager';
@@ -23,6 +23,13 @@ import { AuditLogManager } from '../components/AuditLogManager';
 
 export const AdminPage: React.FC = () => {
   const { adminUser } = useApp();
+  useEffect(() => {
+    if (!adminUser?.email || adminUser.role !== 'admin') return;
+    const key = 'luvia_admin_visit_logged_' + adminUser.email;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    void fetch('/api/auth/visit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminUser }) }).catch(() => {});
+  }, [adminUser?.email, adminUser?.role]);
   const [active, setActive] = useState<'main' | 'images' | 'statuses' | 'tracking' | 'shipping' | 'invoices' | 'audit' | 'maintenance' | 'discounts' | 'giftcards' | 'shippingcoupons' | 'newsletter' | 'changelog' | 'auditlog'>('main');
   const tabs = [
     { id: 'main' as const, label: 'Přehled administrace', icon: LayoutDashboard },
