@@ -12,19 +12,22 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({children}) =
      const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
      const method = String(init?.method || (typeof input !== 'string' && !(input instanceof URL) ? input.method : 'GET')).toUpperCase();
      const isAdminMutation = requestUrl.startsWith('/api/') && !requestUrl.startsWith('/api/audit') && ['POST','PUT','PATCH','DELETE'].includes(method);
-     const response = await originalFetch(input, init);
-     if (isAdminMutation && response.ok) {
+     const auditMutation = async (status: string, route: string) => {
        try {
          const actor = JSON.parse(localStorage.getItem('luvia_admin_user') || 'null');
-         if (actor?.role === 'admin' && actor?.email) {
-           const route = new URL(requestUrl, window.location.origin).pathname;
-           const labels: Record<string,string> = { '/api/products':'Produkty', '/api/categories':'Kategorie', '/api/config':'Nastavení webu', '/api/orders':'Objednávky', '/api/coupons':'Slevové kódy', '/api/gallery':'Galerie', '/api/gift-card':'Dárkové karty', '/api/gift-card-shipping':'Doprava dárkových karet', '/api/order-status':'Stavy objednávek', '/api/newsletter/send':'Newsletter', '/api/newsletter/campaigns':'Newsletter kampaně', '/api/newsletter/subscribers':'Odběratelé newsletteru' };
-           const entity = labels[route] || route.replace(/^\\/api\\//, '').replace(/[-_]/g, ' ');
-           const action = method === 'POST' ? 'Vytvoření / akce' : method === 'DELETE' ? 'Smazání' : 'Úprava';
-           void originalFetch('/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true, body: JSON.stringify({ adminUser: actor, action: action + ': ' + entity, details: 'Úspěšná operace ' + method + ' ' + route }) }).catch(() => {});
-         }
-       } catch {}
-     }
+         if (!actor || actor.role !== 'admin' || !actor.email) return;
+         const labels: Record<string,string> = { '/api/products':'Produkty', '/api/categories':'Kategorie', '/api/config':'Nastavení webu', '/api/orders':'Objednávky', '/api/coupons':'Slevové kódy', '/api/gallery':'Galerie', '/api/gift-card':'Dárkové karty', '/api/gift-card-shipping':'Doprava dárkových karet', '/api/order-status':'Stavy objednávek', '/api/newsletter/send':'Newsletter', '/api/newsletter/campaigns':'Newsletter kampaně', '/api/newsletter/subscribers':'Odběratelé newsletteru' };
+         const entity = labels[route] || route.replace(/^\\/api\\//, '').replace(/[-_]/g, ' ');
+         const action = method === 'POST' ? 'Vytvoření / akce' : method === 'DELETE' ? 'Smazání' : 'Úprava';
+         await originalFetch('/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true, body: JSON.stringify({ adminUser: actor, action: action + ': ' + entity, details: status + ' · ' + method + ' ' + route }) });
+       } catch { /* Audit logging must never break the admin operation. */ }
+     };
+     if (!isAdminMutation) return originalFetch(input, init);
+     let response: Response;
+     try { response = await originalFetch(input, init); }
+     catch (error) { const route = new URL(requestUrl, window.location.origin).pathname; void auditMutation('Chyba síťového požadavku', route); throw error; }
+     const route = new URL(requestUrl, window.location.origin).pathname;
+     void auditMutation(response.ok ? 'Úspěch HTTP ' + response.status : 'Chyba HTTP ' + response.status, route);
      return response;
    };
    window.fetch = wrappedFetch;
