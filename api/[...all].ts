@@ -180,11 +180,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // CATEGORIES
     if (pathParts[0] === 'categories') {
-      await sql\`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, visible_from TIMESTAMPTZ NULL, visible_until TIMESTAMPTZ NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())\`;
-      await sql\`ALTER TABLE categories ADD COLUMN IF NOT EXISTS visible_from TIMESTAMPTZ NULL\`;
-      await sql\`ALTER TABLE categories ADD COLUMN IF NOT EXISTS visible_until TIMESTAMPTZ NULL\`;
+      await sql`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, visible_from TIMESTAMPTZ NULL, visible_until TIMESTAMPTZ NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
+      await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS visible_from TIMESTAMPTZ NULL`;
+      await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS visible_until TIMESTAMPTZ NULL`;
       if (method === 'GET' && pathParts.length === 1) {
-        const rows = await sql\`SELECT id, name, visible_from, visible_until FROM categories ORDER BY name ASC\`;
+        const rows = await sql`SELECT id, name, visible_from, visible_until FROM categories ORDER BY name ASC`;
         return res.status(200).json(rows.map((row: any) => ({ id: row.id, name: row.name, visibleFrom: row.visible_from || null, visibleUntil: row.visible_until || null })));
       }
       if (method === 'POST' && pathParts.length === 1) {
@@ -195,8 +195,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const visibleUntil = req.body?.visibleUntil ? new Date(req.body.visibleUntil) : null;
         if ((visibleFrom && Number.isNaN(visibleFrom.getTime())) || (visibleUntil && Number.isNaN(visibleUntil.getTime()))) return res.status(400).json({ error: 'Neplatné datum viditelnosti.' });
         if (visibleFrom && visibleUntil && visibleUntil <= visibleFrom) return res.status(400).json({ error: 'Konec zobrazení musí být později než začátek.' });
-        const previous = await sql\`SELECT id, name, visible_from, visible_until FROM categories WHERE id = \${id} LIMIT 1\`;
-        await sql\`INSERT INTO categories (id, name, visible_from, visible_until) VALUES (\${id}, \${name}, \${visibleFrom ? visibleFrom.toISOString() : null}, \${visibleUntil ? visibleUntil.toISOString() : null}) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, visible_from = EXCLUDED.visible_from, visible_until = EXCLUDED.visible_until, updated_at = NOW()\`;
+        const previous = await sql`SELECT id, name, visible_from, visible_until FROM categories WHERE id = ${id} LIMIT 1`;
+        await sql`INSERT INTO categories (id, name, visible_from, visible_until) VALUES (${id}, ${name}, ${visibleFrom ? visibleFrom.toISOString() : null}, ${visibleUntil ? visibleUntil.toISOString() : null}) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, visible_from = EXCLUDED.visible_from, visible_until = EXCLUDED.visible_until, updated_at = NOW()`;
         const saved = { id, name, visibleFrom: visibleFrom?.toISOString() || null, visibleUntil: visibleUntil?.toISOString() || null };
         try { await writeAuditDiff(req, previous.length ? 'Úprava' : 'Přidání', 'Kategorie', previous[0] || {}, saved, name); }
         catch (auditError) { console.error('Category audit write failed:', auditError); }
@@ -210,16 +210,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if ((visibleFrom && Number.isNaN(visibleFrom.getTime())) || (visibleUntil && Number.isNaN(visibleUntil.getTime()))) return res.status(400).json({ error: 'Neplatné datum viditelnosti.' });
         if (visibleFrom && visibleUntil && visibleUntil <= visibleFrom) return res.status(400).json({ error: 'Konec zobrazení musí být později než začátek.' });
         const categoryId = pathParts[1];
-        const previous = await sql\`SELECT id, name, visible_from, visible_until FROM categories WHERE id = \${categoryId} LIMIT 1\`;
-        const rows = await sql\`INSERT INTO categories (id, name, visible_from, visible_until) VALUES (\${categoryId}, \${name}, \${visibleFrom ? visibleFrom.toISOString() : null}, \${visibleUntil ? visibleUntil.toISOString() : null}) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, visible_from = EXCLUDED.visible_from, visible_until = EXCLUDED.visible_until, updated_at = NOW() RETURNING id, name, visible_from, visible_until\`;
+        const previous = await sql`SELECT id, name, visible_from, visible_until FROM categories WHERE id = ${categoryId} LIMIT 1`;
+        const rows = await sql`INSERT INTO categories (id, name, visible_from, visible_until) VALUES (${categoryId}, ${name}, ${visibleFrom ? visibleFrom.toISOString() : null}, ${visibleUntil ? visibleUntil.toISOString() : null}) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, visible_from = EXCLUDED.visible_from, visible_until = EXCLUDED.visible_until, updated_at = NOW() RETURNING id, name, visible_from, visible_until`;
         const saved = { id: rows[0].id, name: rows[0].name, visibleFrom: rows[0].visible_from || null, visibleUntil: rows[0].visible_until || null };
         try { await writeAuditDiff(req, previous.length ? 'Úprava' : 'Nastavení plánu', 'Kategorie', previous[0] || {}, saved, name); }
         catch (auditError) { console.error('Category schedule audit write failed:', auditError); }
         return res.status(200).json(saved);
       }
       if (method === 'DELETE' && pathParts.length === 2) {
-        const previous = await sql\`SELECT id, name, visible_from, visible_until FROM categories WHERE id = \${pathParts[1]} LIMIT 1\`;
-        await sql\`DELETE FROM categories WHERE id = \${pathParts[1]}\`;
+        const previous = await sql`SELECT id, name, visible_from, visible_until FROM categories WHERE id = ${pathParts[1]} LIMIT 1`;
+        await sql`DELETE FROM categories WHERE id = ${pathParts[1]}`;
         if (previous.length) await writeAuditDiff(req, 'Smazání', 'Kategorie', previous[0], {}, previous[0].name);
         return res.status(200).json({ success: true });
       }
