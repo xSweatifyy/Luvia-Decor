@@ -11,7 +11,8 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({children}) =
    const wrappedFetch: typeof window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
      const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
      const method = String(init?.method || (typeof input !== 'string' && !(input instanceof URL) ? input.method : 'GET')).toUpperCase();
-     const isAdminMutation = requestUrl.startsWith('/api/') && !requestUrl.startsWith('/api/audit') && ['POST','PUT','PATCH','DELETE'].includes(method);
+     const requestPath = (() => { try { return new URL(requestUrl, window.location.origin).pathname; } catch { return requestUrl.split('?')[0]; } })();
+     const isAdminMutation = requestPath.startsWith('/api/') && requestPath !== '/api/audit' && ['POST','PUT','PATCH','DELETE'].includes(method);
      const auditMutation = async (status: string, route: string) => {
        try {
          const actor = JSON.parse(localStorage.getItem('luvia_admin_user') || 'null');
