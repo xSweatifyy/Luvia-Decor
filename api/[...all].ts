@@ -208,11 +208,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!name) return res.status(400).json({ error: 'Název kategorie je povinný.' });
         if ((visibleFrom && Number.isNaN(visibleFrom.getTime())) || (visibleUntil && Number.isNaN(visibleUntil.getTime()))) return res.status(400).json({ error: 'Neplatné datum viditelnosti.' });
         if (visibleFrom && visibleUntil && visibleUntil <= visibleFrom) return res.status(400).json({ error: 'Konec zobrazení musí být později než začátek.' });
-        const previous = await sql\`SELECT id, name, visible_from, visible_until FROM categories WHERE id = \${pathParts[1]} LIMIT 1\`;
-        const rows = await sql\`UPDATE categories SET name = \${name}, visible_from = \${visibleFrom ? visibleFrom.toISOString() : null}, visible_until = \${visibleUntil ? visibleUntil.toISOString() : null}, updated_at = NOW() WHERE id = \${pathParts[1]} RETURNING id, name, visible_from, visible_until\`;
-        if (!rows.length) return res.status(404).json({ error: 'Kategorie nenalezena.' });
+        const categoryId = pathParts[1];
+        const previous = await sql\`SELECT id, name, visible_from, visible_until FROM categories WHERE id = \${categoryId} LIMIT 1\`;
+        const rows = await sql\`INSERT INTO categories (id, name, visible_from, visible_until) VALUES (\${categoryId}, \${name}, \${visibleFrom ? visibleFrom.toISOString() : null}, \${visibleUntil ? visibleUntil.toISOString() : null}) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, visible_from = EXCLUDED.visible_from, visible_until = EXCLUDED.visible_until, updated_at = NOW() RETURNING id, name, visible_from, visible_until\`;
         const saved = { id: rows[0].id, name: rows[0].name, visibleFrom: rows[0].visible_from || null, visibleUntil: rows[0].visible_until || null };
-        await writeAuditDiff(req, 'Úprava', 'Kategorie', previous[0] || {}, saved, name);
+        await writeAuditDiff(req, previous.length ? 'Úprava' : 'Nastavení plánu', 'Kategorie', previous[0] || {}, saved, name);
         return res.status(200).json(saved);
       }
       if (method === 'DELETE' && pathParts.length === 2) {
