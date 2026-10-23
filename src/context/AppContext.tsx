@@ -6,6 +6,31 @@ interface AppContextType { page: PageRoute; setPage: (page: PageRoute, params?: 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 const routeFromLocation = (): PageRoute => { const hash = window.location.hash.replace(/^#/, '').toLowerCase(); const hashRoutes: PageRoute[] = ['home','catalog','custom-order','gallery','contact','cart','terms','privacy','admin','gift-card','gift-card-balance','complaint','account']; if (hashRoutes.includes(hash as PageRoute)) return hash as PageRoute; const path = window.location.pathname.replace(/\/+$/, '').toLowerCase(); const pathRoutes: Record<string,PageRoute> = {'/':'home','/home':'home','/eshop':'catalog','/e-shop':'catalog','/catalog':'catalog','/zakazkova-tvorba':'custom-order','/custom-order':'custom-order','/galerie':'gallery','/gallery':'gallery','/kontakt':'contact','/contact':'contact','/kosik':'cart','/cart':'cart','/obchodni-podminky':'terms','/terms':'terms','/ochrana-osobnich-udaju':'privacy','/reklamacni-protokol':'complaint','/reklamace':'complaint','/admin':'admin','/darkova-karta':'gift-card','/gift-card':'gift-card','/darkova-karta-zustatek':'gift-card-balance','/gift-card-balance':'gift-card-balance','/ucet':'account','/muj-ucet':'account','/account':'account'}; return pathRoutes[path] || 'home'; };
 export const AppProvider: React.FC<{children: React.ReactNode}> = ({children}) => {
+ useEffect(() => {
+   const originalFetch = window.fetch.bind(window);
+   const wrappedFetch: typeof window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+     const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+     const method = String(init?.method || (typeof input !== 'string' && !(input instanceof URL) ? input.method : 'GET')).toUpperCase();
+     const isAdminMutation = requestUrl.startsWith('/api/') && !requestUrl.startsWith('/api/audit') && ['POST','PUT','PATCH','DELETE'].includes(method);
+     const response = await originalFetch(input, init);
+     if (isAdminMutation && response.ok) {
+       try {
+         const actor = JSON.parse(localStorage.getItem('luvia_admin_user') || 'null');
+         if (actor?.role === 'admin' && actor?.email) {
+           const route = new URL(requestUrl, window.location.origin).pathname;
+           const labels: Record<string,string> = { '/api/products':'Produkty', '/api/categories':'Kategorie', '/api/config':'Nastavení webu', '/api/orders':'Objednávky', '/api/coupons':'Slevové kódy', '/api/gallery':'Galerie', '/api/gift-card':'Dárkové karty', '/api/gift-card-shipping':'Doprava dárkových karet', '/api/order-status':'Stavy objednávek', '/api/newsletter/send':'Newsletter', '/api/newsletter/campaigns':'Newsletter kampaně', '/api/newsletter/subscribers':'Odběratelé newsletteru' };
+           const entity = labels[route] || route.replace(/^\\/api\\//, '').replace(/[-_]/g, ' ');
+           const action = method === 'POST' ? 'Vytvoření / akce' : method === 'DELETE' ? 'Smazání' : 'Úprava';
+           void originalFetch('/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true, body: JSON.stringify({ adminUser: actor, action: action + ': ' + entity, details: 'Úspěšná operace ' + method + ' ' + route }) }).catch(() => {});
+         }
+       } catch {}
+     }
+     return response;
+   };
+   window.fetch = wrappedFetch;
+   return () => { window.fetch = originalFetch; };
+ }, []);
+
  const [page,setPageState]=useState<PageRoute>(routeFromLocation); const [products,setProducts]=useState<Product[]>([]); const [categories,setCategories]=useState<ProductCategory[]>([]); const [config,setConfig]=useState<SiteConfig>(initialSiteConfig); const [gallery,setGallery]=useState<GalleryItem[]>(initialGallery); const [selectedCategory,setSelectedCategory]=useState('all'); const [quickViewProduct,setQuickViewProduct]=useState<Product|null>(null); const [toasts,setToasts]=useState<ToastMessage[]>([]);
  const [cart,setCart]=useState<CartItem[]>(()=>{try{const raw=JSON.parse(localStorage.getItem('luvia_cart')||'[]'); return Array.isArray(raw)?raw.filter((item:any)=>item?.product?.id&&Number(item?.quantity)>0).map((item:any)=>({...item,quantity:Math.max(1,Math.floor(Number(item.quantity)||1))})):[]}catch{return[];}});
  const [adminUser,setAdminUser]=useState<AdminUser|null>(()=>{try{return JSON.parse(localStorage.getItem('luvia_admin_user')||'null')}catch{return null}}); const [adminToken,setAdminToken]=useState<string|null>(()=>{try{return localStorage.getItem('luvia_admin_token')}catch{return null}});
