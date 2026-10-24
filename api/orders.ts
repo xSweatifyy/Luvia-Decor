@@ -18,7 +18,7 @@ const finalShipping = (baseExVat: number) => baseExVat * (1 + ZASLAT_FUEL_SURCHA
 const fixedShipping = (carrier: string, method: string, country: string, items: any[], shippingConfig?: any) => {
   const configuredKeys: string[] = Array.isArray(shippingConfig?._configuredCarrierKeys) ? shippingConfig._configuredCarrierKeys : [];
   if (shippingConfig?.carriers?.[carrier]?.enabled === false) return null;
-  if (configuredKeys.length && carrier !== 'PENGUINBOX' && !configuredKeys.includes(carrier)) return null;
+  // A carrier missing from the saved admin config uses its default rates instead of being rejected.
   if (country === 'SK') return carrier === 'ZASILKOVNA' ? 0 : null;
   if (carrier === 'PPL' && !isPplAllowed(items)) return null;
   if (carrier === 'PENGUINBOX') { if (configuredKeys.length && !configuredKeys.includes('PENGUINBOX')) return null; const amount = shippingConfig?.carriers?.PENGUINBOX?.box; return method === 'box' ? (configuredKeys.includes('PENGUINBOX') && amount != null ? Math.max(0, Number(amount)) : 59) : null; }
@@ -44,7 +44,7 @@ async function getShippingConfig() {
     if (!saved) return DEFAULT_SHIPPING;
     const canonical = (name: string) => {
       const key = normalizeCategory(name);
-      if (key === 'zasilkovna') return 'ZASILKOVNA';
+      if (key === 'zasilkovna' || key === 'packeta-sk' || key === 'packeta') return 'ZASILKOVNA';
       if (key === 'balikovna' || key === 'balikovna-cr') return 'BALIKOVNA';
       if (key === 'one-by-allegro' || key === 'wedo') return 'WEDO';
       if (key === 'penguinbox') return 'PENGUINBOX';
