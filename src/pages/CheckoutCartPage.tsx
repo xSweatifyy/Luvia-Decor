@@ -46,7 +46,7 @@ export const CheckoutCartPage: React.FC = () => {
   const upsAllowed = totalWeight <= 5;
   const zasilkovnaWeight = totalWeight;
   const zasilkovnaAddressAllowed = zasilkovnaWeight <= 5;
-  const carrierNames = onlyGiftCards ? ['EMAIL'] : destination === 'sk' ? ['PACKETA_SK'] : ['BALIKOVNA','GLS','WEDO','PPL','ZASILKOVNA'];
+  const carrierNames = onlyGiftCards ? ['EMAIL'] : destination === 'sk' ? ['ZASILKOVNA'] : ['BALIKOVNA','GLS','WEDO','PPL','ZASILKOVNA'];
   const entries: [string,Shipping][] = carrierNames.filter(n => n !== 'PPL' || pplAllowed).filter(n => { const carrierConfig = getCarrierConfig(n); return carrierConfig?.enabled !== false; }).map(n=>[n,getCarrierConfig(n)] as [string,Shipping]);
   const penguinConfig = getCarrierConfig('PenguinBox');
   if (!onlyGiftCards && destination === 'cz' && penguinConfig?.enabled !== false) entries.push(['PenguinBox',penguinConfig]);
