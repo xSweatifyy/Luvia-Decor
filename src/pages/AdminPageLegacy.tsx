@@ -1216,6 +1216,7 @@ export const AdminPage: React.FC = () => {
                         <option value="">Bez štítku</option>
                         <option value="Bestseller">Bestseller</option>
                         <option value="Novinka">Novinka</option>
+                        <option value="Akce">Akce</option>
                         <option value="Oblíbené">Oblíbené</option>
                         <option value="Limitovaná edice">Limitovaná edice</option>
                         <option value="Na zakázku">Na zakázku</option>
