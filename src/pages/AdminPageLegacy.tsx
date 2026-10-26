@@ -1369,7 +1369,15 @@ export const AdminPage: React.FC = () => {
                      </div>
                    </div>
 
-                  {/* Description */}
+                  {/* Additional product photos / image library */}
+                   <div className="space-y-2 rounded-xl border border-[#E8DFC8] bg-[#FAF8F5] p-4">
+                     <label className="block font-semibold text-[#5C5046]">Další fotografie produktu</label>
+                     <p className="text-[11px] text-[#7B6E63]">Vložte více URL obrázků — každou na samostatný řádek nebo oddělenou čárkou. Hlavní obrázek zůstává samostatně výše.</p>
+                     <textarea rows={4} value={(editingProduct.gallery || []).join('\n')} onChange={(e) => setEditingProduct({ ...editingProduct, gallery: e.target.value.split(/[\n,]+/).map(url => url.trim()).filter(Boolean) })} placeholder={'https://.../foto-2.jpg\nhttps://.../foto-3.jpg'} className="w-full rounded-xl border border-[#E3DACF] bg-white px-3 py-2 text-xs" />
+                     {(editingProduct.gallery || []).length > 0 && <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">{(editingProduct.gallery || []).map((url, index) => <div key={url + index} className="relative"><SafeImage src={url} alt={'Další fotografie ' + (index + 1)} className="h-20 w-full rounded-lg border border-[#E3DACF]" /><button type="button" onClick={() => setEditingProduct({ ...editingProduct, gallery: (editingProduct.gallery || []).filter((_, i) => i !== index) })} className="absolute right-1 top-1 rounded-md bg-white/90 p-1 text-rose-600" title="Odebrat fotografii"><X className="h-3 w-3" /></button></div>)}</div>}
+                   </div>
+
+                   {/* Description */}
                   <div>
                     <label className="block font-semibold text-[#5C5046] mb-1">Popis produktu</label>
                     <textarea
