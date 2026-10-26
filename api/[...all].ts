@@ -544,7 +544,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const product = String(complaintBody.product || '').trim().slice(0, 500);
       const description = String(complaintBody.description || '').trim().slice(0, 12000);
       const resolution = String(complaintBody.resolution || '').trim().slice(0, 100);
-      if (!name || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || !product || !description) return res.status(400).json({ success: false, error: 'Vyplňte prosím povinné údaje reklamačního protokolu.' });
+      if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !product || !description) return res.status(400).json({ success: false, error: 'Vyplňte prosím povinné údaje reklamačního protokolu.' });
       if (!process.env.RESEND_API_KEY) return res.status(503).json({ success: false, error: 'Odesílání e-mailů není momentálně nastavené. Kontaktujte nás prosím přímo e-mailem.' });
       const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
       const labels: Record<string, string> = { oprava: 'Oprava, je-li možná', vymena: 'Výměna', sleva: 'Přiměřená sleva', odstoupeni: 'Odstoupení od smlouvy, jsou-li splněny zákonné podmínky' };
