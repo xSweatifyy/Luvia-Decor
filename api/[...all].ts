@@ -138,6 +138,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try { return decodeURIComponent(part); } catch { return part; }
     });
   }
+  // Some Vercel catch-all invocations include the /api prefix in the catch-all params.
+  // Normalize it so routes such as /api/complaints resolve consistently.
+  if (pathParts[0] === 'api') pathParts = pathParts.slice(1);
+
   const method = req.method || 'GET';
 
   try {
