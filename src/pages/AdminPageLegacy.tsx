@@ -2487,7 +2487,7 @@ export const AdminPage: React.FC = () => {
             {adminUsers.map(user => {
               const draft = profileDrafts[user.id] || {};
               const value = (key: keyof AdminUser) => String((draft as any)[key] ?? (user as any)[key] ?? '');
-              const update = (key: keyof AdminUser, val: string) => setProfileDrafts(prev => ({ ...prev, [user.id]: { ...prev[user.id], [key]: val } }));
+              const update = (key: keyof AdminUser, val: string) => setProfileDrafts(prev => ({ ...prev, [user.id]: { ...prev[user.id], [key]: val } as Partial<AdminUser> }));
               return <section key={user.id} className="rounded-2xl border border-[#E8DFC8] bg-[#FAF8F5] p-5 space-y-3">
                 <div><h3 className="font-bold text-base text-[#2D2723]">{user.name}</h3><p className="text-xs text-[#7B6E63]">{user.email} · {user.role === 'read_only' ? 'Read-Only' : user.role === 'admin' ? 'Plný administrátor' : 'Editor'}</p><p className="text-[11px] text-stone-500">Vytvořen: {user.createdAt ? new Date(user.createdAt).toLocaleDateString('cs-CZ') : '—'}{user.lastLogin ? ' · Poslední přihlášení: ' + new Date(user.lastLogin).toLocaleDateString('cs-CZ') : ''}</p></div>
                 <label className="block text-xs font-semibold">Role v profilu<select value={value('profileRole') || 'Ostatní personál'} onChange={e => update('profileRole', e.target.value)} className="mt-1 w-full rounded-xl border border-[#E3DACF] bg-white px-3 py-2"><option>Majitel</option><option>Spolumajitel</option><option>Web Developer</option><option>Ostatní personál</option></select></label>
