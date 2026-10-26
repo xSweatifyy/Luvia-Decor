@@ -531,13 +531,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // COMPLAINT PROTOCOL EMAIL
     if (pathParts[0] === 'complaints' && method === 'POST') {
-      const name = String(req.body?.name || '').trim().slice(0, 200);
-      const email = String(req.body?.email || '').trim().slice(0, 254);
-      const order = String(req.body?.order || '').trim().slice(0, 100);
-      const received = String(req.body?.received || '').trim().slice(0, 30);
-      const product = String(req.body?.product || '').trim().slice(0, 500);
-      const description = String(req.body?.description || '').trim().slice(0, 12000);
-      const resolution = String(req.body?.resolution || '').trim().slice(0, 100);
+      // Accept both Vercel's parsed JSON object and a raw JSON string body.
+      let complaintBody: any = req.body;
+      if (typeof complaintBody === 'string') {
+        try { complaintBody = JSON.parse(complaintBody); } catch { complaintBody = {}; }
+      }
+      if (!complaintBody || typeof complaintBody !== 'object' || Array.isArray(complaintBody)) complaintBody = {};
+      const name = String(complaintBody.name || '').trim().slice(0, 200);
+      const email = String(complaintBody.email || '').trim().slice(0, 254);
+      const order = String(complaintBody.order || '').trim().slice(0, 100);
+      const received = String(complaintBody.received || '').trim().slice(0, 30);
+      const product = String(complaintBody.product || '').trim().slice(0, 500);
+      const description = String(complaintBody.description || '').trim().slice(0, 12000);
+      const resolution = String(complaintBody.resolution || '').trim().slice(0, 100);
       if (!name || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || !product || !description) return res.status(400).json({ success: false, error: 'Vyplňte prosím povinné údaje reklamačního protokolu.' });
       if (!process.env.RESEND_API_KEY) return res.status(503).json({ success: false, error: 'Odesílání e-mailů není momentálně nastavené. Kontaktujte nás prosím přímo e-mailem.' });
       const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
