@@ -77,7 +77,7 @@ export const AdminPage: React.FC = () => {
   const [loginError, setLoginError] = useState('');
 
   // Active Admin Tab
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'gallery' | 'content' | 'branding' | 'emails' | 'users' | 'coupons'>('products');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'gallery' | 'content' | 'branding' | 'emails' | 'users' | 'coupons' | 'profiles'>('products');
 
   // Coupons (slevové kódy) state — pouze pro hlavní správce
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -119,7 +119,8 @@ export const AdminPage: React.FC = () => {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
-  const [newAdminRole, setNewAdminRole] = useState<'admin' | 'editor'>('admin');
+  const [newAdminRole, setNewAdminRole] = useState<'admin' | 'editor' | 'read_only'>('admin');
+  const [profileDrafts, setProfileDrafts] = useState<Record<string, Partial<AdminUser>>>({});
 
   // Password change state
   const [currentNewPassword, setCurrentNewPassword] = useState('');
@@ -464,6 +465,17 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  const handleSaveAdminProfile = async (user: AdminUser) => {
+    if (adminUser?.role !== 'admin') return;
+    const updated = { ...user, ...(profileDrafts[user.id] || {}) };
+    try {
+      await saveAdminUserToFirestore(updated);
+      setAdminUsers(prev => prev.map(item => item.id === user.id ? updated : item));
+      setProfileDrafts(prev => { const next = { ...prev }; delete next[user.id]; return next; });
+      addToast('success', 'Profil uložen', 'Profil administrátora byl aktualizován.');
+    } catch (err: any) { addToast('error', 'Uložení profilu selhalo', err.message || 'Zkuste to znovu.'); }
+  };
+
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
     try {
@@ -666,6 +678,7 @@ export const AdminPage: React.FC = () => {
         email: newAdminEmail.toLowerCase().trim(),
         name: newAdminName.trim() || newAdminEmail.split('@')[0],
         role: newAdminRole,
+        profileRole: 'Ostatní personál',
         createdAt: new Date().toISOString()
       };
 
@@ -853,7 +866,7 @@ export const AdminPage: React.FC = () => {
   const inStockCount = products.filter(p => p.inStock).length;
 
   return (
-    <div id="admin-dashboard-view" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div id="admin-dashboard-view" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6" onClickCapture={(event) => { if (adminUser?.role === "read_only" && !(event.target as HTMLElement).closest("[data-readonly-allowed]")) { event.preventDefault(); event.stopPropagation(); } }} onSubmitCapture={(event) => { if (adminUser?.role === "read_only") { event.preventDefault(); event.stopPropagation(); } }} onChangeCapture={(event) => { if (adminUser?.role === "read_only") { event.preventDefault(); event.stopPropagation(); } }}>
 
       {/* 1. TOP HEADER BAR */}
       <div className="bg-white rounded-3xl p-6 border border-[#E8DFC8] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -875,14 +888,14 @@ export const AdminPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-          <button
+          <button data-readonly-allowed
             onClick={() => setPage('home')}
             className="px-4 py-2 bg-[#FAF5EE] hover:bg-[#F2ECE4] text-[#2D2723] text-xs font-semibold rounded-xl border border-[#E3DACF] transition cursor-pointer flex items-center gap-1.5"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             Zobrazit e-shop
           </button>
-          <button
+          <button data-readonly-allowed
             onClick={logoutAdmin}
             className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl border border-rose-200 transition cursor-pointer flex items-center gap-1.5"
           >
@@ -893,7 +906,7 @@ export const AdminPage: React.FC = () => {
       </div>
 
       {/* 2. NAVIGATION TABS WITH BADGES */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#E8DFC8]">
+      <div data-readonly-allowed className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#E8DFC8]">
         {[
           { id: 'products', label: `Produkty & Sklad (${products.length})`, icon: Package },
           { id: 'orders', label: `Objednávky (${orders.length})`, icon: ShoppingBag, badge: pendingOrdersCount > 0 ? `${pendingOrdersCount} nových` : undefined },
@@ -903,6 +916,7 @@ export const AdminPage: React.FC = () => {
           { id: 'branding', label: 'Branding & Sídlo', icon: Palette },
           { id: 'emails', label: 'Resend E-maily', icon: Mail },
           ...(adminUser?.role === 'admin' ? [{ id: 'coupons', label: 'Slevové kódy', icon: Tag }] : []),
+          ...(adminUser?.role === 'admin' ? [{ id: 'profiles', label: 'Profily administrátorů', icon: Users }] : []),
           { id: 'users', label: 'Správa účtů', icon: Users },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -2457,6 +2471,29 @@ export const AdminPage: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
+
+      {activeTab === 'profiles' && adminUser?.role === 'admin' && (
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E8DFC8] shadow-sm space-y-6">
+          <div className="border-b border-[#F2ECE4] pb-4"><h2 className="font-editorial text-2xl font-bold text-[#2D2723]">Profily administrátorů</h2><p className="text-xs text-[#7B6E63] mt-1">Profily může upravovat pouze hlavní administrátor. Role profilu je informativní a nemění přístupová oprávnění.</p></div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {adminUsers.map(user => {
+              const draft = profileDrafts[user.id] || {};
+              const value = (key: keyof AdminUser) => String((draft as any)[key] ?? (user as any)[key] ?? '');
+              const update = (key: keyof AdminUser, val: string) => setProfileDrafts(prev => ({ ...prev, [user.id]: { ...prev[user.id], [key]: val } }));
+              return <section key={user.id} className="rounded-2xl border border-[#E8DFC8] bg-[#FAF8F5] p-5 space-y-3">
+                <div><h3 className="font-bold text-base text-[#2D2723]">{user.name}</h3><p className="text-xs text-[#7B6E63]">{user.email} · {user.role === 'read_only' ? 'Read-Only' : user.role === 'admin' ? 'Plný administrátor' : 'Editor'}</p><p className="text-[11px] text-stone-500">Vytvořen: {user.createdAt ? new Date(user.createdAt).toLocaleDateString('cs-CZ') : '—'}{user.lastLogin ? ' · Poslední přihlášení: ' + new Date(user.lastLogin).toLocaleDateString('cs-CZ') : ''}</p></div>
+                <label className="block text-xs font-semibold">Role v profilu<select value={value('profileRole') || 'Ostatní personál'} onChange={e => update('profileRole', e.target.value)} className="mt-1 w-full rounded-xl border border-[#E3DACF] bg-white px-3 py-2"><option>Majitel</option><option>Spolumajitel</option><option>Web Developer</option><option>Ostatní personál</option></select></label>
+                <label className="block text-xs font-semibold">Jméno a příjmení<input value={value('name')} onChange={e => update('name', e.target.value)} className="mt-1 w-full rounded-xl border border-[#E3DACF] bg-white px-3 py-2" /></label>
+                <label className="block text-xs font-semibold">Pracovní pozice / titul<input value={value('profileTitle')} onChange={e => update('profileTitle', e.target.value)} placeholder="Např. Správa e-shopu" className="mt-1 w-full rounded-xl border border-[#E3DACF] bg-white px-3 py-2" /></label>
+                <label className="block text-xs font-semibold">Telefon<input value={value('profilePhone')} onChange={e => update('profilePhone', e.target.value)} placeholder="Telefon (volitelné)" className="mt-1 w-full rounded-xl border border-[#E3DACF] bg-white px-3 py-2" /></label>
+                <label className="block text-xs font-semibold">Poznámky a další informace<textarea rows={4} value={value('profileNotes')} onChange={e => update('profileNotes', e.target.value)} placeholder="Libovolné informace k profilu..." className="mt-1 w-full rounded-xl border border-[#E3DACF] bg-white px-3 py-2" /></label>
+                <button type="button" onClick={() => handleSaveAdminProfile(user)} className="rounded-xl bg-[#2D2723] px-4 py-2 text-white font-semibold">Uložit profil</button>
+              </section>;
+            })}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'users' && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E8DFC8] shadow-sm space-y-8">
           <div className="border-b border-[#F2ECE4] pb-4">
@@ -2479,7 +2516,7 @@ export const AdminPage: React.FC = () => {
                   >
                     <div>
                       <p className="font-bold text-[#2D2723]">{usr.email}</p>
-                      <p className="text-stone-500 text-[11px]">{usr.name} • {usr.role === 'admin' ? 'Hlavní správce' : 'Editor obsahu'}</p>
+                      <p className="text-stone-500 text-[11px]">{usr.name} • {usr.role === 'admin' ? 'Hlavní správce' : usr.role === 'read_only' ? 'Read-Only (pouze čtení)' : 'Editor obsahu'}</p>
                       {usr.lastLogin && <p className="text-[10px] text-stone-400">Poslední přihlášení: {new Date(usr.lastLogin).toLocaleDateString('cs-CZ')}</p>}
                     </div>
 
@@ -2568,6 +2605,7 @@ export const AdminPage: React.FC = () => {
                   >
                     <option value="admin">Plný administrátor</option>
                     <option value="editor">Editor obsahu a objednávek</option>
+                    <option value="read_only">Read-Only – pouze čtení admin panelu</option>
                   </select>
                 </div>
 
