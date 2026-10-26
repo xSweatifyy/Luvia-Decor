@@ -915,7 +915,7 @@ export const AdminPage: React.FC = () => {
           { id: 'content', label: 'Texty & Bannery', icon: FileText },
           { id: 'branding', label: 'Branding & Sídlo', icon: Palette },
           { id: 'emails', label: 'Resend E-maily', icon: Mail },
-          ...(adminUser?.role === 'admin' ? [{ id: 'coupons', label: 'Slevové kódy', icon: Tag }] : []),
+          ...(['admin', 'read_only'].includes(adminUser?.role || '') ? [{ id: 'coupons', label: 'Slevové kódy', icon: Tag }] : []),
           ...(adminUser?.role === 'admin' ? [{ id: 'profiles', label: 'Profily administrátorů', icon: Users }] : []),
           { id: 'users', label: 'Správa účtů', icon: Users },
         ].map((tab) => {
@@ -2365,7 +2365,7 @@ export const AdminPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* TAB: SLEVOVÉ KÓDY (pouze hlavní správci) */}
       {/* ========================================================================= */}
-      {activeTab === 'coupons' && adminUser?.role === 'admin' && (
+      {activeTab === 'coupons' && (adminUser?.role === 'admin' || adminUser?.role === 'read_only') && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E8DFC8] shadow-sm space-y-6">
           <div className="flex items-center justify-between gap-3">
             <div>
