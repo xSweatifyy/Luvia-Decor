@@ -525,6 +525,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true, sent, total: subscribers.length, failed: failures.length });
     }
 
+    // COMPLAINT PROTOCOL EMAIL
+    if (pathParts[0] === 'complaints' && method === 'POST') {
+      const name = String(req.body?.name || '').trim().slice(0, 200);
+      const email = String(req.body?.email || '').trim().slice(0, 254);
+      const order = String(req.body?.order || '').trim().slice(0, 100);
+      const received = String(req.body?.received || '').trim().slice(0, 30);
+      const product = String(req.body?.product || '').trim().slice(0, 500);
+      const description = String(req.body?.description || '').trim().slice(0, 12000);
+      const resolution = String(req.body?.resolution || '').trim().slice(0, 100);
+      if (!name || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || !product || !description) return res.status(400).json({ success: false, error: 'Vyplňte prosím povinné údaje reklamačního protokolu.' });
+      if (!process.env.RESEND_API_KEY) return res.status(503).json({ success: false, error: 'Odesílání e-mailů není momentálně nastavené. Kontaktujte nás prosím přímo e-mailem.' });
+      const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
+      const labels: Record<string, string> = { oprava: 'Oprava, je-li možná', vymena: 'Výměna', sleva: 'Přiměřená sleva', odstoupeni: 'Odstoupení od smlouvy, jsou-li splněny zákonné podmínky' };
+      const rows: Array<[string, string]> = [['Jméno a příjmení', name], ['E-mail zákazníka', email], ['Číslo objednávky', order || 'Neuvedeno'], ['Datum převzetí', received || 'Neuvedeno'], ['Reklamované zboží', product], ['Popis vady', description], ['Požadovaný způsob vyřízení', labels[resolution] || resolution || 'Neuvedeno']];
+      const html = '<!doctype html><html lang="cs"><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;color:#2D2723;line-height:1.6"><h1>Nový reklamační protokol – Luvia Decor</h1><p>Byl odeslán nový reklamační protokol z webu.</p><table style="border-collapse:collapse;width:100%;max-width:760px">' + rows.map(([label, value]) => '<tr><th style="text-align:left;vertical-align:top;padding:10px;border:1px solid #E8DFD5;background:#FAF8F5;width:230px">' + escapeHtml(label) + '</th><td style="white-space:pre-wrap;padding:10px;border:1px solid #E8DFD5">' + escapeHtml(value) + '</td></tr>').join('') + '</table><p style="margin-top:24px;color:#75685d;font-size:12px">Odesláno prostřednictvím webu Luvia Decor.</p></body></html>';
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const result = await resend.emails.send({ from: process.env.RESEND_FROM_EMAIL || 'Luvia Decor <newsletter@luvia-decor.cz>', to: ['objednavky@luvia-decor.cz'], replyTo: email, subject: 'Nový reklamační protokol' + (order ? ' – objednávka ' + order : ''), html, text: rows.map(([label, value]) => label + ':\n' + value).join('\n\n') });
+      if (result.error) { console.error('[Resend] Complaint protocol email failed:', result.error); return res.status(502).json({ success: false, error: 'E-mail se nepodařilo odeslat. Zkuste to prosím později nebo nás kontaktujte přímo.' }); }
+      return res.status(200).json({ success: true, messageId: result.data?.id });
+    }
     // TEST-RESEND
     if (pathParts[0] === 'test-resend' && method === 'POST') {
       return res.status(200).json({ success: true, message: 'Testovací e-mail byl úspěšně odeslán (simulováno).' });
