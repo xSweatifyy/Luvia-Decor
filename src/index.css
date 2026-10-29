@@ -96,92 +96,132 @@ body > div[style*="left:-20000px"] .card .footer { bottom: 48px !important; line
 
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LUVIA DECOR · AUTUMN 2026
-   Seasonal visual layer: warm foliage, amber light, copper accents and subtle
-   motion. It intentionally avoids changing the admin interface.
+   LUVIA DECOR · HALLOWEEN ATMOSPHERE
+   Animated spiderwebs, crawling emoji spiders and CSS-drawn flickering candles.
+   No image assets, remote files or canvas; admin interface stays untouched.
    ═══════════════════════════════════════════════════════════════════════════ */
 .autumn-theme {
-  --autumn-ink: #30231c;
-  --autumn-cream: #fbf5eb;
-  --autumn-paper: #fffaf2;
-  --autumn-copper: #a64b24;
-  --autumn-rust: #8d3f22;
-  --autumn-amber: #c27a25;
-  --autumn-olive: #62663d;
-  --autumn-line: #e7d5c0;
-  position: relative;
-  isolation: isolate;
+  --autumn-ink:#30231c;
+  --autumn-cream:#fbf5eb;
+  --autumn-paper:#fffaf2;
+  --autumn-copper:#a64b24;
+  --autumn-rust:#8d3f22;
+  --autumn-amber:#c27a25;
+  --autumn-olive:#62663d;
+  --autumn-line:#e7d5c0;
+  position:relative;
+  isolation:isolate;
   background:
-    radial-gradient(circle at 8% 12%, rgba(194,122,37,.08), transparent 27rem),
-    radial-gradient(circle at 92% 30%, rgba(166,75,36,.065), transparent 30rem),
-    linear-gradient(180deg, #fffaf3 0%, #fbf6ee 46%, #f7efe4 100%) !important;
+    radial-gradient(circle at 8% 12%,rgba(194,122,37,.08),transparent 27rem),
+    radial-gradient(circle at 92% 30%,rgba(166,75,36,.065),transparent 30rem),
+    linear-gradient(180deg,#fffaf3 0%,#fbf6ee 46%,#f7efe4 100%) !important;
 }
-.autumn-theme main,
-.autumn-theme footer,
-.autumn-theme header { position: relative; z-index: 2; }
-.autumn-sun-glow {
-  position: fixed; inset: -18vh -10vw auto auto; width: 42vw; height: 42vw;
-  max-width: 620px; max-height: 620px; border-radius: 999px; pointer-events:none;
-  background: radial-gradient(circle, rgba(232,171,83,.16) 0%, rgba(232,171,83,.055) 35%, transparent 70%);
-  filter: blur(5px); z-index: 0; animation: autumnGlow 8s ease-in-out infinite alternate;
+.autumn-theme main,.autumn-theme footer,.autumn-theme header { position:relative; z-index:2; }
+.halloween-atmosphere { position:fixed; inset:0; overflow:hidden; pointer-events:none; z-index:20; clip-path:inset(0); }
+.halloween-web {
+  position:absolute; width:clamp(110px,19vw,260px); aspect-ratio:1;
+  opacity:.52; filter:drop-shadow(0 2px 3px rgba(35,24,19,.10));
+  background:
+    repeating-conic-gradient(from 0deg at 0 0,transparent 0deg 14deg,rgba(83,66,57,.42) 14.3deg 14.8deg,transparent 15deg 30deg),
+    repeating-radial-gradient(circle at 0 0,transparent 0 13px,rgba(83,66,57,.36) 13.5px 14.3px,transparent 14.8px 27px);
+  mask-image:linear-gradient(135deg,#000 0%,#000 38%,transparent 76%);
+  -webkit-mask-image:linear-gradient(135deg,#000 0%,#000 38%,transparent 76%);
 }
-.autumn-leaf-field {
-  position: fixed; inset: 0; overflow: hidden; pointer-events:none; z-index: 20;
-  clip-path: inset(0);
+.halloween-web-left { top:0; left:0; }
+.halloween-web-right { top:0; right:0; transform:scaleX(-1); }
+.halloween-web-bottom-left { bottom:0; left:0; transform:scaleY(-1); opacity:.25; width:clamp(90px,14vw,190px); }
+.halloween-spider-field { position:absolute; inset:0; }
+.halloween-spider {
+  position:absolute; left:-42px; display:flex; flex-direction:column; align-items:center;
+  opacity:.82; animation-name:halloweenSpiderCrawl; animation-timing-function:linear;
+  animation-iteration-count:infinite; will-change:transform;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.16));
 }
-.autumn-leaf {
-  position: absolute; top: -8vh; opacity: 0; user-select:none;
-  filter: drop-shadow(0 5px 5px rgba(76,39,20,.12));
-  animation-name: autumnFall;
-  animation-timing-function: cubic-bezier(.35,.05,.65,.95);
-  animation-iteration-count: infinite;
+.halloween-spider-thread { width:1px; height:clamp(18px,4vh,42px); background:linear-gradient(to bottom,rgba(69,54,46,.05),rgba(69,54,46,.48)); }
+.halloween-spider-emoji { line-height:1.05; transform-origin:50% 20%; animation:halloweenSpiderWiggle 2.4s ease-in-out infinite; }
+@keyframes halloweenSpiderCrawl {
+  0% { transform:translate3d(0,0,0) rotate(-8deg); }
+  25% { transform:translate3d(27vw,7px,0) rotate(4deg); }
+  50% { transform:translate3d(54vw,-4px,0) rotate(-3deg); }
+  75% { transform:translate3d(79vw,6px,0) rotate(5deg); }
+  100% { transform:translate3d(calc(100vw + 60px),0,0) rotate(-8deg); }
 }
+@keyframes halloweenSpiderWiggle { 0%,100% { transform:rotate(-8deg) translateY(0); } 50% { transform:rotate(9deg) translateY(2px); } }
+
+/* CSS candle: layered wax, warm halo, wick and a lively two-part flame. */
+.halloween-candle {
+  position:absolute; bottom:12px; width:30px; height:88px; opacity:.92;
+  filter:drop-shadow(0 2px 4px rgba(55,31,18,.15));
+}
+.halloween-candle-left { left:clamp(10px,2.5vw,34px); transform:scale(.88); transform-origin:bottom left; }
+.halloween-candle-right { right:clamp(10px,2.5vw,34px); transform:scale(.72); transform-origin:bottom right; }
+.halloween-candle-glow {
+  position:absolute; left:-34px; top:-30px; width:98px; height:105px; border-radius:50%;
+  background:radial-gradient(ellipse,rgba(255,157,45,.24) 0%,rgba(255,120,20,.12) 34%,transparent 72%);
+  animation:candleHalo 1.9s ease-in-out infinite alternate;
+}
+.halloween-candle-body {
+  position:absolute; z-index:2; bottom:0; left:6px; width:19px; height:52px; border-radius:5px 5px 3px 3px;
+  background:linear-gradient(90deg,#c9b39a 0%,#fff0d5 24%,#fff9e9 52%,#d7c2a7 100%);
+  box-shadow:inset 2px 0 3px rgba(255,255,255,.75),inset -2px 0 3px rgba(103,66,36,.12);
+}
+.halloween-candle-body::before {
+  content:""; position:absolute; top:-3px; left:-1px; width:21px; height:7px; border-radius:50%;
+  background:radial-gradient(ellipse,#fff9e9 0%,#e9d7bd 80%);
+}
+.halloween-candle-drip { position:absolute; z-index:3; left:9px; bottom:32px; width:6px; height:13px; border-radius:0 0 5px 5px; background:linear-gradient(90deg,#e4d0b3,#fff5df); }
+.halloween-candle-wick { position:absolute; z-index:4; bottom:51px; left:14px; width:2px; height:9px; border-radius:2px; background:#443026; }
+.halloween-candle-flame {
+  position:absolute; z-index:5; bottom:58px; left:9px; width:13px; height:24px; border-radius:75% 15% 65% 60%;
+  transform:rotate(2deg); transform-origin:50% 100%;
+  background:radial-gradient(ellipse at 50% 72%,#fffbd4 0 14%,#ffdf70 29%,#ff9b27 56%,rgba(255,87,14,.65) 73%,transparent 78%);
+  filter:drop-shadow(0 0 5px rgba(255,157,34,.95)) drop-shadow(0 0 13px rgba(255,119,22,.62));
+  animation:candleFlame 1.15s ease-in-out infinite alternate;
+}
+.halloween-candle-flame i {
+  position:absolute; left:4px; top:7px; width:5px; height:12px; border-radius:70% 25% 60% 55%;
+  background:linear-gradient(to top,#fff6b0,#fffef0); transform:rotate(-3deg);
+  animation:candleCore .72s ease-in-out infinite alternate;
+}
+@keyframes candleFlame {
+  0% { transform:rotate(-7deg) scaleX(.88) scaleY(.96); filter:drop-shadow(0 0 4px rgba(255,157,34,.82)) drop-shadow(0 0 10px rgba(255,119,22,.45)); }
+  25% { transform:rotate(4deg) scaleX(1.08) scaleY(1.04); }
+  55% { transform:rotate(-3deg) scaleX(.93) scaleY(1.13); }
+  100% { transform:rotate(8deg) scaleX(1.02) scaleY(.91); filter:drop-shadow(0 0 7px rgba(255,190,53,1)) drop-shadow(0 0 16px rgba(255,119,22,.7)); }
+}
+@keyframes candleCore { from { opacity:.8; transform:translateX(-1px) scaleY(.92); } to { opacity:1; transform:translateX(1px) scaleY(1.08); } }
+@keyframes candleHalo { from { opacity:.55; transform:scale(.94); } to { opacity:1; transform:scale(1.08); } }
 .autumn-season-pill {
-  position: fixed; right: 18px; bottom: 18px; z-index: 25;
-  display: flex; align-items:center; gap: 8px; padding: 9px 13px;
-  border: 1px solid rgba(166,75,36,.18); border-radius: 999px;
-  background: rgba(255,250,242,.82); color: #744027;
-  box-shadow: 0 10px 30px rgba(82,48,25,.09);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  font-size: 11px; font-weight: 800; letter-spacing:.04em;
+  position:fixed; right:18px; bottom:18px; z-index:25; display:flex; align-items:center; gap:8px;
+  padding:9px 13px; border:1px solid rgba(166,75,36,.18); border-radius:999px;
+  background:rgba(255,250,242,.82); color:#744027; box-shadow:0 10px 30px rgba(82,48,25,.09);
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); font-size:11px; font-weight:800; letter-spacing:.04em;
 }
-.autumn-season-pill span:first-child { font-size: 15px; }
+.autumn-season-pill span:first-child { font-size:15px; }
 .autumn-theme ::selection { background:#9b4c25 !important; color:#fff8ed !important; }
 .autumn-theme ::-webkit-scrollbar-track { background:#f3e7d8; }
 .autumn-theme ::-webkit-scrollbar-thumb { background:#c99b70; }
 .autumn-theme ::-webkit-scrollbar-thumb:hover { background:#a9673f; }
-
-/* Warm the most common neutral utility surfaces without touching admin. */
 .autumn-theme:not(:has(.admin-panel)) .bg-white { background-color:#fffaf3 !important; }
-.autumn-theme:not(:has(.admin-panel)) .bg-\[\#FCFAF7\] { background-color:#fbf5eb !important; }
-.autumn-theme:not(:has(.admin-panel)) .bg-\[\#FAF8F5\] { background-color:#fbf5eb !important; }
-.autumn-theme:not(:has(.admin-panel)) .border-\[\#E8DFD5\],
-.autumn-theme:not(:has(.admin-panel)) .border-\[\#E4D9CD\] { border-color:#e7d5c0 !important; }
-
-/* Seasonal accent helpers used by buttons, links and small UI details. */
+.autumn-theme:not(:has(.admin-panel)) .bg-\\[\\#FCFAF7\\] { background-color:#fbf5eb !important; }
+.autumn-theme:not(:has(.admin-panel)) .bg-\\[\\#FAF8F5\\] { background-color:#fbf5eb !important; }
+.autumn-theme:not(:has(.admin-panel)) .border-\\[\\#E8DFD5\\],
+.autumn-theme:not(:has(.admin-panel)) .border-\\[\\#E4D9CD\\] { border-color:#e7d5c0 !important; }
 .autumn-theme .autumn-accent { color:var(--autumn-copper) !important; }
 .autumn-theme .autumn-accent-bg { background:linear-gradient(135deg,#8d3f22,#c27a25) !important; color:white !important; }
-
-@keyframes autumnFall {
-  0% { transform:translate3d(0,-12vh,0) rotate(0deg); opacity:0; }
-  8% { opacity:.82; }
-  35% { transform:translate3d(calc(var(--leaf-drift) * .35),35vh,0) rotate(calc(var(--leaf-rotate) * .35)); }
-  68% { transform:translate3d(calc(var(--leaf-drift) * -.4),68vh,0) rotate(calc(var(--leaf-rotate) * .7)); }
-  100% { transform:translate3d(var(--leaf-drift),116vh,0) rotate(var(--leaf-rotate)); opacity:.06; }
-}
-@keyframes autumnGlow {
-  from { transform:translate3d(0,0,0) scale(.96); opacity:.65; }
-  to { transform:translate3d(-2vw,2vh,0) scale(1.04); opacity:1; }
-}
 @media (prefers-reduced-motion: reduce) {
-  .autumn-leaf, .autumn-sun-glow { animation:none !important; }
-  .autumn-leaf { display:none; }
+  .halloween-spider,.halloween-spider-emoji,.halloween-candle-flame,.halloween-candle-flame i,.halloween-candle-glow { animation:none !important; }
+  .halloween-spider { display:none; }
+  .halloween-candle-flame { transform:rotate(0) !important; }
 }
-@media (max-width: 640px) {
+@media (max-width:640px) {
   .autumn-season-pill { right:10px; bottom:10px; font-size:10px; padding:8px 10px; }
-  .autumn-sun-glow { width:80vw; height:80vw; }
+  .halloween-candle { transform:scale(.58); }
+  .halloween-candle-left { left:5px; }
+  .halloween-candle-right { right:5px; }
+  .halloween-web { width:clamp(95px,27vw,160px); opacity:.4; }
+  .halloween-spider { opacity:.72; }
 }
-
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MOBILE / TABLET RESPONSIVE PASS
