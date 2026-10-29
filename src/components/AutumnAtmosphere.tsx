@@ -1,43 +1,57 @@
 import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 
-const LEAF_TYPES = ['🍂','🍁','🌿','🍃'];
-
+/** Halloween overlay built entirely from CSS, gradients and emoji — no image assets. */
 export const AutumnAtmosphere: React.FC = () => {
   const { page } = useApp();
-  if (page === 'admin') return null;
-  const leaves = useMemo(() => Array.from({ length: 22 }, (_, i) => ({
+  const spiders = useMemo(() => Array.from({ length: 5 }, (_, i) => ({
     id: i,
-    left: `${(i * 47) % 101}%`,
-    delay: `${-((i * 1.73) % 14)}s`,
-    duration: `${9 + (i % 7)}s`,
-    size: `${16 + (i % 5) * 3}px`,
-    drift: `${-90 + (i % 9) * 24}px`,
-    rotate: `${180 + (i % 6) * 45}deg`,
-    type: LEAF_TYPES[i % LEAF_TYPES.length],
+    top: `${12 + i * 17}%`,
+    delay: `${-i * 3.7}s`,
+    duration: `${18 + i * 4}s`,
+    size: `${17 + (i % 3) * 5}px`,
+    direction: i % 2 === 0 ? 'normal' : 'reverse',
   })), []);
 
+  if (page === 'admin') return null;
+
   return (
-    <>
-      <div className="autumn-sun-glow" aria-hidden="true" />
-      <div className="autumn-leaf-field" aria-hidden="true">
-        {leaves.map((leaf) => (
+    <div className="halloween-atmosphere" aria-hidden="true">
+      <div className="halloween-web halloween-web-left" />
+      <div className="halloween-web halloween-web-right" />
+      <div className="halloween-web halloween-web-bottom-left" />
+      <div className="halloween-spider-field">
+        {spiders.map((spider) => (
           <span
-            key={leaf.id}
-            className="autumn-leaf"
+            key={spider.id}
+            className="halloween-spider"
             style={{
-              left: leaf.left,
-              animationDelay: leaf.delay,
-              animationDuration: leaf.duration,
-              fontSize: leaf.size,
-              ['--leaf-drift' as string]: leaf.drift,
-              ['--leaf-rotate' as string]: leaf.rotate,
+              top: spider.top,
+              animationDelay: spider.delay,
+              animationDuration: spider.duration,
+              fontSize: spider.size,
+              animationDirection: spider.direction,
             }}
           >
-            {leaf.type}
+            <span className="halloween-spider-thread" />
+            <span className="halloween-spider-emoji">🕷️</span>
           </span>
         ))}
       </div>
-    </>
+      <div className="halloween-candle halloween-candle-left">
+        <span className="halloween-candle-flame"><i /></span>
+        <span className="halloween-candle-wick" />
+        <span className="halloween-candle-body" />
+        <span className="halloween-candle-drip" />
+        <span className="halloween-candle-glow" />
+      </div>
+      <div className="halloween-candle halloween-candle-right">
+        <span className="halloween-candle-flame"><i /></span>
+        <span className="halloween-candle-wick" />
+        <span className="halloween-candle-body" />
+        <span className="halloween-candle-drip" />
+        <span className="halloween-candle-glow" />
+      </div>
+    </div>
   );
 };
