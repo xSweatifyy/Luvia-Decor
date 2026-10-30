@@ -395,23 +395,35 @@ input, select, textarea { font-size:16px; } /* prevents iOS Safari auto-zoom */
 }
 
 
-/* Halloween – cleaner, restrained seasonal styling */
-.halloween-web { opacity:.22 !important; filter:none !important; }
-.halloween-web-left,.halloween-web-right { width:clamp(90px,15vw,190px) !important; }
-.halloween-web-bottom-left { display:none !important; }
-.halloween-spider-field,.halloween-candle { display:none !important; }
-.halloween-atmosphere::before { opacity:.45; animation:none; }
-.halloween-mist {
-  height:clamp(70px,12vh,145px) !important;
-  opacity:.18 !important;
-  filter:blur(24px) !important;
-  background:linear-gradient(90deg,transparent,rgba(70,42,91,.18) 25%,rgba(57,45,75,.16) 55%,transparent) !important;
+/* Halloween – spooky, but balanced: original webs, visible fog and a few spiders. */
+.halloween-web { opacity:.52 !important; filter:drop-shadow(0 2px 3px rgba(35,24,19,.10)) !important; }
+.halloween-web-left,.halloween-web-right { width:clamp(130px,22vw,300px) !important; }
+.halloween-web-bottom-left { display:block !important; opacity:.25 !important; }
+.halloween-spider-field { display:block !important; }
+.halloween-spider:nth-child(n+4) { display:none !important; }
+.halloween-candle { display:none !important; }
+.halloween-atmosphere::before {
+  opacity:.72;
+  animation:hauntedPulse 8s ease-in-out infinite alternate;
 }
-.halloween-mist-two { opacity:.10 !important; }
-.halloween-bat { opacity:.58 !important; filter:none !important; }
-.halloween-bat:nth-child(n+3) { display:none !important; }
+.halloween-mist {
+  height:clamp(110px,20vh,230px) !important;
+  opacity:.48 !important;
+  filter:blur(19px) !important;
+  background:linear-gradient(90deg,transparent,rgba(70,42,91,.34) 15%,rgba(57,45,75,.30) 42%,rgba(107,48,66,.25) 72%,transparent) !important;
+}
+.halloween-mist-two { opacity:.28 !important; }
+.halloween-bat { opacity:.78 !important; filter:drop-shadow(0 2px 4px rgba(37,17,48,.3)) !important; }
+.halloween-bat:nth-child(n+5) { display:none !important; }
+.autumn-theme {
+  background:
+    radial-gradient(ellipse at 12% 8%,rgba(56,27,69,.10),transparent 30rem),
+    radial-gradient(ellipse at 92% 22%,rgba(91,25,42,.08),transparent 32rem),
+    linear-gradient(180deg,#fbf6f0 0%,#f7efe7 55%,#f1e7dc 100%) !important;
+}
 @media (max-width:640px) {
-  .halloween-web-left,.halloween-web-right { width:clamp(72px,18vw,115px) !important; opacity:.16 !important; }
-  .halloween-mist { opacity:.14 !important; }
-  .halloween-bat { opacity:.48 !important; }
+  .halloween-web-left,.halloween-web-right { width:clamp(95px,23vw,155px) !important; opacity:.38 !important; }
+  .halloween-mist { opacity:.38 !important; }
+  .halloween-mist-two { opacity:.22 !important; }
+  .halloween-bat { opacity:.66 !important; }
 }
