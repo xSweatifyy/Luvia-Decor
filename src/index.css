@@ -396,12 +396,12 @@ input, select, textarea { font-size:16px; } /* prevents iOS Safari auto-zoom */
 
 
 /* Halloween – spooky, but balanced: original webs, visible fog and a few spiders. */
-.halloween-web { opacity:.52 !important; filter:drop-shadow(0 2px 3px rgba(35,24,19,.10)) !important; }
+.halloween-web { opacity:.7 !important; filter:drop-shadow(0 3px 6px rgba(48,22,55,.18)) !important; }
 .halloween-web-left,.halloween-web-right { width:clamp(130px,22vw,300px) !important; }
 .halloween-web-bottom-left { display:block !important; opacity:.25 !important; }
 .halloween-spider-field { display:block !important; }
 .halloween-spider:nth-child(n+4) { display:none !important; }
-.halloween-candle { display:none !important; }
+.halloween-candle { display:block !important; }
 .halloween-atmosphere::before {
   opacity:.72;
   animation:hauntedPulse 8s ease-in-out infinite alternate;
