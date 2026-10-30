@@ -20,6 +20,9 @@ export const AutumnAtmosphere: React.FC = () => {
       <div className="halloween-web halloween-web-left" />
       <div className="halloween-web halloween-web-right" />
       <div className="halloween-web halloween-web-bottom-left" />
+      <div className="halloween-mist halloween-mist-one" />
+      <div className="halloween-mist halloween-mist-two" />
+      <div className="halloween-bat-field">{Array.from({ length: 6 }, (_, i) => <span key={i} className="halloween-bat" style={{ top: `${8 + (i % 3) * 11}%`, animationDelay: `${-i * 4.3}s`, animationDuration: `${19 + i * 2.8}s`, fontSize: `${18 + (i % 3) * 7}px` }}>🦇</span>)}</div>
       <div className="halloween-spider-field">
         {spiders.map((spider) => (
           <span
