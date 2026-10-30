@@ -158,17 +158,19 @@ body > div[style*="left:-20000px"] .card .footer { bottom: 48px !important; line
   animation:hauntedPulse 8s ease-in-out infinite alternate;
 }
 .halloween-mist {
-  position:absolute; left:-20%; width:140%; height:clamp(90px,18vh,220px);
-  pointer-events:none; opacity:.28; filter:blur(22px);
-  background:linear-gradient(90deg,transparent,rgba(101,76,122,.24) 18%,rgba(72,55,89,.16) 46%,rgba(133,69,65,.16) 72%,transparent);
+  position:absolute; left:-20%; width:140%; height:clamp(120px,24vh,280px);
+  pointer-events:none; opacity:.62; filter:blur(17px);
+  background:linear-gradient(90deg,transparent,rgba(70,42,91,.42) 15%,rgba(57,45,75,.36) 42%,rgba(107,48,66,.32) 72%,transparent);
   border-radius:50%; animation:hauntedMist 24s ease-in-out infinite alternate;
 }
 .halloween-mist-one { bottom:4%; }
-.halloween-mist-two { bottom:19%; opacity:.15; animation-duration:34s; animation-direction:alternate-reverse; }
+.halloween-mist-two { bottom:19%; opacity:.38; animation-duration:34s; animation-direction:alternate-reverse; }
 .halloween-bat-field { position:absolute; inset:0; overflow:hidden; }
 .halloween-bat {
-  position:absolute; left:-50px; opacity:.72; filter:drop-shadow(0 3px 4px rgba(37,17,48,.24));
-  animation:halloweenBatFlight linear infinite; will-change:transform;
+  position:absolute; left:-50px; display:block; opacity:.95; color:#24142f;
+  filter:drop-shadow(0 3px 5px rgba(37,17,48,.42));
+  animation-name:halloweenBatFlight; animation-timing-function:linear; animation-iteration-count:infinite;
+  will-change:transform; transform:translate3d(0,0,0);
 }
 @keyframes halloweenBatFlight {
   0% { transform:translate3d(-5vw,0,0) rotate(-5deg) scale(.82); }
@@ -187,12 +189,13 @@ body > div[style*="left:-20000px"] .card .footer { bottom: 48px !important; line
 .autumn-theme:not(:has(.admin-panel)) { background-image:radial-gradient(ellipse at top left,rgba(69,34,82,.035),transparent 45%); }
 .autumn-theme:not(:has(.admin-panel)) .bg-white { box-shadow:0 8px 26px rgba(48,25,54,.035); }
 @media (prefers-reduced-motion: reduce) {
-  .halloween-bat,.halloween-mist,.halloween-atmosphere::before { animation:none !important; }
-  .halloween-bat { display:none; }
+  /* Keep the seasonal details visible for visitors who prefer less motion. */
+  .halloween-bat { animation:none !important; transform:translateX(20vw) !important; }
+  .halloween-mist,.halloween-atmosphere::before { animation:none !important; }
 }
 @media (max-width:640px) {
-  .halloween-bat { opacity:.58; }
-  .halloween-mist { opacity:.18; filter:blur(18px); }
+  .halloween-bat { opacity:.9; }
+  .halloween-mist { opacity:.46; filter:blur(14px); }
 }
 
 /* CSS candle: layered wax, warm halo, wick and a lively two-part flame. */
